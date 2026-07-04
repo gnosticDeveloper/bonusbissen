@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: bonusbissen
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bonusbissen
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-secret-change-me-please-01234567890123456789}
+    expiration-minutes: 480
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
