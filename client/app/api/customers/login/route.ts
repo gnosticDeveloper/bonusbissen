@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   const body = await request.json();
 
-  const res = await fetch(`${process.env.API_URL}/auth/customers/login`, {
+  const res = await fetch(`http://localhost:8080/auth/customers/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   const { token } = await res.json();
 
   const response = NextResponse.json({ ok: true });
-  response.cookies.set("bb_token", token, {
+  response.cookies.set("customer_token", token, {
     httpOnly: true,
     secure: true,
     sameSite: "lax",

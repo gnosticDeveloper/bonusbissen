@@ -1,11 +1,15 @@
-// TODO: Get rid of the hardcoded colour. Use a predefined colour palette and random selection between those colours.
+const PLACEHOLDER_COLOURS = ["#c9b899", "#a8b89a", "#d4a574", "#c98f7a", "#b8927d"];
+
 const getRandomHexColour = (): string => {
-  return `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0")}`;
+  const randomIndex = Math.floor(Math.random() * PLACEHOLDER_COLOURS.length);
+  return PLACEHOLDER_COLOURS[randomIndex];
 };
 
-// Genera una imagen placeholder en base64 para el mock. Cuando haya
-// productos reales, esto se reemplaza por la imagen que cargue el dueño
-// en el alta del producto.
+/**
+ * Genera una imagen placeholder en base64 para el mock.
+ * @param label El texto que se mostrará en la imagen.
+ * @returns La imagen placeholder en base64.
+ */
 export function mockRewardImage(label: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400">
     <rect width="100%" height="100%" fill="${getRandomHexColour()}"/>

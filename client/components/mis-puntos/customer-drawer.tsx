@@ -60,7 +60,7 @@ export default function CustomerDrawer({
             Recompensas
           </Link>
           <Link
-            href="/mis-puntos/canjes"
+            href="/mis-puntos/verificar-canjes"
             onClick={onCloseAction}
             className="flex items-center gap-3 rounded-xl px-4 py-3 text-xl text-ink hover:bg-ink/5 transition-colors"
           >

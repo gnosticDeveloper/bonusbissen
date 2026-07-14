@@ -1,45 +1,57 @@
-import { Exchange } from "@/lib/definitions";
+import Form from "next/form";
 import { Check, Ban, Search } from "lucide-react";
+import { getExchanges } from "@/app/(employees)/actions";
+import { Exchange } from "@/lib/definitions";
 
-type CanjesListProps = {
-  exchanges: Exchange[];
-};
+function matchesQuery(exchange: Exchange, query: string) {
+  const q = query.toLowerCase();
+  return (
+    exchange.customerName.toLowerCase().includes(q) ||
+    exchange.rewardTitle.toLowerCase().includes(q)
+  );
+}
 
-export default function ExchangesList({ exchanges }: CanjesListProps) {
-  const pendings = exchanges.filter((c) => c.state === "pending");
-  const rest = exchanges.filter((c) => c.state !== "pending");
-  const ordenados = [...pendings, ...rest];
+export default async function ExchangesList({ query }: { query?: string }) {
+  const exchanges = await getExchanges();
+
+  const filtered = query ? exchanges.filter((e) => matchesQuery(e, query)) : exchanges;
+
+  const pendings = filtered.filter((c) => c.state === "pending");
+  const rest = filtered.filter((c) => c.state !== "pending");
+  const sorted = [...pendings, ...rest];
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Buscador sin lógica de filtrado todavía: ver nota en el input */}
-      <div className="flex gap-3">
+    <div className="flex flex-col gap-4 flex-1">
+      <Form action="/verificar-canjes" className="flex gap-3">
         <input
           type="text"
-          placeholder="Buscar por nombre del canje o teléfono del cliente..."
+          name="q"
+          defaultValue={query}
+          placeholder="Buscar por nombre del cliente o de la recompensa..."
           className="flex-1 rounded-xl border border-ink/15 bg-cream-dark/30 px-5 py-3 text-xl text-ink placeholder:text-ink-soft/70 outline-none focus:border-amber"
         />
         <button
-          type="button"
+          type="submit"
           className="flex items-center gap-2 rounded-xl bg-amber px-6 py-3 text-xl font-medium text-cream hover:bg-amber-dark transition-colors"
         >
           <Search className="h-5 w-5" />
           Buscar
         </button>
-      </div>
+      </Form>
+
       <p className="text-xl text-ink-soft">
         {pendings.length} pendiente{pendings.length !== 1 ? "s" : ""}
       </p>
 
       <div className="flex flex-col gap-3">
-        {ordenados.map((canje) => {
-          const isApproved = canje.state === "approved";
-          const isCancelled = canje.state === "cancelled";
+        {sorted.map((exchange) => {
+          const isApproved = exchange.state === "approved";
+          const isCancelled = exchange.state === "cancelled";
           const inactive = isApproved || isCancelled;
 
           return (
             <div
-              key={canje.id}
+              key={exchange.id}
               className={`relative rounded-2xl border select-none transition-colors ${
                 isCancelled
                   ? "border-ink/10 bg-ink/5 cursor-default"
@@ -70,22 +82,17 @@ export default function ExchangesList({ exchanges }: CanjesListProps) {
                   </div>
 
                   <div>
-                    <p className={`text-xl font-medium text-ink ${inactive ? "line-through" : ""}`}>{canje.clienteNombre}</p>
-                    <p className="text-lg text-ink-soft">
-                      DNI {canje.customerId} · {canje.telefono}
-                      {isCancelled && canje.motivoAnulacion && <> · Anulado: {canje.motivoAnulacion}</>}
-                    </p>
+                    <p className={`text-xl font-medium text-ink ${inactive ? "line-through" : ""}`}>{exchange.customerName}</p>
+                    {isCancelled ? <p className="text-lg text-ink-soft">Anulado</p> : null}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-8">
                   <div className="text-right">
-                    <p className={`text-xl font-medium text-ink ${inactive ? "line-through" : ""}`}>{canje.recompensa}</p>
-                    <p className="text-lg text-amber-dark font-semibold">{canje.puntos} pts</p>
+                    <p className={`text-xl font-medium text-ink ${inactive ? "line-through" : ""}`}>{exchange.rewardTitle}</p>
+                    <p className="text-lg text-amber-dark font-semibold">{exchange.points} pts</p>
                   </div>
-                  <p className="text-lg text-ink-soft w-32 text-right" suppressHydrationWarning>
-                    {formatDate(canje.fecha)}
-                  </p>
+                  <p className="text-lg text-ink-soft w-32 text-right">{exchange.createdAt}</p>
                 </div>
               </div>
             </div>

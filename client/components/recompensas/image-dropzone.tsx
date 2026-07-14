@@ -6,17 +6,13 @@ import { ImagePlus, X } from "lucide-react";
 // Max file size cap to 2MB in order to not overload the server.
 const MAX_BYTES = 2 * 1024 * 1024;
 
-type ImageDropzoneProps = {
-  value: string | null;
-  onChangeAction: (base64: string | null) => void;
-};
-
-export default function ImageDropzone({ value, onChangeAction: onChange }: ImageDropzoneProps) {
-  const [arrastrando, setArrastrando] = useState(false);
+export default function ImageDropzone() {
+  const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [image, setImage] = useState<string | null>(null);
 
-  function procesarArchivo(file: File | undefined) {
+  function proccessFile(file: File | undefined) {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       setError("Solo se aceptan archivos de imagen.");
@@ -28,21 +24,21 @@ export default function ImageDropzone({ value, onChangeAction: onChange }: Image
     }
     setError(null);
     const reader = new FileReader();
-    reader.onload = () => onChange(reader.result as string);
     reader.readAsDataURL(file);
+    reader.onload = () => setImage(reader.result as string);
   }
 
   return (
     <div className="flex flex-col gap-2">
       <span className="text-lg text-ink-soft">Imagen (opcional)</span>
 
-      {value ? (
+      {image ? (
         <div className="relative rounded-xl overflow-hidden border border-ink/15">
-          <img src={value} alt="Vista previa" className="w-full h-40 object-cover" />
+          <img src={image} alt="Vista previa" className="w-full h-40 object-cover" />
           <button
             type="button"
             onClick={() => {
-              onChange(null);
+              setImage(null);
               if (inputRef.current) inputRef.current.value = "";
             }}
             className="absolute top-2 right-2 rounded-full bg-ink/70 p-1.5 hover:bg-ink/90 transition-colors"
@@ -55,21 +51,21 @@ export default function ImageDropzone({ value, onChangeAction: onChange }: Image
         <label
           onDragOver={(e) => {
             e.preventDefault();
-            setArrastrando(true);
+            setIsDragging(true);
           }}
-          onDragLeave={() => setArrastrando(false)}
+          onDragLeave={() => setIsDragging(false)}
           onDrop={(e) => {
             e.preventDefault();
-            setArrastrando(false);
-            procesarArchivo(e.dataTransfer.files?.[0]);
+            setIsDragging(false);
+            proccessFile(e.dataTransfer.files?.[0]);
           }}
           className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 cursor-pointer transition-colors ${
-            arrastrando ? "border-amber bg-amber/10" : "border-ink/20 bg-cream hover:bg-cream-dark/30"
+            isDragging ? "border-amber bg-amber/10" : "border-ink/20 bg-cream hover:bg-cream-dark/30"
           }`}
         >
           <ImagePlus className="h-7 w-7 text-ink-soft" />
           <p className="text-lg text-ink-soft text-center">Arrastrá una imagen o hacé click para elegir una</p>
-          <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => procesarArchivo(e.target.files?.[0])} />
+          <input name="image" ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => proccessFile(e.target.files?.[0])} />
         </label>
       )}
 

@@ -1,8 +1,23 @@
-import { getRewards } from "@/app/rewards.actions";
-import RecompensasView from "@/components/recompensas/recompensas-view";
+import CreateRewardForm from "@/components/recompensas/create-reward-form";
+import RewardsList from "@/components/recompensas/rewards-list";
 
-export default async function RecompensasPage() {
-  const recompensas = await getRewards();
+export default function RecompensasPage() {
+  return (
+    <div className="grid grid-cols-3 gap-8">
+      <div className="col-span-2 flex flex-col gap-6">
+        <header>
+          <h2 className="text-4xl font-bold text-ink">Recompensas</h2>
+          <p className="text-xl text-ink-soft mt-2">
+            Estas son las recompensas que los clientes pueden canjear con sus puntos.
+          </p>
+        </header>
 
-  return <RecompensasView initialRecompensas={recompensas} />;
+        <RewardsList />
+      </div>
+
+      <div className="col-span-1">
+        <CreateRewardForm />
+      </div>
+    </div>
+  );
 }

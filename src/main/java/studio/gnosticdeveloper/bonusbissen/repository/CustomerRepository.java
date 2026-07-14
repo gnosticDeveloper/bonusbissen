@@ -10,10 +10,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface CustomerRepository extends JpaRepository<Customer, UUID> {
-    Optional<Customer> findByDocument(String document);
-    boolean existsByDocument(String document);
+    Optional<Customer> findByPhone(String phone);
+    boolean existsByPhone(String phone);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select c from Customer c where c.document = :document")
-    Optional<Customer> findByDocumentForUpdate(String document);
+    @Query("select c from Customer c where c.phone = :phone")
+    Optional<Customer> findByPhoneForUpdate(String phone);
 }

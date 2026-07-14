@@ -1,52 +1,49 @@
 "use server";
 
+import { apiFetch } from "@/lib/api";
 import type { Reward } from "@/lib/definitions";
-import { cookies } from "next/headers";
+import { revalidateTag } from "next/cache";
 
 export async function getRewards(): Promise<Reward[]> {
-  const token = (await cookies()).get("bb_token")?.value;
-
-  const response = await fetch(`http://localhost:8080/api/rewards`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const response = await apiFetch(`/rewards`, {
+    next: {
+      tags: ["get-rewards"],
+    }
+  }, { tokenKey: "employee_token", redirectTo: "/login" });
 
   if (!response.ok) throw new Error("No se pudo obtener las recompensas");
   const data: Reward[] = await response.json();
-  return data;
+
+  const formattedData = data.map((r) => ({
+    ...r,
+    imagePath: r.imagePath ? `${process.env.ASSETS_URL}${r.imagePath}` : undefined,
+  }));
+
+  return formattedData;
 }
 
 export async function getReward(id: string): Promise<Reward> {
-  const token = (await cookies()).get("bb_token")?.value;
-
-  const res = await fetch(`${process.env.API_URL}/rewards/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const res = await apiFetch(`/rewards/${id}`);
 
   if (!res.ok) throw new Error("No se pudo obtener la recompensa");
   return await res.json();
 }
 
-export async function createReward(formData: FormData): Promise<Reward> {
-  const token = (await cookies()).get("bb_token")?.value;
+export async function createReward(formData: FormData): Promise<void> {
 
-  const res = await fetch(`${process.env.API_URL}/rewards`, {
+  const res = await apiFetch(`/rewards`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
     body: formData, // esto no necesita Content-Type manual
   });
 
   if (!res.ok) throw new Error("No se pudo crear la recompensa");
-  return await res.json();
+  revalidateTag("get-rewards", "max");
 }
 
 export async function updateReward(id: string, formData: FormData): Promise<Reward> {
-  const token = (await cookies()).get("bb_token")?.value;
 
-  const res = await fetch(`${process.env.API_URL}/rewards/${id}`, {
+  const res = await apiFetch(`/rewards/${id}`, {
     method: "PATCH",
-    headers: { Authorization: `Bearer ${token}` },
     body: formData,
   });
 
@@ -55,32 +52,10 @@ export async function updateReward(id: string, formData: FormData): Promise<Rewa
 }
 
 export async function deleteReward(id: string): Promise<void> {
-  const token = (await cookies()).get("bb_token")?.value;
 
-  const res = await fetch(`${process.env.API_URL}/rewards/${id}`, {
+  const res = await apiFetch(`/rewards/${id}`, {
     method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
   });
 
   if (!res.ok) throw new Error("No se pudo eliminar la recompensa");
-}
-
-export type TopReward = {
-  id: string;
-  name: string;
-  exchangeCount: number;
-  points: number;
-};
-
-export async function getTopRewards(): Promise<TopReward[]> {
-  const token = (await cookies()).get("bb_token")?.value;
-
-  const response = await fetch("http://localhost:8080/api/rewards/top", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  const data = await response.json();
-  return data;
 }

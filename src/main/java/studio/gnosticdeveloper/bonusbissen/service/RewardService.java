@@ -1,30 +1,36 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
-import studio.gnosticdeveloper.bonusbissen.dto.request.RewardCreateRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.RewardUpdateRequest;
-import studio.gnosticdeveloper.bonusbissen.entity.BenefitType;
-import studio.gnosticdeveloper.bonusbissen.entity.MenuItem;
-import studio.gnosticdeveloper.bonusbissen.entity.Reward;
-import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
-import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
-import studio.gnosticdeveloper.bonusbissen.repository.MenuItemRepository;
-import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.UUID;
+import org.springframework.web.multipart.MultipartFile;
+import studio.gnosticdeveloper.bonusbissen.dto.request.RewardCreateRequest;
+import studio.gnosticdeveloper.bonusbissen.entity.Reward;
+import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
+import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 
 @Service
 public class RewardService {
 
     private final RewardRepository rewardRepository;
-    private final MenuItemRepository menuItemRepository;
 
-    public RewardService(RewardRepository rewardRepository, MenuItemRepository menuItemRepository) {
+    private static final long MAX_BYTES = 2 * 1024 * 1024; // 2MB
+    // private static final int MAX_WIDTH = 1000;
+    private static final Set<String> TYPES_ALLOWED = Set.of("image/jpeg", "image/png", "image/webp");
+
+    @Value("${app.uploads.dir}")
+    private String uploadsDir;
+
+    public RewardService(RewardRepository rewardRepository) {
         this.rewardRepository = rewardRepository;
-        this.menuItemRepository = menuItemRepository;
     }
 
     @Transactional(readOnly = true)
@@ -32,71 +38,91 @@ public class RewardService {
         return rewardRepository.findByActiveTrue();
     }
 
+    @Transactional(readOnly = true)
+    public Reward findById(UUID id) {
+        return rewardRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Reward not found: " + id));
+    }
+
+    // @Transactional(readOnly = true)
+    // public List<TopRewardResponse> getTopRewards() {
+    //     Pageable topTen = PageRequest.of(0, 10);
+    //     return rewardRepository.getTopRewards(topTen);
+    // }
+
     @Transactional
     public Reward create(RewardCreateRequest request) {
-        validateShape(request.benefitType(), request.menuItemId(), request.discountValue());
+        String imagePath = null;
+
+        if (request.image() != null) {
+            try {
+                imagePath = saveImage(request.image());
+            } catch (IOException e) {
+                // Note: we catch the exception so the app doesn't crash if the image can't be saved.
+                // Personally, I prefer to keep it like this since if the image doesn't save, the app should still work.
+                System.err.println("Error al guardar la imagen: " + e.getMessage());
+                imagePath = null;
+            }
+        }
 
         Reward reward = new Reward();
-        reward.setName(request.name());
+        reward.setTitle(request.title());
         reward.setDescription(request.description());
         reward.setCostPoints(request.costPoints());
-        reward.setBenefitType(request.benefitType());
         reward.setDiscountValue(request.discountValue());
-        reward.setMenuItem(resolveMenuItem(request.menuItemId()));
+        reward.setImagePath(imagePath);
         return rewardRepository.save(reward);
     }
 
-    @Transactional
-    public Reward update(UUID id, RewardUpdateRequest request) {
-        Reward reward = rewardRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Reward not found: " + id));
+    private String saveImage(MultipartFile file) throws IOException {
+        if (!TYPES_ALLOWED.contains(file.getContentType())) {
+            throw new IllegalArgumentException("Tipo de archivo no permitido.");
+        }
+        if (file.getSize() > MAX_BYTES) {
+            throw new IllegalArgumentException("La imagen supera el tamaño máximo de 2MB.");
+        }
 
-        BenefitType benefitType = request.benefitType() != null ? request.benefitType() : reward.getBenefitType();
-        UUID menuItemId = request.menuItemId() != null
-                ? request.menuItemId()
-                : (reward.getMenuItem() != null ? reward.getMenuItem().getId() : null);
-        BigDecimal discountValue = request.discountValue() != null ? request.discountValue() : reward.getDiscountValue();
+        // Filename generated by the server, to avoid collisions and path traversal
+        String filename = UUID.randomUUID() + ".jpg";
+        Path destino = Paths.get(uploadsDir, filename);
+        Files.createDirectories(destino.getParent());
 
-        validateShape(benefitType, menuItemId, discountValue);
+        // TODO: Implement file saving, with or without resizing the image.
+        // Note: Thumbnails is not the only way to resize images, but it's a simple and effective solution for this use case.
+        // We can simply save the file normally without using this library.
+        // Thumbnails.of(file.getInputStream()).size(MAX_WIDTH, MAX_WIDTH).outputFormat("jpg").outputQuality(0.8).toFile(destino.toFile());
 
-        if (request.name() != null) {
-            reward.setName(request.name());
-        }
-        if (request.description() != null) {
-            reward.setDescription(request.description());
-        }
-        if (request.costPoints() != null) {
-            reward.setCostPoints(request.costPoints());
-        }
-        reward.setBenefitType(benefitType);
-        reward.setDiscountValue(discountValue);
-        reward.setMenuItem(resolveMenuItem(menuItemId));
-        if (request.active() != null) {
-            reward.setActive(request.active());
-        }
-        return rewardRepository.save(reward);
+        return "rewards/" + filename;
     }
 
-    private void validateShape(BenefitType benefitType, UUID menuItemId, BigDecimal discountValue) {
-        if (benefitType == BenefitType.FREE_ITEM) {
-            if (menuItemId == null) {
-                throw new BadRequestException("free_item rewards require a menuItemId");
-            }
-            if (discountValue != null) {
-                throw new BadRequestException("free_item rewards must not set discountValue");
-            }
-        } else {
-            if (discountValue == null) {
-                throw new BadRequestException(benefitType.dbValue() + " rewards require a discountValue");
-            }
-        }
-    }
+    // @Transactional
+    // public Reward update(UUID id, RewardUpdateRequest request) {
+    //     Reward reward = rewardRepository.findById(id)
+    //             .orElseThrow(() -> new NotFoundException("Reward not found: " + id));
 
-    private MenuItem resolveMenuItem(UUID menuItemId) {
-        if (menuItemId == null) {
-            return null;
-        }
-        return menuItemRepository.findById(menuItemId)
-                .orElseThrow(() -> new NotFoundException("Menu item not found: " + menuItemId));
-    }
+    //     BenefitType benefitType = request.benefitType() != null ? request.benefitType() : reward.getBenefitType();
+    //     UUID menuItemId = request.menuItemId() != null
+    //             ? request.menuItemId()
+    //             : (reward.getMenuItem() != null ? reward.getMenuItem().getId() : null);
+    //     BigDecimal discountValue = request.discountValue() != null ? request.discountValue() : reward.getDiscountValue();
+
+    //     validateShape(benefitType, menuItemId, discountValue);
+
+    //     if (request.name() != null) {
+    //         reward.setName(request.name());
+    //     }
+    //     if (request.description() != null) {
+    //         reward.setDescription(request.description());
+    //     }
+    //     if (request.costPoints() != null) {
+    //         reward.setCostPoints(request.costPoints());
+    //     }
+    //     reward.setBenefitType(benefitType);
+    //     reward.setDiscountValue(discountValue);
+    //     reward.setMenuItem(resolveMenuItem(menuItemId));
+    //     if (request.active() != null) {
+    //         reward.setActive(request.active());
+    //     }
+    //     return rewardRepository.save(reward);
+    // }
 }

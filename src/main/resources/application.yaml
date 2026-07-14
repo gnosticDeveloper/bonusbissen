@@ -4,15 +4,24 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/bonusbissen
     username: postgres
-    password: postgres
+    password: ale36153171
   jpa:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+  sql:
+    init:
+      mode: always
 
 app:
   jwt:
-    secret: ${JWT_SECRET:dev-only-secret-change-me-please-01234567890123456789}
+    secret: ${JWT_SECRET:dev-only-secret-change-me-please-01234567890123456789xdxdxdxdxdddxd123dx213dx123xd123xd12x3d1x23dx1d23x1d23x1d23x}
     expiration-minutes: 480
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  uploads:
+    dir: /var/lib/bonusbissen/uploads/rewards
+# TODO: we might use this prefix for server urls.
+# server:
+#   servlet:
+#     context-path: /api

@@ -20,9 +20,6 @@ public class Customer {
     private UUID id;
 
     @Column(nullable = false, unique = true, length = 20)
-    private String document;
-
-    @Column(length = 20)
     private String phone;
 
     @Column(nullable = false, length = 255)

@@ -3,6 +3,7 @@
 import { SubmitEventHandler, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
+import AppTitle from "@/components/app-title";
 
 export default function LoginClientePage() {
   const [phone, setPhone] = useState("");
@@ -19,7 +20,6 @@ export default function LoginClientePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone }),
     });
-    // TODO: If the response is not ok, we should already get the customer info. Maybe we should set that info in a global state (Zustand, atom, etc.)
     if (res.ok) router.push("/");
     else setError("Usuario o contraseña incorrectos");
     setLoading(false);
@@ -32,7 +32,7 @@ export default function LoginClientePage() {
           <div className="rounded-full bg-amber/15 p-4">
             <Sparkles className="h-8 w-8 text-amber-dark" />
           </div>
-          <h1 className="text-3xl font-bold text-ink">Bonus Bissen</h1>
+          <AppTitle />
           <p className="text-xl text-ink-soft">Ingresá tu teléfono para ver tus puntos</p>
         </div>
 

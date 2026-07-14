@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Home, Repeat, Gift, LogOut, Settings } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Home, Repeat, Gift, LogOut, Settings, Sparkles } from "lucide-react";
 import PingDot from "@/components/ping-dot";
 
 type NavItem = {
@@ -12,17 +12,16 @@ type NavItem = {
   ping?: boolean;
 };
 
-// El ping en "Canjes" está hardcodeado en true a propósito: representa que hay
-// canjes pendientes a revisar. En la versión real esto debería calcularse
-// contra la cantidad de transacciones con status = 'pending'.
-const navItems: NavItem[] = [
-  { label: "Home", href: "/", icon: Home },
-  { label: "Canjes", href: "/canjes", icon: Repeat, ping: true },
-  { label: "Recompensas", href: "/recompensas", icon: Gift },
-];
-
-export default function Sidebar() {
+export default function Sidebar({ hasPendings }: { hasPendings: boolean }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const navItems: NavItem[] = [
+    { label: "Inicio", href: "/", icon: Home },
+    { label: "Administrar puntos", href: "/administrar-puntos", icon: Sparkles },
+    { label: "Validación de canje", href: "/verificar-canjes", icon: Repeat, ping: hasPendings },
+    { label: "Recompensas", href: "/recompensas", icon: Gift },
+  ];
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-72 flex flex-col justify-between border-r border-ink/10 bg-cream-dark/40 px-6 py-8">
@@ -58,7 +57,13 @@ export default function Sidebar() {
           <Settings className="h-6 w-6" />
           <span>Configuración</span>
         </button>
-        <button type="button" className="flex items-center gap-3 rounded-xl px-4 py-3 text-xl text-rust hover:bg-rust/10 transition-colors">
+        <button onClick={async () => {
+          const response = await fetch("/api/employees/logout", {
+            method: "POST",
+          });
+          if (!response.ok) throw new Error("No se pudo cerrar la sesión");
+          router.push("/login");
+        }} type="button" className="flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 text-xl text-rust hover:bg-rust/10 transition-colors">
           <LogOut className="h-6 w-6" />
           <span>Cerrar sesión</span>
         </button>

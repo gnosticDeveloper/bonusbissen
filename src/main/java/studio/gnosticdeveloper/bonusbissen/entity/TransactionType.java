@@ -1,25 +1,16 @@
 package studio.gnosticdeveloper.bonusbissen.entity;
 
 public enum TransactionType {
-    PURCHASE("purchase"),
-    REDEMPTION("redemption");
+    REDEEM("redeem"),
+    EARN("earn");
 
-    private final String dbValue;
+    private final String value;
 
-    TransactionType(String dbValue) {
-        this.dbValue = dbValue;
+    TransactionType(String value) {
+        this.value = value;
     }
 
-    public String dbValue() {
-        return dbValue;
-    }
-
-    public static TransactionType fromDbValue(String dbValue) {
-        for (TransactionType type : values()) {
-            if (type.dbValue.equals(dbValue)) {
-                return type;
-            }
-        }
-        throw new IllegalArgumentException("Unknown transaction type: " + dbValue);
+    public String getValue() {
+        return value;
     }
 }

@@ -7,12 +7,8 @@ type EliminarPerfilModalProps = {
   onConfirm: () => void;
 };
 
-// Nota: internamente el registro queda con active=false por 7 días antes de
-// la purga real (red de contención ante errores propios del sistema o
-// borrados fraudulentos, dado que el login no verifica identidad). A
-// propósito, el cliente NO se entera de esto por este modal — decisión
-// explícita de Alejandro. Si el cliente vuelve al bar arrepentido dentro de
-// esos 7 días, queda a criterio del empleado si lo reactiva o no.
+// Tip: We should internally mark the record as inactive for 7 days before being purged as a way to prevent accidental deletions.
+// But we might not want this more likely.
 export default function EliminarPerfilModal({ onCancel, onConfirm }: EliminarPerfilModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 px-4 py-6">

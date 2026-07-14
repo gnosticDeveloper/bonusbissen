@@ -1,10 +1,12 @@
 package studio.gnosticdeveloper.bonusbissen.controller;
 
 import studio.gnosticdeveloper.bonusbissen.dto.request.PasswordUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
 import studio.gnosticdeveloper.bonusbissen.service.EmployeeService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,5 +31,11 @@ public class EmployeeController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resetPassword(@PathVariable UUID id, @Valid @RequestBody PasswordUpdateRequest request) {
         employeeService.resetPassword(id, request.newPassword());
+    }
+
+    @GetMapping("/home-stats")
+    @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
+    public HomeStatsResponse getHomeStats() {
+        return employeeService.getHomeStats();
     }
 }

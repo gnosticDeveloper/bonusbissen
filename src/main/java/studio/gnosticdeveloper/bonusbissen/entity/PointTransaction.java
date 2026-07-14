@@ -1,12 +1,22 @@
 package studio.gnosticdeveloper.bonusbissen.entity;
 
-import jakarta.persistence.*;
+import java.time.OffsetDateTime;
+import java.util.UUID;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.OffsetDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "point_transactions")
@@ -23,30 +33,23 @@ public class PointTransaction {
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "employee_id", nullable = false)
-    private Employee employee;
-
-    @Column(nullable = false, length = 20)
-    private TransactionType type;
-
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "menu_item_id")
-    private MenuItem menuItem;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reward_id")
+    @JoinColumn(name = "reward_id", nullable = true)
     private Reward reward;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "menu_item_variant_id")
-    private MenuItemVariant menuItemVariant;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "employee_id", nullable = true)
+    private Employee employee;
 
-    @Column(name = "points_delta", nullable = false)
-    private int pointsDelta;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "transaction_type", nullable = false, length = 10)
+    private TransactionType transactionType;
 
-    @Column(columnDefinition = "text")
-    private String note;
+    @Column(name = "points", nullable = false)
+    private int points;
+
+    @Column(nullable = false, length = 10)
+    private String state;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;

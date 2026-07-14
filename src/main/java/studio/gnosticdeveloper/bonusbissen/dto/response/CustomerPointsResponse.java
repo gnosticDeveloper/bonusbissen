@@ -1,8 +1,5 @@
 package studio.gnosticdeveloper.bonusbissen.dto.response;
 
-public record CustomerPointsResponse(
-        String document,
-        String name,
-        int totalPoints
-) {
-}
+import java.util.UUID;
+
+public record CustomerPointsResponse(UUID id, String name, String phone, Integer points) {}

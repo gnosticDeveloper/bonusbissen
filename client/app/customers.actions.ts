@@ -1,37 +1,12 @@
 "use server";
 
+import { apiFetch } from "@/lib/api";
 import { Customer } from "@/lib/definitions";
-import { cookies } from "next/headers";
-
-export type TopCustomer = {
-  id: string;
-  name: string;
-  points: number;
-  totalVisits: number;
-};
-
-// NOTE: this should only return the top 10 customers.
-export async function getTopCustomers(): Promise<TopCustomer[]> {
-  const token = (await cookies()).get("bb_token")?.value;
-
-  const response = await fetch("http://localhost:8080/api/customers/top", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  const data = await response.json();
-  return data;
-}
 
 export async function createCustomer(formData: FormData): Promise<Customer> {
-  const token = (await cookies()).get("bb_token")?.value;
 
-  const response = await fetch("http://localhost:8080/api/customers", {
+  const response = await apiFetch("/customers", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
     body: formData,
   });
 
@@ -39,14 +14,19 @@ export async function createCustomer(formData: FormData): Promise<Customer> {
   return data;
 }
 
-export async function deleteCustomer(id: string): Promise<void> {
-  const token = (await cookies()).get("bb_token")?.value;
+export async function getCustomerByPhone(phone: string): Promise<Customer | undefined> {
+  const response = await apiFetch(`/customers/phone/${phone}`, {
+    method: "GET",
+  });
 
-  const response = await fetch(`http://localhost:8080/api/customers/${id}`, {
+  if (!response.ok) return undefined;
+  const data = await response.json();
+  return data;
+}
+
+export async function deleteCustomer(id: string): Promise<void> {
+  const response = await apiFetch(`/customers/${id}`, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
   });
 
   if (!response.ok) throw new Error("No se pudo eliminar el cliente");

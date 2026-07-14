@@ -1,21 +1,26 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import RecompensaDetalle from "@/components/mis-puntos/recompensa-detalle";
+import RewardDetails from "@/components/mis-puntos/reward-details";
 import { getReward } from "@/app/rewards.actions";
-import { getCustomerInfoByPhone } from "@/app/customers.actions";
+import { resolveCustomerIdFromSession } from "@/lib/session";
+import { getCustomerById } from "@/app/(customers)/actions";
 
 export default async function RecompensaDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const reward = await getReward(id);
-  const data = await getCustomerInfoByPhone("");
+  const customerId = await resolveCustomerIdFromSession();
+
+  // TODO: This should redirect to login if no customerId is found
+  if (!customerId) notFound();
+
+  const [reward, customer] = await Promise.all([getReward(id), getCustomerById(customerId)]);
 
   if (!reward) notFound();
 
   // Chequeo defensivo: si alguien llega acá por URL directa a una
   // recompensa que no tiene puntos suficientes, no debería poder canjear
   // igual solo porque esta página no valida nada del lado del cliente.
-  const canAfford = reward.costPoints <= data.points;
+  const canAfford = reward.costPoints <= customer.points;
 
   return (
     <div className="min-h-screen px-5 py-8 flex flex-col items-center">
@@ -25,7 +30,7 @@ export default async function RecompensaDetallePage({ params }: { params: Promis
           Volver
         </Link>
 
-        <RecompensaDetalle recompensa={reward} puedeCanjear={canAfford} />
+        <RewardDetails reward={reward} canAfford={canAfford} customerId={customerId} />
       </div>
     </div>
   );

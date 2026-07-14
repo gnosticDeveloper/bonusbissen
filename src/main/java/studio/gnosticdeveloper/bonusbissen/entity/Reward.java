@@ -21,7 +21,7 @@ public class Reward {
     private UUID id;
 
     @Column(nullable = false, length = 255)
-    private String name;
+    private String title;
 
     @Column(columnDefinition = "text")
     private String description;
@@ -29,18 +29,14 @@ public class Reward {
     @Column(name = "cost_points", nullable = false)
     private int costPoints;
 
-    @Column(name = "benefit_type", nullable = false, length = 20)
-    private BenefitType benefitType;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "menu_item_id")
-    private MenuItem menuItem;
-
     @Column(name = "discount_value", precision = 12, scale = 2)
     private BigDecimal discountValue;
 
     @Column(nullable = false)
     private boolean active = true;
+
+    @Column(name = "image_path", length = 255, nullable = true)
+    private String imagePath;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
