@@ -1,16 +1,16 @@
 package studio.gnosticdeveloper.bonusbissen.controller;
 
-import studio.gnosticdeveloper.bonusbissen.dto.request.RewardCreateRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.response.RewardResponse;
-import studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse;
-import studio.gnosticdeveloper.bonusbissen.service.RewardService;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import studio.gnosticdeveloper.bonusbissen.dto.request.RewardCreateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.RewardUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.RewardResponse;
+import studio.gnosticdeveloper.bonusbissen.service.RewardService;
 
 @RestController
 @RequestMapping("/rewards")
@@ -38,16 +38,22 @@ public class RewardController {
     //     return rewardService.getTopRewards();
     // }
 
-    @PostMapping
+    @PostMapping(consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
-    public RewardResponse create(@Valid @RequestBody RewardCreateRequest request) {
+    public RewardResponse create(@Valid @ModelAttribute RewardCreateRequest request) {
         return RewardResponse.from(rewardService.create(request));
     }
 
-    // @PatchMapping("/{id}")
-    // @PreAuthorize("hasRole('ADMIN')")
-    // public RewardResponse update(@PathVariable UUID id, @Valid @RequestBody RewardUpdateRequest request) {
-    //     return RewardResponse.from(rewardService.update(id, request));
-    // }
+    @PutMapping(path = "/{id}", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
+    @PreAuthorize("hasRole('ADMIN')")
+    public RewardResponse update(@PathVariable UUID id, @Valid @ModelAttribute RewardUpdateRequest request) {
+        return RewardResponse.from(rewardService.update(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public void delete(@PathVariable UUID id) {
+        rewardService.delete(id);
+    }
 }

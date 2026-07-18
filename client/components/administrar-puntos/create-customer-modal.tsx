@@ -35,19 +35,20 @@ export default function CreateCustomerModal({
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("name", name);
-      formData.append("phone", normalizedPhone);
-      const customer = await createCustomer(formData);
+      const newCustomer = {
+        name,
+        phone: normalizedPhone,
+      }
+      const customer = await createCustomer(newCustomer);
       onCreated(customer);
-    } catch {
-      setError("No pudimos crear el cliente. Probá de nuevo.");
+    } catch (e) {
+      setError((e as Error).message);
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4 py-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
       <div className="w-full max-w-sm rounded-3xl bg-cream p-6 flex flex-col gap-5">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-ink">Nuevo cliente</h2>

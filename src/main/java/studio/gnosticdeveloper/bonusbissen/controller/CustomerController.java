@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
@@ -55,7 +56,7 @@ public class CustomerController {
 
     @PostMapping("/grant")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
-    public CustomerPointsResponse grantPoints(@Valid @RequestBody GrantPointsRequest request) {
+    public CustomerPointsAwardResponse grantPoints(@Valid @RequestBody GrantPointsRequest request) {
         return customerService.grantPoints(request);
     }
 
@@ -79,7 +80,7 @@ public class CustomerController {
      */
     @PostMapping("/claim-reward")
     public String claimReward(@Valid @RequestBody ClaimRewardRequest request) {
-        // TODO: implement this method. See the javadoc above.
+        // TODO: implement this method. See the Javadoc above.
         return customerService.claimReward(request);
     }
 }

@@ -3,12 +3,21 @@
 import { apiFetch } from "@/lib/api";
 import { Customer } from "@/lib/definitions";
 
-export async function createCustomer(formData: FormData): Promise<Customer> {
+type NewCustomer = {
+  name: string;
+  phone: string;
+};
 
-  const response = await apiFetch("/customers", {
-    method: "POST",
-    body: formData,
-  });
+export async function createCustomer(newCustomer: NewCustomer): Promise<Customer> {
+  const response = await apiFetch(
+    "/customers",
+    {
+      method: "POST",
+      body: JSON.stringify(newCustomer),
+      headers: { "Content-Type": "application/json" },
+    },
+    { redirectTo: "/login", tokenKey: "employee_token" },
+  );
 
   const data = await response.json();
   return data;

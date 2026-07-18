@@ -4,8 +4,7 @@ import { SubmitEventHandler, useState } from "react";
 import { Search, UserPlus, CircleCheck } from "lucide-react";
 import CreateCustomerModal from "@/components/administrar-puntos/create-customer-modal";
 import { normalizePhoneNumber } from "@/lib/normalize-phone-number";
-import { getCustomerByPhone } from "@/app/customers.actions";
-import { grantPointsToCustomer } from "@/app/(employees)/actions";
+import { getCustomerByPhone, grantPointsToCustomer } from "@/app/(employees)/actions";
 import { Customer } from "@/lib/definitions";
 
 export default function GrantPointsForm() {
@@ -48,13 +47,17 @@ export default function GrantPointsForm() {
     setSearching(true);
     setNotFoundPhone(null);
 
-    const customer = await getCustomerByPhone(normalizedPhone);
-    setSearching(false);
-
-    if (customer) {
-      selectCustomer(customer);
-    } else {
-      setSelectedCustomer(null);
+    try {
+      const customer = await getCustomerByPhone(normalizedPhone);
+      setSearching(false);
+      if (customer) {
+        selectCustomer(customer);
+      } else {
+        setSelectedCustomer(null);
+        setNotFoundPhone(normalizedPhone);
+      }
+    } catch {
+      setSearching(false);
       setNotFoundPhone(normalizedPhone);
     }
   }
@@ -73,6 +76,7 @@ export default function GrantPointsForm() {
     try {
       const result = await grantPointsToCustomer(selectedCustomer.id, computedPoints);
       setSuccessMessage(`Le sumaste ${result.pointsGranted} puntos a ${result.customerName}.`);
+      console.log({ result, newAmount: selectedCustomer.points + result.pointsGranted })
       setSelectedCustomer((prev) =>
         prev ? { ...prev, points: prev.points + result.pointsGranted } : prev
       );
@@ -100,7 +104,7 @@ export default function GrantPointsForm() {
           className="flex items-center gap-2 rounded-xl bg-amber px-6 py-3 text-xl font-medium text-cream hover:bg-amber-dark transition-colors disabled:opacity-50"
         >
           <Search className="h-5 w-5" />
-          Buscar
+          {searching ? "Buscando..." : "Buscar"}
         </button>
         <button
           type="button"
@@ -129,7 +133,7 @@ export default function GrantPointsForm() {
           </div>
           <p className="text-xl font-semibold text-ink">{selectedCustomer.name}</p>
           <p className="text-lg text-ink-soft">
-            {selectedCustomer.phone} · {selectedCustomer.points} puntos actuales
+            {selectedCustomer.phone} · {selectedCustomer.points > 0 ? `${selectedCustomer.points} puntos actuales` : "Sin puntos"}
           </p>
         </div>
       )}

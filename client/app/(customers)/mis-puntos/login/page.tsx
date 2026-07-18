@@ -7,7 +7,7 @@ import AppTitle from "@/components/app-title";
 
 export default function LoginClientePage() {
   const [phone, setPhone] = useState("");
-  const [error, setError] = useState("texto de prueba");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -21,7 +21,7 @@ export default function LoginClientePage() {
       body: JSON.stringify({ phone }),
     });
     if (res.ok) router.push("/");
-    else setError("Usuario o contraseña incorrectos");
+    else setError("Número de teléfono incorrecto. Por favor, intenta nuevamente.");
     setLoading(false);
   };
 

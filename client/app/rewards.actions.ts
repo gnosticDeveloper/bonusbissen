@@ -2,14 +2,18 @@
 
 import { apiFetch } from "@/lib/api";
 import type { Reward } from "@/lib/definitions";
-import { revalidateTag } from "next/cache";
+import { updateTag } from "next/cache";
 
 export async function getRewards(): Promise<Reward[]> {
-  const response = await apiFetch(`/rewards`, {
-    next: {
-      tags: ["get-rewards"],
-    }
-  }, { tokenKey: "employee_token", redirectTo: "/login" });
+  const response = await apiFetch(
+    `/rewards`,
+    {
+      next: {
+        tags: ["get-rewards"],
+      },
+    },
+    { tokenKey: "employee_token", redirectTo: "/login" },
+  );
 
   if (!response.ok) throw new Error("No se pudo obtener las recompensas");
   const data: Reward[] = await response.json();
@@ -30,32 +34,33 @@ export async function getReward(id: string): Promise<Reward> {
 }
 
 export async function createReward(formData: FormData): Promise<void> {
-
   const res = await apiFetch(`/rewards`, {
     method: "POST",
     body: formData, // esto no necesita Content-Type manual
-  });
-
+  }, { redirectTo: "/login", tokenKey: "employee_token" });
   if (!res.ok) throw new Error("No se pudo crear la recompensa");
-  revalidateTag("get-rewards", "max");
+  updateTag("get-rewards");
 }
 
 export async function updateReward(id: string, formData: FormData): Promise<Reward> {
-
   const res = await apiFetch(`/rewards/${id}`, {
-    method: "PATCH",
+    method: "PUT",
     body: formData,
-  });
+  }, { redirectTo: "/login", tokenKey: "employee_token" });
 
   if (!res.ok) throw new Error("No se pudo actualizar la recompensa");
   return await res.json();
 }
 
 export async function deleteReward(id: string): Promise<void> {
-
-  const res = await apiFetch(`/rewards/${id}`, {
-    method: "DELETE",
-  });
+  const res = await apiFetch(
+    `/rewards/${id}`,
+    {
+      method: "DELETE",
+    },
+    { redirectTo: "/login", tokenKey: "employee_token" },
+  );
 
   if (!res.ok) throw new Error("No se pudo eliminar la recompensa");
+  updateTag("get-rewards");
 }

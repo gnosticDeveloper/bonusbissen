@@ -21,9 +21,9 @@ export type ExchangeState = "pending" | "approved" | "cancelled";
 export interface Exchange {
   id: string;
   customerName: string;
-  employeeName?: string | null;
+  employeeName?: string;
   rewardTitle: string;
   state: ExchangeState;
   points: number;
-  createdAt: number;
+  formattedCreatedAt: string;
 }

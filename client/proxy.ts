@@ -8,7 +8,15 @@ enum EmployeeRole {
   CASHIER = "CASHIER",
 }
 
-function decodePayload(token: string) {
+type Payload = {
+  sub: string;
+  employeeId: string;
+  role: EmployeeRole;
+  iat?: number;
+  exp?: number;
+}
+
+function decodePayload(token: string): Payload | null {
   try {
     const payloadB64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
     return JSON.parse(atob(payloadB64));
@@ -17,11 +25,11 @@ function decodePayload(token: string) {
   }
 }
 
-function isExpired(payload: { exp?: number } | null) {
+function isExpired(payload: Payload | null) {
   return !payload?.exp || payload.exp * 1000 < Date.now();
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isEmployeeRoute = EMPLOYEE_ROUTES.some(
@@ -33,11 +41,12 @@ export function middleware(request: NextRequest) {
     const payload = token ? decodePayload(token) : null;
     const hasExpired = isExpired(payload);
     const validRole = payload?.role === EmployeeRole.ADMIN || payload?.role === EmployeeRole.CASHIER;
-    console.log({ token, payload, hasExpired, validRole, role: payload.role, valueOfEnum: EmployeeRole.ADMIN })
+    console.log({ token, payload, hasExpired, validRole, role: payload?.role })
 
     if (!token || isExpired(payload) || !validRole) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
+
     return NextResponse.next();
   }
 

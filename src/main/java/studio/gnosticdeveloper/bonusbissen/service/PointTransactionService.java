@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeReviewResponse;
+import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
+import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 
 @Service
@@ -19,22 +21,27 @@ public class PointTransactionService {
         this.pointTransactionRepository = pointTransactionRepository;
     }
 
+    @Transactional(readOnly = true)
+    public List<PointTransaction> getAll() {
+        return pointTransactionRepository.findAll();
+    }
+
     @Transactional
     public List<PendingExchangeResponse> getAllPendingExchangesById(UUID customerId) {
         return pointTransactionRepository
-            .findAllPendingByCustomerIdOrderByCreatedAtDesc(customerId, "pending")
+            .findAllPendingByCustomerIdOrderByCreatedAtDesc(customerId, TransactionState.PENDING)
             .stream()
             .map(PendingExchangeResponse::from)
             .toList();
     }
 
     @Transactional
-    public List<PendingExchangeReviewResponse> getAllByState(String state) {
+    public List<PendingExchangeReviewResponse> getAllByState(TransactionState state) {
         return pointTransactionRepository.findAllByStateOrderByCreatedAtDesc(state).stream().map(PendingExchangeReviewResponse::from).toList();
     }
 
     @Transactional
-    public Integer countByState(String state) {
+    public Integer countByState(TransactionState state) {
         return pointTransactionRepository.countByState(state);
     }
 

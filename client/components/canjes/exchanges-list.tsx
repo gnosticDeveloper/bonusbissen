@@ -92,7 +92,7 @@ export default async function ExchangesList({ query }: { query?: string }) {
                     <p className={`text-xl font-medium text-ink ${inactive ? "line-through" : ""}`}>{exchange.rewardTitle}</p>
                     <p className="text-lg text-amber-dark font-semibold">{exchange.points} pts</p>
                   </div>
-                  <p className="text-lg text-ink-soft w-32 text-right">{exchange.createdAt}</p>
+                  <p className="text-lg text-ink-soft w-32 text-right">{exchange.formattedCreatedAt}</p>
                 </div>
               </div>
             </div>

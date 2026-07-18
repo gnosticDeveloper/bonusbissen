@@ -7,10 +7,10 @@ import java.math.BigDecimal;
 import org.springframework.web.multipart.MultipartFile;
 
 public record RewardUpdateRequest(
-    @NotBlank String name,
+    @NotBlank String title,
     String description,
     MultipartFile image,
+    boolean removeImage,
     @NotNull @Positive Integer costPoints,
-    BigDecimal discountValue,
-    Boolean active
+    BigDecimal discountValue
 ) {}

@@ -3,6 +3,7 @@ package studio.gnosticdeveloper.bonusbissen.service;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
@@ -10,6 +11,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.Customer;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
+import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
@@ -44,7 +46,7 @@ public class CustomerService {
     @Transactional
     public Customer create(CustomerCreateRequest request) {
         if (customerRepository.existsByPhone(request.phone())) {
-            throw new ConflictException("Customer with phone " + request.phone() + " already exists");
+            throw new ConflictException("El número de teléfono " + request.phone() + " ya está registrado. Por favor, intenta con otro número.");
         }
         Customer customer = new Customer();
         customer.setName(request.name());
@@ -60,7 +62,7 @@ public class CustomerService {
     @Transactional(readOnly = true)
     public Customer getByPhone(String phone) {
         return customerRepository.findByPhone(phone)
-                .orElseThrow(() -> new NotFoundException("Customer not found: " + phone));
+                .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el número de teléfono " + phone + "."));
     }
 
     @Transactional(readOnly = true)
@@ -71,7 +73,7 @@ public class CustomerService {
     @Transactional(readOnly = true)
     public CustomerPointsResponse getCustomerPointsById(UUID id) {
         Customer customer = customerRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Customer not found: " + id));
+                .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
         return new CustomerPointsResponse(customer.getId(), customer.getName(), customer.getPhone(), getBalance(id));
     }
 
@@ -94,29 +96,29 @@ public class CustomerService {
     }
 
     @Transactional
-    public CustomerPointsResponse grantPoints(GrantPointsRequest request) {
+    public CustomerPointsAwardResponse grantPoints(GrantPointsRequest request) {
         PointTransaction tx = new PointTransaction();
         tx.setCustomer(customerRepository.findById(request.customerId())
-                .orElseThrow(() -> new NotFoundException("Customer not found: " + request.customerId())));
+                .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.customerId() + ".")));
         tx.setPoints(request.points());
         tx.setTransactionType(TransactionType.EARN);
-        tx.setState("delivered");
+        tx.setState(TransactionState.DELIVERED);
         tx = pointTransactionRepository.save(tx);
-        return new CustomerPointsResponse(tx.getCustomer().getId(), tx.getCustomer().getName(), tx.getCustomer().getPhone(), getBalance(tx.getCustomer().getId()));
+        return new CustomerPointsAwardResponse(tx.getCustomer().getName(), request.points());
     }
 
     @Transactional
     public String claimReward(ClaimRewardRequest request) {
         PointTransaction tx = new PointTransaction();
         Customer customer = customerRepository.findById(request.customerId())
-                .orElseThrow(() -> new NotFoundException("Customer not found: " + request.customerId()));
+                .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.customerId() + "."));
         tx.setCustomer(customer);
         Reward reward = rewardRepository.findById(request.rewardId())
-                .orElseThrow(() -> new NotFoundException("Reward not found: " + request.rewardId()));
+                .orElseThrow(() -> new NotFoundException("No se pudo encontrar una recompensa con el ID " + request.rewardId() + "."));
         tx.setReward(reward);
         tx.setPoints(reward.getCostPoints());
         tx.setTransactionType(TransactionType.REDEEM);
-        tx.setState("pending");
+        tx.setState(TransactionState.PENDING);
         tx = pointTransactionRepository.save(tx);
 
 

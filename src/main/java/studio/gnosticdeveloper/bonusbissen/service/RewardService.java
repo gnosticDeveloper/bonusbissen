@@ -7,12 +7,12 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RewardCreateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.RewardUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
@@ -40,8 +40,7 @@ public class RewardService {
 
     @Transactional(readOnly = true)
     public Reward findById(UUID id) {
-        return rewardRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Reward not found: " + id));
+        return rewardRepository.findById(id).orElseThrow(() -> new NotFoundException("Reward not found: " + id));
     }
 
     // @Transactional(readOnly = true)
@@ -54,14 +53,13 @@ public class RewardService {
     public Reward create(RewardCreateRequest request) {
         String imagePath = null;
 
-        if (request.image() != null) {
+        if (request.image() != null && !request.image().isEmpty()) {
             try {
                 imagePath = saveImage(request.image());
             } catch (IOException e) {
                 // Note: we catch the exception so the app doesn't crash if the image can't be saved.
                 // Personally, I prefer to keep it like this since if the image doesn't save, the app should still work.
                 System.err.println("Error al guardar la imagen: " + e.getMessage());
-                imagePath = null;
             }
         }
 
@@ -72,6 +70,12 @@ public class RewardService {
         reward.setDiscountValue(request.discountValue());
         reward.setImagePath(imagePath);
         return rewardRepository.save(reward);
+    }
+
+    @Transactional
+    public void delete(UUID id) {
+        Reward reward = rewardRepository.findById(id).orElseThrow(() -> new NotFoundException("No se encontró la recompensa con id: " + id));
+        rewardRepository.delete(reward);
     }
 
     private String saveImage(MultipartFile file) throws IOException {
@@ -95,34 +99,59 @@ public class RewardService {
         return "rewards/" + filename;
     }
 
-    // @Transactional
-    // public Reward update(UUID id, RewardUpdateRequest request) {
-    //     Reward reward = rewardRepository.findById(id)
-    //             .orElseThrow(() -> new NotFoundException("Reward not found: " + id));
+    @Transactional
+    public Reward update(UUID id, RewardUpdateRequest request) {
+        Reward reward = rewardRepository.findById(id).orElseThrow(() -> new NotFoundException("Reward not found: " + id));
 
-    //     BenefitType benefitType = request.benefitType() != null ? request.benefitType() : reward.getBenefitType();
-    //     UUID menuItemId = request.menuItemId() != null
-    //             ? request.menuItemId()
-    //             : (reward.getMenuItem() != null ? reward.getMenuItem().getId() : null);
-    //     BigDecimal discountValue = request.discountValue() != null ? request.discountValue() : reward.getDiscountValue();
+        reward.setTitle(request.title());
+        reward.setDescription(request.description());
+        reward.setCostPoints(request.costPoints());
+        reward.setDiscountValue(request.discountValue());
 
-    //     validateShape(benefitType, menuItemId, discountValue);
+        String oldImagePath = reward.getImagePath();
 
-    //     if (request.name() != null) {
-    //         reward.setName(request.name());
-    //     }
-    //     if (request.description() != null) {
-    //         reward.setDescription(request.description());
-    //     }
-    //     if (request.costPoints() != null) {
-    //         reward.setCostPoints(request.costPoints());
-    //     }
-    //     reward.setBenefitType(benefitType);
-    //     reward.setDiscountValue(discountValue);
-    //     reward.setMenuItem(resolveMenuItem(menuItemId));
-    //     if (request.active() != null) {
-    //         reward.setActive(request.active());
-    //     }
-    //     return rewardRepository.save(reward);
-    // }
+        if (request.image() != null && !request.image().isEmpty()) {
+            // Caso 2: imagen nueva. Guardamos primero, actualizamos la fila
+            // después, borramos la vieja al final, en ese orden, para nunca
+            // quedarnos sin ninguna imagen válida si algo falla a mitad de camino.
+            try {
+                String newImagePath = saveImage(request.image());
+                reward.setImagePath(newImagePath);
+                reward = rewardRepository.save(reward);
+                deleteImageFile(oldImagePath);
+            } catch (IOException e) {
+                // Mismo criterio que en el alta: si la imagen no se pudo guardar,
+                // la app sigue funcionando con el resto de los campos actualizados,
+                // conservando la imagen anterior.
+                System.err.println("Error al guardar la imagen: " + e.getMessage());
+                reward = rewardRepository.save(reward);
+            }
+        } else if (request.removeImage()) {
+            // Caso 3: sacar imagen sin poner otra.
+            reward.setImagePath(null);
+            reward = rewardRepository.save(reward);
+            deleteImageFile(oldImagePath);
+        } else {
+            // Caso 1: no tocar la imagen. Ni un solo I/O de archivos acá.
+            reward = rewardRepository.save(reward);
+        }
+
+        return reward;
+    }
+
+    private void deleteImageFile(String imagePath) {
+        if (imagePath == null) return;
+        try {
+            // imagePath viene como "rewards/xxxx.jpg".
+            Path filePath = Paths.get(uploadsDir, imagePath.replaceFirst("^rewards/", ""));
+            Files.deleteIfExists(filePath);
+        } catch (IOException e) {
+            // No relanzamos: si el archivo viejo no se pudo borrar, es un
+            // archivo huérfano en disco, molesto pero no corrompe datos. La
+            // fila de la base ya quedó correcta en cualquiera de los dos
+            // casos que llaman a este método.
+            // Nota: un capo claudio codo.
+            System.err.println("Error al borrar la imagen anterior: " + e.getMessage());
+        }
+    }
 }

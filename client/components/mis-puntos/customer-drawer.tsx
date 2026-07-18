@@ -30,7 +30,7 @@ export default function CustomerDrawer({
 
   return (
     <div className="fixed inset-0 z-40">
-      <div className="absolute inset-0 bg-ink/40" onClick={onCloseAction} />
+      <div className="absolute inset-0 bg-black/50" onClick={onCloseAction} />
 
       <div className="absolute top-0 left-0 h-full w-72 bg-cream flex flex-col shadow-xl">
         <div className="px-6 py-6 flex flex-col gap-1">

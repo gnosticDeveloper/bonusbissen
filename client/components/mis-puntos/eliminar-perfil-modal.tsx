@@ -11,7 +11,7 @@ type EliminarPerfilModalProps = {
 // But we might not want this more likely.
 export default function EliminarPerfilModal({ onCancel, onConfirm }: EliminarPerfilModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 px-4 py-6">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 px-4 py-6">
       <div className="w-full max-w-sm rounded-3xl bg-cream p-6 flex flex-col gap-5">
         <div className="flex items-start justify-between">
           <div className="rounded-full bg-rust/15 p-3">

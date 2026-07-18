@@ -1,7 +1,7 @@
 "use server";
 
 import { apiFetch } from "@/lib/api";
-import type { Exchange } from "@/lib/definitions";
+import {Customer, Exchange} from "@/lib/definitions";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -16,6 +16,16 @@ export async function getHomeStats(): Promise<HomeStats> {
   const response = await apiFetch("/employees/home-stats", {}, { tokenKey: "employee_token", redirectTo: "/login" });
   const data = await response.json();
 
+  return data;
+}
+
+export async function getCustomerByPhone(phone: string): Promise<Customer | undefined> {
+  const response = await apiFetch(`/customers/phone/${phone}`, {
+    method: "GET",
+  }, {redirectTo: "/login", tokenKey: "employee_token"});
+
+  if (!response.ok) return undefined;
+  const data = await response.json();
   return data;
 }
 
@@ -44,9 +54,8 @@ export async function getPendingExchanges(): Promise<PendingExchangeReview[]> {
 export async function getExchanges(): Promise<Exchange[]> {
   const response = await apiFetch("/exchanges", {}, { tokenKey: "employee_token", redirectTo: "/login" });
 
-  // const data = await response.json();
-  // return data;
-  return []
+  const data = await response.json();
+  return data;
 }
 
 export type TopReward = {
@@ -72,6 +81,7 @@ export async function grantPointsToCustomer(customerId: string, points: number):
   const response = await apiFetch("/customers/grant", {
     method: "POST",
     body: JSON.stringify({ customerId, points }),
+    headers: { "Content-Type": "application/json" },
   }, { tokenKey: "employee_token", redirectTo: "/login" });
 
   const data = await response.json();

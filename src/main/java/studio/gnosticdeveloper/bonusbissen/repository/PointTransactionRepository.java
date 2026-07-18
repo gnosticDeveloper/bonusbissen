@@ -6,14 +6,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
+import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 
 public interface PointTransactionRepository extends JpaRepository<PointTransaction, UUID> {
-    Integer countByState(String state);
-    List<PointTransaction> findAllByStateOrderByCreatedAtDesc(String state);
+    Integer countByState(TransactionState state);
+    List<PointTransaction> findAllByStateOrderByCreatedAtDesc(TransactionState state);
 
     @Query("select t from PointTransaction t where t.customer.id = :customerId and t.state = :state order by t.createdAt desc")
-    List<PointTransaction> findAllPendingByCustomerIdOrderByCreatedAtDesc(@Param("customerId") UUID customerId, @Param("state") String state);
+    List<PointTransaction> findAllPendingByCustomerIdOrderByCreatedAtDesc(@Param("customerId") UUID customerId, @Param("state") TransactionState state);
 
     @Query("select t from PointTransaction t where t.customer.id = :customerId and t.transactionType = :transactionType order by t.createdAt desc")
     List<PointTransaction> findAllByCustomerIdAndTypeOrderByCreatedAtDesc(
