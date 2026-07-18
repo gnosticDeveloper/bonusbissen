@@ -11,7 +11,7 @@ export default async function EmployeesLayout({
 }) {
   const token = (await cookies()).get("employee_token")?.value;
   const payload = token ? decodeEmployeePayload(token) : null;
-  const user = payload ? { name: payload.sub, role: payload.role, id: payload.employeeId } as EmployeeUser : null;
+  const user = payload ? { name: payload.sub, role: payload.role, id: payload.id } as EmployeeUser : null;
   const pendingCount = await getPendingExchangesCount();
 
   return (

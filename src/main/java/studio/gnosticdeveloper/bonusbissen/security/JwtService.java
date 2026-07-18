@@ -22,11 +22,11 @@ public class JwtService {
         this.expirationMinutes = expirationMinutes;
     }
 
-    public String generateToken(UUID employeeId, String username, String role) {
+    public String generateToken(UUID id, String username, String role) {
         Instant now = Instant.now();
         return Jwts.builder()
             .subject(username)
-            .claim("employeeId", employeeId.toString())
+            .claim("id", id.toString())
             .claim("role", role)
             .issuedAt(java.util.Date.from(now))
             .expiration(java.util.Date.from(now.plus(expirationMinutes, ChronoUnit.MINUTES)))

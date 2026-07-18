@@ -1,29 +1,32 @@
 "use client";
 
-import { SubmitEventHandler, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState } from "react";
 import { Sparkles } from "lucide-react";
 import AppTitle from "@/components/app-title";
+import { useFormStatus } from "react-dom";
+import Form from "next/form";
+import { loginCustomer, LoginState } from "../../actions";
+
+const initialState: LoginState = {
+  error: null,
+};
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="w-full rounded-2xl bg-amber px-6 py-4 text-xl font-semibold text-cream hover:bg-amber-dark transition-colors disabled:cursor-not-allowed"
+    >
+      {pending ? "Ingresando..." : "Ingresar"}
+    </button>
+  );
+}
 
 export default function LoginClientePage() {
-  const [phone, setPhone] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
-
-  const handler: SubmitEventHandler = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    const res = await fetch("/api/customers/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone }),
-    });
-    if (res.ok) router.push("/");
-    else setError("Número de teléfono incorrecto. Por favor, intenta nuevamente.");
-    setLoading(false);
-  };
+  const [state, action] = useActionState(loginCustomer, initialState);
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6 py-12">
@@ -36,25 +39,18 @@ export default function LoginClientePage() {
           <p className="text-xl text-ink-soft">Ingresá tu teléfono para ver tus puntos</p>
         </div>
 
-        <form onSubmit={handler} className="w-full flex flex-col gap-4">
+        <Form action={action} className="w-full flex flex-col gap-4">
           <input
+            name="phone"
             type="tel"
             required
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
             placeholder="Ej: 3462 455123"
             className="w-full rounded-2xl border border-ink/15 bg-cream-dark/30 px-5 py-4 text-xl text-ink placeholder:text-ink-soft/70 outline-none focus:border-amber text-center"
           />
-          {error && <p className="text-red-500 text-sm font-mono">{error}</p>}
-          <button
-            disabled={loading}
-            aria-disabled={loading}
-            type="submit"
-            className="w-full rounded-2xl bg-amber px-6 py-4 text-xl font-semibold text-cream hover:bg-amber-dark transition-colors disabled:cursor-not-allowed"
-          >
-            Ingresar
-          </button>
-        </form>
+          {state.error && <p className="text-red-500 text-sm font-mono">{state.error}</p>}
+
+          <SubmitButton />
+        </Form>
       </div>
     </div>
   );

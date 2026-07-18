@@ -1,6 +1,8 @@
 "use server";
 import { apiFetch } from "@/lib/api";
 import { Customer, ExchangeState, Reward } from "@/lib/definitions";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 export async function getCustomerById(customerId: string) {
   const response = await apiFetch(`/customers/${customerId}`, {}, { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" });
@@ -134,4 +136,41 @@ export async function getReward(id: string): Promise<Reward> {
 
   if (!res.ok) throw new Error("No se pudo obtener la recompensa");
   return await res.json();
+}
+
+export type LoginState = {
+  error: string | null;
+};
+
+export async function loginCustomer(_: LoginState, formData: FormData): Promise<LoginState> {
+  const phone = formData.get("phone")?.toString();
+
+  const res = await fetch(`http://localhost:8080/auth/customer-login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      phone,
+    }),
+  });
+
+  if (!res.ok) {
+    return {
+      error: "Número de teléfono incorrecto. Por favor, intenta nuevamente.",
+    };
+  }
+
+  const { token } = await res.json();
+
+  const cookieStore = await cookies();
+
+  cookieStore.set("customer_token", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+  });
+
+  redirect("/");
 }

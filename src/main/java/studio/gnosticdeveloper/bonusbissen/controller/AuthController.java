@@ -2,7 +2,6 @@ package studio.gnosticdeveloper.bonusbissen.controller;
 
 import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.LoginRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerLoginResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.LoginResponse;
 import studio.gnosticdeveloper.bonusbissen.service.AuthService;
 import jakarta.validation.Valid;
@@ -27,8 +26,7 @@ public class AuthController {
     }
 
     @PostMapping("/customer-login")
-    public CustomerLoginResponse customerLogin(@Valid @RequestBody CustomerLoginRequest request) {
-        // TODO: Implement customer login.
-        throw new Error("Customer login is not implemented yet");
+    public LoginResponse customerLogin(@Valid @RequestBody CustomerLoginRequest request) {
+        return authService.loginCustomer(request);
     }
 }
