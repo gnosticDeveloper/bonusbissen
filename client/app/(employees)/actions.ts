@@ -1,7 +1,7 @@
 "use server";
 
 import { apiFetch } from "@/lib/api";
-import {Customer, Exchange} from "@/lib/definitions";
+import { Customer, Exchange } from "@/lib/definitions";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -20,9 +20,13 @@ export async function getHomeStats(): Promise<HomeStats> {
 }
 
 export async function getCustomerByPhone(phone: string): Promise<Customer | undefined> {
-  const response = await apiFetch(`/customers/phone/${phone}`, {
-    method: "GET",
-  }, {redirectTo: "/login", tokenKey: "employee_token"});
+  const response = await apiFetch(
+    `/customers/phone/${phone}`,
+    {
+      method: "GET",
+    },
+    { redirectTo: "/login", tokenKey: "employee_token" },
+  );
 
   if (!response.ok) return undefined;
   const data = await response.json();
@@ -78,11 +82,15 @@ type CustomerPointsAward = {
 };
 
 export async function grantPointsToCustomer(customerId: string, points: number): Promise<CustomerPointsAward> {
-  const response = await apiFetch("/customers/grant", {
-    method: "POST",
-    body: JSON.stringify({ customerId, points }),
-    headers: { "Content-Type": "application/json" },
-  }, { tokenKey: "employee_token", redirectTo: "/login" });
+  const response = await apiFetch(
+    "/customers/grant",
+    {
+      method: "POST",
+      body: JSON.stringify({ customerId, points }),
+      headers: { "Content-Type": "application/json" },
+    },
+    { tokenKey: "employee_token", redirectTo: "/login" },
+  );
 
   const data = await response.json();
   return data;
@@ -127,6 +135,18 @@ export async function verifyCodeAction(_prevState: VerifyCodeState, formData: Fo
   }
 
   return { error: null, exchange };
+}
+
+export async function annulateExchange(exchangeId: string, employeeId: string): Promise<boolean> {
+  const res = await fetch(`http://localhost:8080/exchanges/cancel`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ id: exchangeId, employeeId }),
+  });
+
+  return res.ok;
 }
 
 export type LoginState = {

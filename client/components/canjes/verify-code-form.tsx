@@ -4,7 +4,8 @@ import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Search, Check, Ban, AlertCircle } from "lucide-react";
 import CancelExchangeModal from "@/components/canjes/cancel-exchange-modal";
-import { verifyCodeAction, type VerifyCodeState } from "@/app/(employees)/actions";
+import { annulateExchange, verifyCodeAction, type VerifyCodeState } from "@/app/(employees)/actions";
+import { useAuth } from "@/providers/auth-provider";
 
 const initialState: VerifyCodeState = { error: null, exchange: null };
 
@@ -29,6 +30,8 @@ export default function VerifyCodeForm() {
 
   const found = state.exchange;
 
+  const employee = useAuth();
+
   function handleApprove() {
     if (!found) return;
     // TODO: falta la Server Action de aprobar el canje. Cuando exista,
@@ -36,9 +39,10 @@ export default function VerifyCodeForm() {
     // ping del sidebar se actualicen.
   }
 
-  function handleConfirmCancel() {
+  async function handleConfirmCancel() {
     if (!found) return;
-    // TODO: falta la Server Action de anular el canje.
+
+    await annulateExchange(found.id, employee?.user?.id ?? "");
     setShowCancel(false);
   }
 
@@ -66,13 +70,10 @@ export default function VerifyCodeForm() {
 
       {found && (
         <div className="rounded-xl bg-sage/10 border border-sage/30 px-5 py-4 flex flex-col gap-3">
-          <p className="text-lg text-ink-soft">
-            Confirmá que la persona que tenés al frente coincide antes de entregar:
-          </p>
+          <p className="text-lg text-ink-soft">Confirmá que la persona que tenés al frente coincide antes de entregar:</p>
           <p className="text-xl font-semibold text-ink">{found.customerName}</p>
           <p className="text-xl text-ink">
-            {found.rewardTitle} -{" "}
-            <span className="font-semibold text-amber-dark">{found.points} pts</span>
+            {found.rewardTitle} - <span className="font-semibold text-amber-dark">{found.points} pts</span>
           </p>
 
           <div className="flex gap-3 pt-1">
@@ -95,11 +96,7 @@ export default function VerifyCodeForm() {
       )}
 
       {showCancel && found && (
-        <CancelExchangeModal
-          exchange={found}
-          onCancelAction={() => setShowCancel(false)}
-          onConfirmAction={handleConfirmCancel}
-        />
+        <CancelExchangeModal exchange={found} onCancelAction={() => setShowCancel(false)} onConfirmAction={handleConfirmCancel} />
       )}
     </div>
   );
