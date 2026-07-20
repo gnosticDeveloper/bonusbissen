@@ -25,8 +25,8 @@ public class JwtService {
     public String generateToken(UUID id, String username, String role) {
         Instant now = Instant.now();
         return Jwts.builder()
-            .subject(username)
-            .claim("id", id.toString())
+            .subject(id.toString())
+            .claim("username", username)
             .claim("role", role)
             .issuedAt(java.util.Date.from(now))
             .expiration(java.util.Date.from(now.plus(expirationMinutes, ChronoUnit.MINUTES)))

@@ -5,7 +5,6 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeReviewResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.service.PointTransactionService;
 
@@ -33,9 +32,7 @@ public class PointTransactionController {
 
     @GetMapping
     public List<ExchangeResponse> getAllExchanges() {
-        // TODO: apparently this method does not work and throws an exception.
-        // Note: All exchange methods cannot be tested properly since there's no real customer login; hence, a customer cannot create exchanges.
-        return pointTransactionService.getAll().stream().map(ExchangeResponse::from).toList();
+        return pointTransactionService.getAll();
     }
 
     @GetMapping("/pending/{id}")

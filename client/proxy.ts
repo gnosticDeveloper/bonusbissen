@@ -3,17 +3,18 @@ import { NextRequest, NextResponse } from "next/server";
 const EMPLOYEE_ROUTES = ["/", "/canjes", "/recompensas", "/administrar-puntos"];
 const CUSTOMER_PUBLIC_ROUTES = ["/mis-puntos/login"];
 
-enum EmployeeRole {
+enum UserRole {
   ADMIN = "ADMIN",
   CASHIER = "CASHIER",
+  CUSTOMER = "CUSTOMER",
 }
 
 type Payload = {
   sub: string;
-  employeeId: string;
-  role: EmployeeRole;
-  iat?: number;
-  exp?: number;
+  username: string;
+  role: UserRole;
+  iat: number;
+  exp: number;
 }
 
 function decodePayload(token: string): Payload | null {
@@ -40,7 +41,7 @@ export function proxy(request: NextRequest) {
     const token = request.cookies.get("employee_token")?.value;
     const payload = token ? decodePayload(token) : null;
     const hasExpired = isExpired(payload);
-    const validRole = payload?.role === EmployeeRole.ADMIN || payload?.role === EmployeeRole.CASHIER;
+    const validRole = payload?.role === UserRole.ADMIN || payload?.role === UserRole.CASHIER;
     console.log({ token, payload, hasExpired, validRole, role: payload?.role })
 
     if (!token || isExpired(payload) || !validRole) {

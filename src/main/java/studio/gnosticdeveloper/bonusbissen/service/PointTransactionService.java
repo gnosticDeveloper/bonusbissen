@@ -9,13 +9,11 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeReviewResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.Customer;
 import studio.gnosticdeveloper.bonusbissen.entity.Employee;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
-import studio.gnosticdeveloper.bonusbissen.repository.CustomerRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
@@ -26,18 +24,18 @@ public class PointTransactionService {
     private final PointTransactionRepository pointTransactionRepository;
     private final ExchangeCodeRepository exchangeCodeRepository;
     private final EmployeeRepository employeeRepository;
-    private final CustomerRepository customerRepository;
 
-    public PointTransactionService(PointTransactionRepository pointTransactionRepository, ExchangeCodeRepository exchangeCodeRepository, EmployeeRepository employeeRepository, CustomerRepository customerRepository) {
+    public PointTransactionService(PointTransactionRepository pointTransactionRepository, ExchangeCodeRepository exchangeCodeRepository, EmployeeRepository employeeRepository) {
         this.pointTransactionRepository = pointTransactionRepository;
         this.exchangeCodeRepository = exchangeCodeRepository;
         this.employeeRepository = employeeRepository;
-        this.customerRepository = customerRepository;
     }
 
     @Transactional(readOnly = true)
-    public List<PointTransaction> getAll() {
-        return pointTransactionRepository.findAll();
+    public List<ExchangeResponse> getAll() {
+        return pointTransactionRepository.findAllWithRelations().stream()
+                .map(ExchangeResponse::from)
+                .toList();
     }
 
     @Transactional
@@ -91,65 +89,4 @@ public class PointTransactionService {
 
         exchangeCodeRepository.delete(exchangeCode);
     }
-
-    // /**
-    //  * The customer row lock (SELECT ... FOR UPDATE) serializes concurrent redemptions
-    //  * for the same customer so the balance check and the insert are effectively atomic.
-    //  */
-    // @Transactional
-    // public Result create(ExchangeCreateRequest request, UUID employeeId) {
-    //     Customer customer = customerRepository.findByPhoneForUpdate(request.customerDocument())
-    //             .orElseThrow(() -> new NotFoundException("Customer not found: " + request.customerDocument()));
-
-    //     Employee employee = employeeRepository.findById(employeeId)
-    //             .orElseThrow(() -> new NotFoundException("Employee not found: " + employeeId));
-
-    //     Exchange transaction = new Exchange();
-    //     transaction.setCustomer(customer);
-    //     transaction.setEmployee(employee);
-    //     transaction.setType(request.type());
-    //     transaction.setNote(request.note());
-
-    //     if (request.type() == TransactionType.PURCHASE) {
-    //         if (request.menuItemId() == null) {
-    //             throw new BadRequestException("menuItemId is required for a PURCHASE transaction");
-    //         }
-    //         MenuItem menuItem = menuItemRepository.findById(request.menuItemId())
-    //                 .orElseThrow(() -> new NotFoundException("Menu item not found: " + request.menuItemId()));
-    //         transaction.setMenuItem(menuItem);
-
-    //         if (request.variantName() != null) {
-    //             MenuItemVariant variant = menuItem.findVariant(request.variantName());
-    //             if (variant == null) {
-    //                 throw new BadRequestException(
-    //                         "Unknown variant \"" + request.variantName() + "\" for menu item " + menuItem.getId());
-    //             }
-    //             transaction.setMenuItemVariant(variant);
-    //             transaction.setPointsDelta(variant.getPointsValue());
-    //         } else {
-    //             transaction.setPointsDelta(menuItem.getPointsValue());
-    //         }
-    //     } else {
-    //         if (request.rewardId() == null) {
-    //             throw new BadRequestException("rewardId is required for a REDEMPTION transaction");
-    //         }
-    //         Reward reward = rewardRepository.findById(request.rewardId())
-    //                 .orElseThrow(() -> new NotFoundException("Reward not found: " + request.rewardId()));
-
-    //         int currentBalance = pointTransactionRepository.sumPointsDeltaByCustomerId(customer.getId());
-    //         if (currentBalance < reward.getCostPoints()) {
-    //             throw new InsufficientPointsException(
-    //                     "Insufficient points: balance is " + currentBalance + ", reward costs " + reward.getCostPoints());
-    //         }
-    //         transaction.setReward(reward);
-    //         transaction.setPointsDelta(-reward.getCostPoints());
-    //     }
-
-    //     Exchange saved = pointTransactionRepository.save(transaction);
-    //     int newBalance = pointTransactionRepository.sumPointsDeltaByCustomerId(customer.getId());
-    //     return new Result(saved, newBalance);
-    // }
-
-    // public record Result(Exchange transaction, int newBalance) {
-    // }
 }

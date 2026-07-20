@@ -1,14 +1,26 @@
 import { cookies } from "next/headers";
 
-export function decodeCustomerPayload(token: string): { sub: string; id: string; role: string } {
+export function decodeCustomerPayload(token: string): {
+  sub: string;
+  username: string;
+  role: string;
+  iat: number;
+  exp: number;
+} {
   const payloadB64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
   return JSON.parse(Buffer.from(payloadB64, "base64").toString("utf-8"));
 }
 
-export function decodeEmployeePayload(token: string): { sub: string; id: string; role: string } {
+export function decodeEmployeePayload(token: string): {
+  sub: string;
+  username: string;
+  role: string;
+  iat: number;
+  exp: number;
+} {
   const payloadB64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
   const payload = JSON.parse(Buffer.from(payloadB64, "base64").toString("utf-8"));
-  return { sub: payload.sub, id: payload.employeeId, role: payload.role };
+  return payload;
 }
 
 export async function resolveCustomerIdFromSession(): Promise<string | undefined> {

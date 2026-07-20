@@ -116,7 +116,10 @@ public class CustomerService {
         Reward reward = rewardRepository.findById(request.rewardId())
                 .orElseThrow(() -> new NotFoundException("No se pudo encontrar una recompensa con el ID " + request.rewardId() + "."));
         tx.setReward(reward);
-        tx.setPoints(reward.getCostPoints());
+
+        int negativePoints = reward.getCostPoints() * -1;
+
+        tx.setPoints(negativePoints);
         tx.setTransactionType(TransactionType.REDEEM);
         tx.setState(TransactionState.PENDING);
         tx = pointTransactionRepository.save(tx);

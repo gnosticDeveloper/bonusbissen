@@ -25,6 +25,9 @@ public class Customer {
     @Column(nullable = false, length = 255)
     private String name;
 
+    @Column(name = "active", nullable = false)
+    private boolean active = true;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 

@@ -1,5 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.controller;
 
+import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.LoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.LoginResponse;
 import studio.gnosticdeveloper.bonusbissen.service.AuthService;
@@ -22,5 +23,10 @@ public class AuthController {
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    @PostMapping("/customer-login")
+    public LoginResponse customerLogin(@Valid @RequestBody CustomerLoginRequest request) {
+        return authService.loginCustomer(request);
     }
 }

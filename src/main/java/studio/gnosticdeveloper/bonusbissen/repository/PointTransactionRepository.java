@@ -36,4 +36,12 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
 
     @Query("select coalesce(sum(t.points), 0) from PointTransaction t where t.transactionType = :transactionType and t.state = 'delivered'")
     Integer calculatePointsAwarded(@Param("transactionType") TransactionType transactionType);
+
+    @Query("""
+        select pt from PointTransaction pt
+        left join fetch pt.customer
+        left join fetch pt.employee
+        left join fetch pt.reward
+    """)
+    List<PointTransaction> findAllWithRelations();
 }
