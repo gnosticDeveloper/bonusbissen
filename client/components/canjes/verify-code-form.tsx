@@ -53,6 +53,7 @@ export default function VerifyCodeForm() {
       <form action={formAction} className="flex flex-col gap-3">
         <input
           type="text"
+          autoComplete="off"
           name="code"
           inputMode="numeric"
           placeholder="Ej: 042817"
@@ -73,7 +74,7 @@ export default function VerifyCodeForm() {
           <p className="text-lg text-ink-soft">Confirmá que la persona que tenés al frente coincide antes de entregar:</p>
           <p className="text-xl font-semibold text-ink">{found.customerName}</p>
           <p className="text-xl text-ink">
-            {found.rewardTitle} - <span className="font-semibold text-amber-dark">{found.points} pts</span>
+            {found.rewardTitle} - <span className="font-semibold text-amber-dark">{Math.abs(found.points)} pts</span>
           </p>
 
           <div className="flex gap-3 pt-1">

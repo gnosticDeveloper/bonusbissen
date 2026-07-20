@@ -54,7 +54,7 @@ export default async function HomePage() {
                     <p className="text-lg text-ink-soft">{c.rewardTitle}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg text-rust-dark font-semibold">{c.points} pts</p>
+                    <p className="text-lg text-rust-dark font-semibold">{Math.abs(c.points)} pts</p>
                     <p className="text-base text-ink-soft">{c.createdAtFormatted}</p>
                   </div>
                 </li>

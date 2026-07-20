@@ -97,13 +97,17 @@ export async function grantPointsToCustomer(customerId: string, points: number):
 }
 
 export async function verifyExchangeCode(code: string): Promise<Exchange | null> {
-  const res = await fetch(`http://localhost:8080/exchanges/verify`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  const res = await apiFetch(
+    `/exchanges/verify`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ code }),
     },
-    body: JSON.stringify({ code }),
-  });
+    { redirectTo: "/login", tokenKey: "employee_token" },
+  );
 
   if (!res.ok) {
     return null;

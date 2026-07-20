@@ -99,6 +99,9 @@ export async function claimReward(customerId: string, rewardId: string): Promise
     {
       body: JSON.stringify({ customerId, rewardId }),
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
     },
     { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" },
   );
@@ -172,5 +175,5 @@ export async function loginCustomer(_: LoginState, formData: FormData): Promise<
     path: "/",
   });
 
-  redirect("/");
+  redirect("/mis-puntos");
 }

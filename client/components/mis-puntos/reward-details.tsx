@@ -47,7 +47,7 @@ export default function RewardDetails({ reward, canAfford, customerId }: { rewar
   return (
     <div className="flex flex-col gap-5">
       <div className="rounded-3xl overflow-hidden bg-cream-dark/30 border border-ink/10">
-        <Image src={reward.imagePath!} alt={reward.title} width={500} height={300} className="w-full h-56 object-cover" />
+        <Image src={reward.imagePath ?? "/laviejaestacion-logo.webp"} alt={reward.title} width={500} height={300} className="w-full h-56 object-cover" />
       </div>
 
       <div className="flex flex-col gap-2">

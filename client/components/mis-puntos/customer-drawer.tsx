@@ -22,10 +22,16 @@ export default function CustomerDrawer({
   if (!isOpen) return null;
 
   async function handleLogout() {
-    // Mock: en la versión real, esto llama a /api/logout para borrar la
-    // cookie httpOnly antes de redirigir.
-    onCloseAction();
-    router.push("/mis-puntos/login");
+    const response = await fetch("/api/customers/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+
+    if (response.ok) {
+      onCloseAction();
+      router.push("/mis-puntos/login");
+      return;
+    }
   }
 
   return (
@@ -60,7 +66,7 @@ export default function CustomerDrawer({
             Recompensas
           </Link>
           <Link
-            href="/mis-puntos/verificar-canjes"
+            href="/mis-puntos/canjes"
             onClick={onCloseAction}
             className="flex items-center gap-3 rounded-xl px-4 py-3 text-xl text-ink hover:bg-ink/5 transition-colors"
           >

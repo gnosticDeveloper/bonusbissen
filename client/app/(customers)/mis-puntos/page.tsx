@@ -12,7 +12,7 @@ import { decodeCustomerPayload } from "@/lib/session";
 export default async function MisPuntosPage() {
   const token = (await cookies()).get("customer_token")?.value;
   const payload = token ? decodeCustomerPayload(token) : null;
-  const user = payload ? { id: payload.id } as CustomerUser : null;
+  const user = payload ? { id: payload.sub } as CustomerUser : null;
   const [customer, pendings] = await Promise.all([getCustomerById(user!.id), getPendingExchangesByCustomerId(user!.id)]);
 
   return (

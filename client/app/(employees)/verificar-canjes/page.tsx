@@ -17,7 +17,7 @@ export default async function ExchangesPage({
 
       <div className="flex gap-8">
         <VerifyCodeForm />
-        <ExchangesList query={q} />
+        {/*<ExchangesList query={q} />*/}
       </div>
     </div>
   );
