@@ -1,5 +1,10 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
@@ -20,13 +25,6 @@ import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
-
 @Service
 public class CustomerService {
 
@@ -35,8 +33,12 @@ public class CustomerService {
     private final RewardRepository rewardRepository;
     private final ExchangeCodeRepository exchangeCodeRepository;
 
-
-    public CustomerService(CustomerRepository customerRepository, PointTransactionRepository pointTransactionRepository, RewardRepository rewardRepository, ExchangeCodeRepository exchangeCodeRepository) {
+    public CustomerService(
+        CustomerRepository customerRepository,
+        PointTransactionRepository pointTransactionRepository,
+        RewardRepository rewardRepository,
+        ExchangeCodeRepository exchangeCodeRepository
+    ) {
         this.customerRepository = customerRepository;
         this.pointTransactionRepository = pointTransactionRepository;
         this.rewardRepository = rewardRepository;
@@ -56,13 +58,19 @@ public class CustomerService {
 
     @Transactional
     public void deleteById(UUID id) {
-        customerRepository.deleteById(id);
+        Customer customer = customerRepository
+            .findById(id)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
+
+        customer.setActive(false);
+        customerRepository.save(customer);
     }
 
     @Transactional(readOnly = true)
     public Customer getByPhone(String phone) {
-        return customerRepository.findByPhone(phone)
-                .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el número de teléfono " + phone + "."));
+        return customerRepository
+            .findByPhone(phone)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el número de teléfono " + phone + "."));
     }
 
     @Transactional(readOnly = true)
@@ -72,8 +80,9 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public CustomerPointsResponse getCustomerPointsById(UUID id) {
-        Customer customer = customerRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
+        Customer customer = customerRepository
+            .findById(id)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
         return new CustomerPointsResponse(customer.getId(), customer.getName(), customer.getPhone(), getBalance(id));
     }
 
@@ -85,7 +94,10 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public List<HistoricalExchangeResponse> getHistoricalExchangesByCustomerId(UUID customerId) {
-        List<PointTransaction> allExchangesByCustomerId = pointTransactionRepository.findAllByCustomerIdAndTypeOrderByCreatedAtDesc(customerId, TransactionType.REDEEM);
+        List<PointTransaction> allExchangesByCustomerId = pointTransactionRepository.findAllByCustomerIdAndTypeOrderByCreatedAtDesc(
+            customerId,
+            TransactionType.REDEEM
+        );
         return allExchangesByCustomerId.stream().map(HistoricalExchangeResponse::from).toList();
     }
 
@@ -98,8 +110,11 @@ public class CustomerService {
     @Transactional
     public CustomerPointsAwardResponse grantPoints(GrantPointsRequest request) {
         PointTransaction tx = new PointTransaction();
-        tx.setCustomer(customerRepository.findById(request.customerId())
-                .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.customerId() + ".")));
+        tx.setCustomer(
+            customerRepository
+                .findById(request.customerId())
+                .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.customerId() + "."))
+        );
         tx.setPoints(request.points());
         tx.setTransactionType(TransactionType.EARN);
         tx.setState(TransactionState.DELIVERED);
@@ -110,11 +125,13 @@ public class CustomerService {
     @Transactional
     public String claimReward(ClaimRewardRequest request) {
         PointTransaction tx = new PointTransaction();
-        Customer customer = customerRepository.findById(request.customerId())
-                .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.customerId() + "."));
+        Customer customer = customerRepository
+            .findById(request.customerId())
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.customerId() + "."));
         tx.setCustomer(customer);
-        Reward reward = rewardRepository.findById(request.rewardId())
-                .orElseThrow(() -> new NotFoundException("No se pudo encontrar una recompensa con el ID " + request.rewardId() + "."));
+        Reward reward = rewardRepository
+            .findById(request.rewardId())
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar una recompensa con el ID " + request.rewardId() + "."));
         tx.setReward(reward);
 
         int negativePoints = reward.getCostPoints() * -1;
@@ -123,7 +140,6 @@ public class CustomerService {
         tx.setTransactionType(TransactionType.REDEEM);
         tx.setState(TransactionState.PENDING);
         tx = pointTransactionRepository.save(tx);
-
 
         // generate code
         ExchangeCode exchangeCode = new ExchangeCode();

@@ -25,7 +25,7 @@ export default function EliminarPerfilButton({
     await deleteCustomerById(customerId);
     // Sin esto, la cookie de sesión sigue viva apuntando a un cliente ya
     // inactivo.
-    const response = await fetch("/api/logout", { method: "POST" });
+    const response = await fetch("/api/customers/logout", { method: "POST" });
     if (response.ok) {
       setMostrarModal(false);
       router.push("/mis-puntos/login");

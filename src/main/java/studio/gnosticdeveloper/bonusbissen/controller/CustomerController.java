@@ -34,9 +34,9 @@ public class CustomerController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteById(@PathVariable UUID id) {
-        // Note: perhaps should be better to also validate a token in this endpoint. For now, anyone can delete a customer.
         customerService.deleteById(id);
     }
 
