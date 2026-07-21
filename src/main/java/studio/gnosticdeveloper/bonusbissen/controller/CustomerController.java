@@ -42,15 +42,11 @@ public class CustomerController {
 
     @GetMapping("/{id}")
     public CustomerPointsResponse getById(@PathVariable UUID id) {
-        // TODO: needs to be implemented. getById should return a Customer.
-        // Should be tested before final implementation.
         return customerService.getCustomerPointsById(id);
     }
 
     @GetMapping("/phone/{phone}")
     public CustomerPointsResponse getByPhone(@PathVariable String phone) {
-        // TODO: needs to be implemented. getById should return a Customer.
-        // Should be tested before final implementation.
         return customerService.getCustomerPointsByPhone(phone);
     }
 
@@ -78,7 +74,6 @@ public class CustomerController {
      */
     @PostMapping("/claim-reward")
     public String claimReward(@Valid @RequestBody ClaimRewardRequest request) {
-        // TODO: implement this method. See the Javadoc above.
         return customerService.claimReward(request);
     }
 }
