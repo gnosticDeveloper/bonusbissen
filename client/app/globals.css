@@ -1,25 +1,53 @@
 @import "tailwindcss";
 
 @theme {
-  --color-cream: #060606;
-  --color-cream-dark: #171512;
-  --color-ink: #ffffff;
-  --color-ink-soft: #a39c92;
+    --color-cream: #060606;
+    --color-cream-dark: #171512;
+    --color-ink: #ffffff;
+    --color-ink-soft: #a39c92;
 
-  --color-amber: #d6336c;
-  --color-amber-dark: #f783ac;
+    --color-amber: #d6336c;
+    --color-amber-dark: #f783ac;
 
-  --color-sage: #4f9662;
-  --color-sage-dark: #8ce6a3;
+    --color-sage: #4f9662;
+    --color-sage-dark: #8ce6a3;
 
-  --color-rust: #d1453a;
-  --color-rust-dark: #ff8a80;
+    --color-rust: #d1453a;
+    --color-rust-dark: #ff8a80;
 
-  --font-sans: var(--font-instrument-sans), sans-serif;
+    --font-sans: var(--font-instrument-sans), sans-serif;
 }
 
 html,
 body {
     background-color: var(--color-cream);
     color: var(--color-ink);
+}
+
+/*custom scrollbar styles for dark mode */
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(120 113 108 / 0.4) transparent;
+}
+
+/* Chrome, Edge, Safari (WebKit) */
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background-color: rgb(120 113 108 / 0.4);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(120 113 108 / 0.6);
 }

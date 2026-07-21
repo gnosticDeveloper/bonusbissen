@@ -1,6 +1,7 @@
 "use server";
 import { apiFetch } from "@/lib/api";
 import { Customer, ExchangeState, Reward } from "@/lib/definitions";
+import { updateTag } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -15,11 +16,16 @@ export type PendingExchange = {
   id: string;
   rewardTitle: string;
   points: number;
+  exchangeCode: string;
   createdAtFormatted: string; // ya formateada server-side
 };
 
 export async function getPendingExchangesByCustomerId(customerId: string) {
-  const response = await apiFetch(`/exchanges/pending/${customerId}`, {}, { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" });
+  const response = await apiFetch(
+    `/exchanges/pending/${customerId}`,
+    { next: { tags: ["pending-exchanges"] } },
+    { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" },
+  );
 
   const exchanges = await response.json();
   return exchanges as PendingExchange[];
@@ -27,9 +33,11 @@ export async function getPendingExchangesByCustomerId(customerId: string) {
 
 export async function cancelExchange(exchangeId: string) {
   const response = await apiFetch(
-    `/exchanges/${exchangeId}`,
+    `/exchanges/customer-cancel`,
     {
-      method: "DELETE",
+      method: "POST",
+      body: JSON.stringify({ exchangeId }),
+      headers: { "Content-Type": "application/json" },
     },
     { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" },
   );
@@ -37,7 +45,7 @@ export async function cancelExchange(exchangeId: string) {
   if (!response.ok) {
     throw new Error("Failed to cancel exchange");
   }
-
+  updateTag("pending-exchanges");
   return;
 }
 

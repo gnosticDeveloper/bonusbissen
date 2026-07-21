@@ -5,7 +5,9 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeReviewResponse;
@@ -13,6 +15,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.Employee;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
+import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
@@ -25,7 +28,11 @@ public class PointTransactionService {
     private final ExchangeCodeRepository exchangeCodeRepository;
     private final EmployeeRepository employeeRepository;
 
-    public PointTransactionService(PointTransactionRepository pointTransactionRepository, ExchangeCodeRepository exchangeCodeRepository, EmployeeRepository employeeRepository) {
+    public PointTransactionService(
+        PointTransactionRepository pointTransactionRepository,
+        ExchangeCodeRepository exchangeCodeRepository,
+        EmployeeRepository employeeRepository
+    ) {
         this.pointTransactionRepository = pointTransactionRepository;
         this.exchangeCodeRepository = exchangeCodeRepository;
         this.employeeRepository = employeeRepository;
@@ -33,9 +40,7 @@ public class PointTransactionService {
 
     @Transactional(readOnly = true)
     public List<ExchangeResponse> getAll() {
-        return pointTransactionRepository.findAllWithRelations().stream()
-                .map(ExchangeResponse::from)
-                .toList();
+        return pointTransactionRepository.findAllWithRelations().stream().map(ExchangeResponse::from).toList();
     }
 
     @Transactional
@@ -60,7 +65,7 @@ public class PointTransactionService {
     @Transactional
     public ExchangeResponse verifyExchange(String code) {
         ExchangeCode exchangeCode = exchangeCodeRepository
-            .findByCode(code)
+            .findActiveByCode(code)
             .orElseThrow(() -> new NotFoundException("No pudimos encontrar el código de intercambio: " + code));
 
         PointTransaction pointTransaction = exchangeCode.getPointTransaction();
@@ -71,22 +76,65 @@ public class PointTransactionService {
     }
 
     @Transactional
+    public void approveExchange(ApproveExchangeRequest request) {
+        PointTransaction pointTransaction = pointTransactionRepository
+            .findById(request.id())
+            .orElseThrow(() -> new NotFoundException("Point transaction not found: " + request.id()));
+
+        Employee employee = employeeRepository
+            .findById(request.employeeId())
+            .orElseThrow(() -> new NotFoundException("Employee not found: " + request.employeeId()));
+
+        pointTransaction.setState(TransactionState.DELIVERED);
+        pointTransaction.setEmployee(employee);
+        pointTransactionRepository.save(pointTransaction);
+    }
+
+    @Transactional
     public void cancelExchange(CancelExchangeRequest request) {
         PointTransaction pointTransaction = pointTransactionRepository
             .findById(request.id())
             .orElseThrow(() -> new NotFoundException("Point transaction not found: " + request.id()));
 
-        pointTransaction.setState(TransactionState.CANCELLED);
-
-        Employee employee = employeeRepository.findById(request.employeeId())
+        Employee employee = employeeRepository
+            .findById(request.employeeId())
             .orElseThrow(() -> new NotFoundException("Employee not found: " + request.employeeId()));
+
+        pointTransaction.setState(TransactionState.CANCELLED);
         pointTransaction.setEmployee(employee);
+
+        if (pointTransaction.getExchangeCode() != null) {
+            pointTransaction.getExchangeCode().setActive(false);
+        }
 
         pointTransactionRepository.save(pointTransaction);
 
-        ExchangeCode exchangeCode = exchangeCodeRepository.findByPointTransactionId(pointTransaction.getId())
-            .orElseThrow(() -> new NotFoundException("Exchange code not found for point transaction: " + pointTransaction.getId()));
+        // refund points to customer by creating a new point transaction
+        if (request.shouldRefundPoints()) {
+            PointTransaction refundTransaction = new PointTransaction();
+            refundTransaction.setCustomer(pointTransaction.getCustomer());
+            refundTransaction.setPoints(Math.abs(pointTransaction.getPoints()));
+            refundTransaction.setTransactionType(TransactionType.EARN);
+            refundTransaction.setState(TransactionState.DELIVERED);
+            pointTransactionRepository.save(refundTransaction);
+        }
+    }
 
-        exchangeCodeRepository.delete(exchangeCode);
+    @Transactional
+    public void customerCancelExchange(CustomerCancelExchangeRequest request) {
+        PointTransaction pointTransaction = pointTransactionRepository
+            .findById(request.exchangeId())
+            .orElseThrow(() -> new NotFoundException("Point transaction not found: " + request.exchangeId()));
+
+        pointTransaction.setState(TransactionState.CANCELLED);
+        pointTransactionRepository.save(pointTransaction);
+
+        // refund points to customer by creating a new point transaction
+        PointTransaction refundTransaction = new PointTransaction();
+        refundTransaction.setCustomer(pointTransaction.getCustomer());
+        refundTransaction.setPoints(Math.abs(pointTransaction.getPoints()));
+        refundTransaction.setTransactionType(TransactionType.EARN);
+        refundTransaction.setState(TransactionState.DELIVERED);
+        pointTransactionRepository.save(refundTransaction);
     }
 }

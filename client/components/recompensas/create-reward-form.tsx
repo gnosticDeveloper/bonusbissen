@@ -1,11 +1,22 @@
+"use client";
+
 import { Plus } from "lucide-react";
 import ImageDropzone from "@/components/recompensas/image-dropzone";
 import Form from "next/form";
 import { createReward } from "@/app/rewards.actions";
+import { EmployeeRole, useAuth } from "@/providers/auth-provider";
 
 export default function CreateRewardForm() {
+  const employee = useAuth();
+
+  if (!employee) return null;
+
+  const isAdmin = employee.type === "employee" && employee.user?.role === EmployeeRole.ADMIN;
+
+  if (!isAdmin) return null;
+
   return (
-    <Form action={createReward} className="rounded-2xl border border-ink/10 bg-cream-dark/30 p-6 flex flex-col gap-5 sticky top-10">
+    <Form action={createReward} className="col-span-1 rounded-2xl border border-ink/10 bg-cream-dark/30 p-6 flex flex-col gap-5 sticky top-10">
       <h3 className="text-2xl font-bold text-ink">Nueva recompensa</h3>
 
       <label className="flex flex-col gap-2">

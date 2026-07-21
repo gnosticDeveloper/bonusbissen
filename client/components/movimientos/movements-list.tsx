@@ -37,7 +37,7 @@ export default function MovementsList({ movements }: { movements: Movement[] }) 
 
                 <p className={`text-lg font-semibold ${isEarn ? "text-sage-dark" : "text-rust-dark"}`}>
                   {isEarn ? "+" : "-"}
-                  {m.points}
+                  {Math.abs(m.points)}
                 </p>
               </div>
             </div>

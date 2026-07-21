@@ -2,6 +2,7 @@ import { Gift, Clock, Users, Sparkles, ArrowUpRight } from "lucide-react";
 import StatCard from "@/components/stat-card";
 import PingDot from "@/components/ping-dot";
 import { getHomeStats, getPendingExchanges, TopReward } from "./actions";
+import HomeTitle from "@/components/home-title";
 
 export default async function HomePage() {
   const [stats, pendingExchanges] = await Promise.all([
@@ -17,8 +18,8 @@ export default async function HomePage() {
   return (
     <div className="flex flex-col gap-10">
       <header>
-        <h2 className="text-4xl font-bold text-ink">Hola de nuevo</h2>
-        <p className="text-xl text-ink-soft mt-2">Este es el resumen de la actividad del bar.</p>
+        <HomeTitle />
+        <p className="text-xl text-ink-soft mt-2">Este es el resumen de la actividad del bar. Recorda que esta información se actualiza en tiempo real, por lo que puede no reflejar los últimos cambios. Para estar seguro, actualiza la página con <strong className="text-amber">F5</strong> si no ves los datos más recientes.</p>
       </header>
 
       <section className="grid grid-cols-4 gap-6">

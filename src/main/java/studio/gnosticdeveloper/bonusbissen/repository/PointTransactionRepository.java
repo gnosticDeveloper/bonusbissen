@@ -13,8 +13,18 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
     Integer countByState(TransactionState state);
     List<PointTransaction> findAllByStateOrderByCreatedAtDesc(TransactionState state);
 
-    @Query("select t from PointTransaction t where t.customer.id = :customerId and t.state = :state order by t.createdAt desc")
-    List<PointTransaction> findAllPendingByCustomerIdOrderByCreatedAtDesc(@Param("customerId") UUID customerId, @Param("state") TransactionState state);
+    @Query(
+        """
+            select t from PointTransaction t
+            left join fetch t.exchangeCode
+            where t.customer.id = :customerId and t.state = :state
+            order by t.createdAt desc
+        """
+    )
+    List<PointTransaction> findAllPendingByCustomerIdOrderByCreatedAtDesc(
+        @Param("customerId") UUID customerId,
+        @Param("state") TransactionState state
+    );
 
     @Query("select t from PointTransaction t where t.customer.id = :customerId and t.transactionType = :transactionType order by t.createdAt desc")
     List<PointTransaction> findAllByCustomerIdAndTypeOrderByCreatedAtDesc(
@@ -37,11 +47,13 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
     @Query("select coalesce(sum(t.points), 0) from PointTransaction t where t.transactionType = :transactionType and t.state = 'delivered'")
     Integer calculatePointsAwarded(@Param("transactionType") TransactionType transactionType);
 
-    @Query("""
-        select pt from PointTransaction pt
-        left join fetch pt.customer
-        left join fetch pt.employee
-        left join fetch pt.reward
-    """)
+    @Query(
+        """
+            select pt from PointTransaction pt
+            left join fetch pt.customer
+            left join fetch pt.employee
+            left join fetch pt.reward
+        """
+    )
     List<PointTransaction> findAllWithRelations();
 }

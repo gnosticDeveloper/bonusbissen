@@ -67,8 +67,6 @@ public class CustomerController {
 
     @GetMapping("/{id}/movements")
     public List<MovementResponse> getMovementsHistory(@PathVariable UUID id) {
-        // TODO: needs to be implemented.
-        // Please, check the "from" method in MovementResponse. It needs either an exchange or a points_movement to be converted to a MovementResponse. So, the customer service should work with both entities.
         return customerService.getMovementsByCustomerId(id);
     }
 

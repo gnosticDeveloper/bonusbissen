@@ -10,7 +10,7 @@ const STATES: Record<ExchangeState, EstadoConfig> = {
     label: "Pendiente de retirar",
     className: "text-amber-dark bg-amber/15",
   },
-  approved: {
+  delivered: {
     icon: Check,
     label: "Recibido",
     className: "text-sage-dark bg-sage/15",
@@ -20,6 +20,12 @@ const STATES: Record<ExchangeState, EstadoConfig> = {
     label: "No recibido",
     className: "text-rust-dark bg-rust/15",
   },
+};
+
+const TEXT_COLORS: Record<ExchangeState, string> = {
+  pending: "text-amber-dark",
+  delivered: "text-sage-dark",
+  cancelled: "text-rust-dark",
 };
 
 export default function ExchangeHistoryList({ exchanges }: { exchanges: HistoricalExchange[] }) {
@@ -46,23 +52,23 @@ export default function ExchangeHistoryList({ exchanges }: { exchanges: Historic
           return (
             <div
               key={e.id}
-              className={`rounded-2xl border border-ink/10 px-5 py-4 flex items-center justify-between gap-4 ${
+              className={`rounded-2xl relative border border-ink/10 px-5 py-4 flex flex-col gap-4 ${
                 inactivo ? "bg-ink/5 opacity-70" : "bg-cream-dark/30"
               }`}
             >
-              <div>
-                <p className="text-xl font-medium text-ink">{e.rewardTitle}</p>
-                <p className="text-lg text-ink-soft">
-                  {e.costPoints} pts · {e.formattedCreatedAt}
-                </p>
+              <div className="flex justify-between items-center gap-2">
+                <p className="text-xl font-medium text-ink truncate max-w-[17ch] ">{e.rewardTitle}</p>
+                <p className={`${TEXT_COLORS[e.state]} text-lg`}>{Math.abs(e.costPoints)} pts</p>
               </div>
-
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-base font-medium whitespace-nowrap ${config.className}`}
-              >
-                <Icon className="h-4 w-4" />
-                {config.label}
-              </span>
+              <div className="flex items-center justify-between">
+                <p className="text-lg text-ink-soft">{e.formattedCreatedAt}</p>
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-base font-medium whitespace-nowrap ${config.className}`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {config.label}
+                </span>
+              </div>
             </div>
           );
         })}

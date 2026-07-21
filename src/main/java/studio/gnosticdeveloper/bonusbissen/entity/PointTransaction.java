@@ -42,6 +42,9 @@ public class PointTransaction {
     @Column(nullable = false)
     private TransactionState state;
 
+    @OneToOne(mappedBy = "pointTransaction", fetch = FetchType.LAZY)
+    private ExchangeCode exchangeCode;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 

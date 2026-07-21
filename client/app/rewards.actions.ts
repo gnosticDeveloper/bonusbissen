@@ -4,9 +4,9 @@ import { apiFetch } from "@/lib/api";
 import type { Reward } from "@/lib/definitions";
 import { updateTag } from "next/cache";
 
-export async function getRewards(): Promise<Reward[]> {
+export async function getRewards(search: string | string[] | undefined): Promise<Reward[]> {
   const response = await apiFetch(
-    `/rewards`,
+    `/rewards${search ? `?search=${search}` : ""}`,
     {
       next: {
         tags: ["get-rewards"],
@@ -34,19 +34,27 @@ export async function getReward(id: string): Promise<Reward> {
 }
 
 export async function createReward(formData: FormData): Promise<void> {
-  const res = await apiFetch(`/rewards`, {
-    method: "POST",
-    body: formData, // esto no necesita Content-Type manual
-  }, { redirectTo: "/login", tokenKey: "employee_token" });
+  const res = await apiFetch(
+    `/rewards`,
+    {
+      method: "POST",
+      body: formData, // esto no necesita Content-Type manual
+    },
+    { redirectTo: "/login", tokenKey: "employee_token" },
+  );
   if (!res.ok) throw new Error("No se pudo crear la recompensa");
   updateTag("get-rewards");
 }
 
 export async function updateReward(id: string, formData: FormData): Promise<Reward> {
-  const res = await apiFetch(`/rewards/${id}`, {
-    method: "PUT",
-    body: formData,
-  }, { redirectTo: "/login", tokenKey: "employee_token" });
+  const res = await apiFetch(
+    `/rewards/${id}`,
+    {
+      method: "PUT",
+      body: formData,
+    },
+    { redirectTo: "/login", tokenKey: "employee_token" },
+  );
 
   if (!res.ok) throw new Error("No se pudo actualizar la recompensa");
   return await res.json();

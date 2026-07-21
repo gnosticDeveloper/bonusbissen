@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS exchange_codes (
     point_transaction_id   UUID        NOT NULL REFERENCES point_transactions(id),
     customer_id   UUID        NOT NULL REFERENCES customers(id),
     code          VARCHAR(6)  NOT NULL,
+    active        BOOLEAN     NOT NULL DEFAULT TRUE,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -73,3 +74,4 @@ CREATE INDEX IF NOT EXISTS idx_exchanges_customer_id ON point_transactions(custo
 CREATE INDEX IF NOT EXISTS idx_canjes_reward_id ON point_transactions(reward_id);
 CREATE INDEX IF NOT EXISTS idx_points_transactions_customer_id ON point_transactions(customer_id) WHERE state = 'delivered' AND transaction_type = 'earn';
 CREATE INDEX IF NOT EXISTS idx_rewards_active ON rewards(active) WHERE active = TRUE;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_exchange_codes_point_transaction_id ON exchange_codes(point_transaction_id);

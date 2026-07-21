@@ -23,8 +23,10 @@ public class RewardController {
     }
 
     @GetMapping
-    public List<RewardResponse> list() {
-        return rewardService.listActive().stream().map(RewardResponse::from).toList();
+    public List<RewardResponse> list(@RequestParam(required = false) String search) {
+        return rewardService.listActive(search).stream()
+                .map(RewardResponse::from)
+                .toList();
     }
 
     @GetMapping("/{id}")

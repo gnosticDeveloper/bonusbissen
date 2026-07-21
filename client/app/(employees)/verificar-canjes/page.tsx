@@ -1,12 +1,7 @@
-import ExchangesList from "@/components/canjes/exchanges-list";
+// import ExchangesList from "@/components/canjes/exchanges-list";
 import VerifyCodeForm from "@/components/canjes/verify-code-form";
 
-export default async function ExchangesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string }>;
-}) {
-  const { q } = await searchParams;
+export default function ExchangesPage() {
 
   return (
     <div className="flex flex-col gap-8">

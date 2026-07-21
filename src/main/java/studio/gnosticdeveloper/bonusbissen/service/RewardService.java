@@ -34,8 +34,9 @@ public class RewardService {
     }
 
     @Transactional(readOnly = true)
-    public List<Reward> listActive() {
-        return rewardRepository.findByActiveTrue();
+    public List<Reward> listActive(String search) {
+        String term = search == null || search.isBlank() ? null : search.trim();
+        return rewardRepository.findByActiveTrue(term);
     }
 
     @Transactional(readOnly = true)
@@ -75,7 +76,8 @@ public class RewardService {
     @Transactional
     public void delete(UUID id) {
         Reward reward = rewardRepository.findById(id).orElseThrow(() -> new NotFoundException("No se encontró la recompensa con id: " + id));
-        rewardRepository.delete(reward);
+        reward.setActive(false);
+        rewardRepository.save(reward);
     }
 
     private String saveImage(MultipartFile file) throws IOException {

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { Gift, ImageOff, Percent, Pencil, Trash2 } from "lucide-react";
 import type { Reward } from "@/lib/definitions";
 import { EmployeeRole, useAuth } from "@/providers/auth-provider";
@@ -49,7 +48,7 @@ export default function RewardCard({ r }: { r: Reward }) {
   };
 
   return (
-    <div className="rounded-2xl border border-ink/10 bg-cream-dark/30 overflow-hidden flex gap-4">
+    <div className="rounded-2xl border border-ink/10 bg-cream-dark/30 overflow-hidden flex gap-4 shrink-0">
       <div className="w-32 h-full shrink-0 bg-ink/5 flex items-center justify-center">
         {/*{r.imagePath ? (
           <Image width={128} height={128} src={r.imagePath} alt={r.title} className="w-full h-full object-cover" />

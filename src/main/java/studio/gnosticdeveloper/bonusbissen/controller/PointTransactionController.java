@@ -1,6 +1,8 @@
 package studio.gnosticdeveloper.bonusbissen.controller;
 
+import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
@@ -59,5 +61,17 @@ public class PointTransactionController {
     @ResponseStatus(code = HttpStatus.OK)
     public void cancelExchange(@RequestBody CancelExchangeRequest request) {
         pointTransactionService.cancelExchange(request);
+    }
+
+    @PostMapping("/approve")
+    @ResponseStatus(code = HttpStatus.OK)
+    public void approveExchange(@RequestBody ApproveExchangeRequest request) {
+        pointTransactionService.approveExchange(request);
+    }
+
+    @PostMapping("/customer-cancel")
+    @ResponseStatus(code = HttpStatus.OK)
+    public void customerCancelExchange(@RequestBody CustomerCancelExchangeRequest request) {
+        pointTransactionService.customerCancelExchange(request);
     }
 }

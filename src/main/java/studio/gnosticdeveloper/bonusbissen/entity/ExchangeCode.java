@@ -30,6 +30,9 @@ public class ExchangeCode {
     @Column(nullable = false, length = 6)
     private String code;
 
+    @Column(nullable = false)
+    private boolean active = true;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 

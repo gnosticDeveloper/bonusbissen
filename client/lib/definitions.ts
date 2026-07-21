@@ -13,10 +13,10 @@ export interface Reward {
   costPoints: number;
   discountValue: number;
   active: boolean;
-  createdAtFormatted: number;
+  createdAtFormatted: string;
 }
 
-export type ExchangeState = "pending" | "approved" | "cancelled";
+export type ExchangeState = "pending" | "delivered" | "cancelled";
 
 export interface Exchange {
   id: string;

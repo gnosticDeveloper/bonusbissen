@@ -2,6 +2,7 @@
 
 import { apiFetch } from "@/lib/api";
 import { Customer, Exchange } from "@/lib/definitions";
+import { updateTag } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -34,7 +35,11 @@ export async function getCustomerByPhone(phone: string): Promise<Customer | unde
 }
 
 export async function getPendingExchangesCount(): Promise<number> {
-  const response = await apiFetch("/exchanges/pending-count", {}, { tokenKey: "employee_token", redirectTo: "/login" });
+  const response = await apiFetch(
+    "/exchanges/pending-count",
+    { next: { tags: ["pending-exchanges-count"] } },
+    { tokenKey: "employee_token", redirectTo: "/login" },
+  );
 
   const data = await response.text();
   return parseInt(data);
@@ -49,7 +54,11 @@ export type PendingExchangeReview = {
 };
 
 export async function getPendingExchanges(): Promise<PendingExchangeReview[]> {
-  const response = await apiFetch("/exchanges/pending", {}, { tokenKey: "employee_token", redirectTo: "/login" });
+  const response = await apiFetch(
+    "/exchanges/pending",
+    { next: { tags: ["pending-exchanges-employee"] } },
+    { tokenKey: "employee_token", redirectTo: "/login" },
+  );
 
   const data = await response.json();
   return data;
@@ -141,15 +150,40 @@ export async function verifyCodeAction(_prevState: VerifyCodeState, formData: Fo
   return { error: null, exchange };
 }
 
-export async function annulateExchange(exchangeId: string, employeeId: string): Promise<boolean> {
-  const res = await fetch(`http://localhost:8080/exchanges/cancel`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+export async function annulateExchange(exchangeId: string, employeeId: string, shouldRefundPoints: boolean = false): Promise<boolean> {
+  const res = await apiFetch(
+    `/exchanges/cancel`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id: exchangeId, employeeId, shouldRefundPoints }),
     },
-    body: JSON.stringify({ id: exchangeId, employeeId }),
-  });
+    { redirectTo: "/login", tokenKey: "employee_token" },
+  );
 
+  updateTag("pending-exchanges-employee");
+  updateTag("pending-exchanges-count");
+
+  return res.ok;
+}
+
+export async function approveExchange(exchangeId: string, employeeId: string): Promise<boolean> {
+  const res = await apiFetch(
+    `/exchanges/approve`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id: exchangeId, employeeId }),
+    },
+    { redirectTo: "/login", tokenKey: "employee_token" },
+  );
+
+  updateTag("pending-exchanges-employee");
+  updateTag("pending-exchanges-count");
   return res.ok;
 }
 
