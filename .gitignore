@@ -1,5 +1,8 @@
 HELP.md
 target/
+.env
+!.env.example
+nginx/certs/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
