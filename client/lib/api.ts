@@ -9,7 +9,8 @@ export async function apiFetch(
   const cookiesStore = await cookies();
   const token = cookiesStore.get(tokenKey)?.value;
 
-  const res = await fetch(`http://localhost:8080${path}`, {
+  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
+  const res = await fetch(`${backendUrl}${path}`, {
     ...options,
     headers: { ...options.headers, Authorization: `Bearer ${token}` },
   });

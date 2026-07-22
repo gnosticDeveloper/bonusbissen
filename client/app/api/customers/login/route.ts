@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   const body = await request.json();
 
-  const res = await fetch(`http://localhost:8080/auth/customers/login`, {
+  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
+  const res = await fetch(`${backendUrl}/auth/customers/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

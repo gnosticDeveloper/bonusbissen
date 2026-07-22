@@ -156,7 +156,8 @@ export type LoginState = {
 export async function loginCustomer(_: LoginState, formData: FormData): Promise<LoginState> {
   const phone = formData.get("phone")?.toString();
 
-  const res = await fetch(`http://localhost:8080/auth/customer-login`, {
+  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
+  const res = await fetch(`${backendUrl}/auth/customer-login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

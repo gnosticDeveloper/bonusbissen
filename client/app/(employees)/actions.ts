@@ -195,7 +195,8 @@ export async function login(_: LoginState, formData: FormData): Promise<LoginSta
   const username = formData.get("username")?.toString();
   const password = formData.get("password")?.toString();
 
-  const res = await fetch(`http://localhost:8080/auth/login`, {
+  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
+  const res = await fetch(`${backendUrl}/auth/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
