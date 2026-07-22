@@ -8,6 +8,7 @@ import { EmployeeRole, useAuth } from "@/providers/auth-provider";
 import { deleteReward, updateReward } from "@/app/rewards.actions";
 import Form from "next/form";
 import ImageDropzone from "./image-dropzone";
+import Modal from "@/components/modal";
 
 export default function RewardCard({ r }: { r: Reward }) {
   const isFree = r.discountValue === 100;
@@ -104,13 +105,12 @@ export default function RewardCard({ r }: { r: Reward }) {
       </div>
 
       {showEditModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
-          <div className="w-full max-w-xl rounded-3xl bg-cream p-6 flex flex-col gap-4">
+        <Modal onCloseAction={() => setShowEditModal(false)} labelledBy="edit-reward-title" className="w-full max-w-xl rounded-3xl bg-cream p-6 flex flex-col gap-4">
             <Form
               action={handleUpdate}
-              className="rounded-2xl border border-ink/10 bg-cream-dark/30 p-6 flex flex-col gap-5 sticky top-10"
+              className="rounded-2xl border border-ink/10 bg-cream-dark/30 p-6 flex flex-col gap-5"
             >
-              <h3 className="text-2xl font-bold text-ink">Editar &quot;{r.title}&quot;</h3>
+              <h3 id="edit-reward-title" className="text-2xl font-bold text-ink">Editar &quot;{r.title}&quot;</h3>
 
               <label className="flex flex-col gap-2">
                 <span className="text-lg text-ink-soft">Título de la recompensa</span>
@@ -184,36 +184,33 @@ export default function RewardCard({ r }: { r: Reward }) {
                 </button>
               </div>
             </Form>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
-          <div className="w-full max-w-md rounded-3xl bg-cream p-6 flex flex-col gap-4">
-            <h2 className="text-2xl font-bold text-ink">¿Borrar &quot;{r.title}&quot;?</h2>
-            <p className="text-lg text-ink-soft">
-              Esta recompensa va a dejar de estar disponible para los clientes. Los canjes que ya se hicieron con ella no se van a ver afectados.
-              Podés reactivarla más adelante si hace falta.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="flex-1 rounded-2xl bg-ink/10 px-6 py-3 text-xl text-ink hover:bg-ink/15 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                disabled={loading}
-                onClick={handleDelete}
-                className="flex-1 rounded-2xl bg-rust px-6 py-3 text-xl font-semibold text-cream hover:bg-rust-dark transition-colors disabled:opacity-50"
-              >
-                {loading ? "Eliminando..." : "Confirmar"}
-              </button>
-            </div>
-            {error && <p className="text-lg text-rust-dark">{error}</p>}
+        <Modal onCloseAction={() => setShowDeleteModal(false)} labelledBy="delete-reward-title" className="w-full max-w-md rounded-3xl bg-cream p-6 flex flex-col gap-4">
+          <h2 id="delete-reward-title" className="text-2xl font-bold text-ink">¿Borrar &quot;{r.title}&quot;?</h2>
+          <p className="text-lg text-ink-soft">
+            Esta recompensa va a dejar de estar disponible para los clientes. Los canjes que ya se hicieron con ella no se van a ver afectados.
+            Podés reactivarla más adelante si hace falta.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowDeleteModal(false)}
+              className="flex-1 rounded-2xl bg-ink/10 px-6 py-3 text-xl text-ink hover:bg-ink/15 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={loading}
+              onClick={handleDelete}
+              className="flex-1 rounded-2xl bg-rust px-6 py-3 text-xl font-semibold text-cream hover:bg-rust-dark transition-colors disabled:opacity-50"
+            >
+              {loading ? "Eliminando..." : "Confirmar"}
+            </button>
           </div>
-        </div>
+          {error && <p className="text-lg text-rust-dark">{error}</p>}
+        </Modal>
       )}
     </div>
   );

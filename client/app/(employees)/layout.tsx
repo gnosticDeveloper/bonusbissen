@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { getPendingExchangesCount } from "@/app/(employees)/actions";
-import Sidebar from "@/components/sidebar";
+import EmployeeShell from "@/components/employee-shell";
 import { AuthProvider, EmployeeUser } from "@/providers/auth-provider";
 import { decodeEmployeePayload } from "@/lib/session";
 
@@ -12,10 +12,7 @@ export default async function EmployeesLayout({ children }: { children: React.Re
 
   return (
     <AuthProvider context={{ user, type: "employee" }}>
-      <div className="flex h-screen min-w-341.5 overflow-hidden">
-        <Sidebar hasPendings={pendingCount > 0} />
-        <main className="flex-1 ml-72 p-10 overflow-y-auto">{children}</main>
-      </div>
+      <EmployeeShell hasPendings={pendingCount > 0}>{children}</EmployeeShell>
     </AuthProvider>
   );
 }

@@ -45,9 +45,9 @@ export default async function ExchangesList({ query }: { query?: string }) {
 
       <div className="flex flex-col gap-3">
         {sorted.map((exchange) => {
-          const isApproved = exchange.state === "approved";
+          const isDelivered = exchange.state === "delivered";
           const isCancelled = exchange.state === "cancelled";
-          const inactive = isApproved || isCancelled;
+          const inactive = isDelivered || isCancelled;
 
           return (
             <div
@@ -62,7 +62,7 @@ export default async function ExchangesList({ query }: { query?: string }) {
             >
               {inactive && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  {isApproved ? (
+                  {isDelivered ? (
                     <Check className="h-20 w-20 text-ink/10" strokeWidth={3} />
                   ) : (
                     <Ban className="h-20 w-20 text-rust/10" strokeWidth={3} />
@@ -74,10 +74,10 @@ export default async function ExchangesList({ query }: { query?: string }) {
                 <div className="flex items-center gap-5">
                   <div
                     className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 ${
-                      isApproved ? "border-sage bg-sage" : isCancelled ? "border-rust bg-rust" : "border-ink/30 bg-transparent"
+                      isDelivered ? "border-sage bg-sage" : isCancelled ? "border-rust bg-rust" : "border-ink/30 bg-transparent"
                     }`}
                   >
-                    {isApproved && <Check className="h-5 w-5 text-cream" />}
+                    {isDelivered && <Check className="h-5 w-5 text-cream" />}
                     {isCancelled && <Ban className="h-5 w-5 text-cream" />}
                   </div>
 

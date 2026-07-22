@@ -1,8 +1,10 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Gift, Ticket, Receipt, LogOut, X, Sparkles } from "lucide-react";
+import { useFocusTrap } from "@/lib/use-focus-trap";
 
 type CustomerDrawerProps = {
   isOpen: boolean;
@@ -18,6 +20,8 @@ export default function CustomerDrawer({
   points,
 }: CustomerDrawerProps) {
   const router = useRouter();
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(panelRef, onCloseAction, isOpen);
 
   if (!isOpen) return null;
 
@@ -38,7 +42,13 @@ export default function CustomerDrawer({
     <div className="fixed inset-0 z-40">
       <div className="absolute inset-0 bg-black/50" onClick={onCloseAction} />
 
-      <div className="absolute top-0 left-0 h-full w-72 bg-cream flex flex-col shadow-xl">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="customer-drawer-title"
+        className="absolute top-0 left-0 h-full w-72 max-w-[85vw] bg-cream flex flex-col shadow-xl"
+      >
         <div className="px-6 py-6 flex flex-col gap-1">
           <button
             onClick={onCloseAction}
@@ -47,7 +57,7 @@ export default function CustomerDrawer({
           >
             <X className="h-5 w-5 text-ink-soft" />
           </button>
-          <p className="text-2xl font-bold text-ink">{name}</p>
+          <p id="customer-drawer-title" className="text-2xl font-bold text-ink">{name}</p>
           <div className="flex items-center gap-1.5 text-amber-dark">
             <Sparkles className="h-4 w-4" />
             <p className="text-lg font-semibold">{points} puntos</p>
