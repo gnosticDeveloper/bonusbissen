@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Gift, ImageOff, Percent, Pencil, Trash2 } from "lucide-react";
+import Image from "next/image";
 import type { Reward } from "@/lib/definitions";
 import { EmployeeRole, useAuth } from "@/providers/auth-provider";
 import { deleteReward, updateReward } from "@/app/rewards.actions";
@@ -50,11 +51,11 @@ export default function RewardCard({ r }: { r: Reward }) {
   return (
     <div className="rounded-2xl border border-ink/10 bg-cream-dark/30 overflow-hidden flex gap-4 shrink-0">
       <div className="w-32 h-full shrink-0 bg-ink/5 flex items-center justify-center">
-        {/*{r.imagePath ? (
+        {r.imagePath ? (
           <Image width={128} height={128} src={r.imagePath} alt={r.title} className="w-full h-full object-cover" />
-        ) : (*/}
-        <ImageOff className="h-6 w-6 text-ink-soft" />
-        {/*)}*/}
+        ) : (
+          <ImageOff className="h-6 w-6 text-ink-soft" />
+        )}
       </div>
 
       <div className="flex-1 py-4 pr-5 flex flex-col gap-2">

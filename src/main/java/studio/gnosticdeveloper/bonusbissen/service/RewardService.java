@@ -93,10 +93,8 @@ public class RewardService {
         Path destino = Paths.get(uploadsDir, filename);
         Files.createDirectories(destino.getParent());
 
-        // TODO: Implement file saving, with or without resizing the image.
-        // Note: Thumbnails is not the only way to resize images, but it's a simple and effective solution for this use case.
-        // We can simply save the file normally without using this library.
-        // Thumbnails.of(file.getInputStream()).size(MAX_WIDTH, MAX_WIDTH).outputFormat("jpg").outputQuality(0.8).toFile(destino.toFile());
+        // TODO: discuss if it is worth it to add compression or resizing for this. For a single user, it is acceptable to fetch the file directly. Later on, it will likely pay to add compression at the very least
+        file.transferTo(destino);
 
         return "rewards/" + filename;
     }
