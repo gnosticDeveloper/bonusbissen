@@ -85,6 +85,19 @@ export async function getTopRewards(): Promise<TopReward[]> {
   return data;
 }
 
+export type TopClient = {
+  id: string;
+  name: string;
+  totalPoints: number;
+};
+
+export async function getTopClients(): Promise<TopClient[]> {
+  const response = await apiFetch("/customers/top", {}, { tokenKey: "employee_token", redirectTo: "/login" });
+
+  const data = await response.json();
+  return data;
+}
+
 type CustomerPointsAward = {
   customerName: string;
   pointsGranted: number;

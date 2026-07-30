@@ -2,9 +2,11 @@ package studio.gnosticdeveloper.bonusbissen.repository;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 
 public interface RewardRepository extends JpaRepository<Reward, UUID> {
@@ -21,8 +23,11 @@ public interface RewardRepository extends JpaRepository<Reward, UUID> {
     )
     List<Reward> findByActiveTrue(@Param("search") String search);
 
-    // @Query(
-    //     value = "select new TopRewardResponse(r.id, r.title, count(tx), r.points) from PointTransaction tx, Reward r where tx.state != 'cancelled' and tx.reward.id = r.id group by r.id, r.title, r.points order by count(tx) DESC"
-    // )
-    // List<TopRewardResponse> getTopRewards(Pageable pageable);
+    @Query(
+        value = "select new studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse(r.id, r.title, cast(count(tx) as integer), r.costPoints) " +
+                "from PointTransaction tx, Reward r " +
+                "where tx.state != 'cancelled' and tx.reward.id = r.id " +
+                "group by r.id, r.title, r.costPoints order by count(tx) DESC"
+    )
+    List<TopRewardResponse> getTopRewards(Pageable pageable);
 }

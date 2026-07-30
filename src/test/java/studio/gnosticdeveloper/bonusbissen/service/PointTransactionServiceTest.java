@@ -1,90 +1,155 @@
-// package studio.gnosticdeveloper.bonusbissen.service;
+package studio.gnosticdeveloper.bonusbissen.service;
 
-// import org.junit.jupiter.api.Test;
-// import org.junit.jupiter.api.extension.ExtendWith;
-// import org.mockito.InjectMocks;
-// import org.mockito.Mock;
-// import org.mockito.junit.jupiter.MockitoExtension;
-// import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeCreateRequest;
-// import studio.gnosticdeveloper.bonusbissen.entity.*;
-// import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException;
-// import studio.gnosticdeveloper.bonusbissen.repository.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCancelExchangeRequest;
+import studio.gnosticdeveloper.bonusbissen.entity.Customer;
+import studio.gnosticdeveloper.bonusbissen.entity.Employee;
+import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
+import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
+import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
+import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
+import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 
-// import java.util.Optional;
-// import java.util.UUID;
+import java.util.Optional;
+import java.util.UUID;
 
-// import static org.assertj.core.api.Assertions.assertThat;
-// import static org.assertj.core.api.Assertions.assertThatThrownBy;
-// import static org.mockito.ArgumentMatchers.any;
-// import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-// @ExtendWith(MockitoExtension.class)
-// class PointTransactionServiceTest {
+@ExtendWith(MockitoExtension.class)
+class PointTransactionServiceTest {
 
-//     @Mock
-//     private CustomerRepository customerRepository;
-//     @Mock
-//     private EmployeeRepository employeeRepository;
-//     @Mock
-//     private MenuItemRepository menuItemRepository;
-//     @Mock
-//     private RewardRepository rewardRepository;
-//     @Mock
-//     private PointTransactionRepository pointTransactionRepository;
+    @Mock
+    private PointTransactionRepository pointTransactionRepository;
+    @Mock
+    private ExchangeCodeRepository exchangeCodeRepository;
+    @Mock
+    private EmployeeRepository employeeRepository;
 
-//     @InjectMocks
-//     private PointTransactionService pointTransactionService;
+    @InjectMocks
+    private PointTransactionService pointTransactionService;
 
-//     @Test
-//     void redemptionBelowBalanceThrowsInsufficientPoints() {
-//         Customer customer = new Customer();
-//         customer.setId(UUID.randomUUID());
-//         customer.setDocument("doc-1");
+    @Test
+    void approveExchangeMarksTransactionAsDeliveredAndAssignsEmployee() {
+        PointTransaction tx = new PointTransaction();
+        tx.setId(UUID.randomUUID());
+        tx.setState(TransactionState.PENDING);
 
-//         Employee employee = new Employee();
-//         employee.setId(UUID.randomUUID());
+        Employee employee = new Employee();
+        employee.setId(UUID.randomUUID());
 
-//         Reward reward = new Reward();
-//         reward.setId(UUID.randomUUID());
-//         reward.setCostPoints(50);
+        when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
+        when(employeeRepository.findById(employee.getId())).thenReturn(Optional.of(employee));
 
-//         when(customerRepository.findByDocumentForUpdate("doc-1")).thenReturn(Optional.of(customer));
-//         when(employeeRepository.findById(employee.getId())).thenReturn(Optional.of(employee));
-//         when(rewardRepository.findById(reward.getId())).thenReturn(Optional.of(reward));
-//         when(pointTransactionRepository.sumPointsDeltaByCustomerId(customer.getId())).thenReturn(20);
+        pointTransactionService.approveExchange(new ApproveExchangeRequest(tx.getId(), employee.getId()));
 
-//         ExchangeCreateRequest request = new ExchangeCreateRequest(
-//                 "doc-1", TransactionType.REDEMPTION, null, reward.getId(), null, null);
+        assertThat(tx.getState()).isEqualTo(TransactionState.DELIVERED);
+        assertThat(tx.getEmployee()).isEqualTo(employee);
+        verify(pointTransactionRepository).save(tx);
+    }
 
-//         assertThatThrownBy(() -> pointTransactionService.create(request, employee.getId()))
-//                 .isInstanceOf(InsufficientPointsException.class);
-//     }
+    @Test
+    void approveExchangeWithUnknownIdThrowsNotFound() {
+        UUID id = UUID.randomUUID();
+        when(pointTransactionRepository.findById(id)).thenReturn(Optional.empty());
 
-//     @Test
-//     void purchaseSetsPositivePointsDeltaFromMenuItem() {
-//         Customer customer = new Customer();
-//         customer.setId(UUID.randomUUID());
-//         customer.setDocument("doc-2");
+        assertThatThrownBy(() -> pointTransactionService.approveExchange(new ApproveExchangeRequest(id, UUID.randomUUID())))
+            .isInstanceOf(NotFoundException.class);
+    }
 
-//         Employee employee = new Employee();
-//         employee.setId(UUID.randomUUID());
+    @Test
+    void cancelExchangeWithoutRefundOnlySavesTheOriginalTransaction() {
+        PointTransaction tx = new PointTransaction();
+        tx.setId(UUID.randomUUID());
+        tx.setState(TransactionState.PENDING);
+        tx.setPoints(-20);
 
-//         MenuItem menuItem = new MenuItem();
-//         menuItem.setId(UUID.randomUUID());
-//         menuItem.setPointsValue(15);
+        Employee employee = new Employee();
+        employee.setId(UUID.randomUUID());
 
-//         when(customerRepository.findByDocumentForUpdate("doc-2")).thenReturn(Optional.of(customer));
-//         when(employeeRepository.findById(employee.getId())).thenReturn(Optional.of(employee));
-//         when(menuItemRepository.findById(menuItem.getId())).thenReturn(Optional.of(menuItem));
-//         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-//         when(pointTransactionRepository.sumPointsDeltaByCustomerId(customer.getId())).thenReturn(15);
+        when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
+        when(employeeRepository.findById(employee.getId())).thenReturn(Optional.of(employee));
 
-//         ExchangeCreateRequest request = new ExchangeCreateRequest(
-//                 "doc-2", TransactionType.PURCHASE, menuItem.getId(), null, null, null);
+        pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), employee.getId(), false));
 
-//         PointTransactionService.Result result = pointTransactionService.create(request, employee.getId());
+        assertThat(tx.getState()).isEqualTo(TransactionState.CANCELLED);
+        verify(pointTransactionRepository, times(1)).save(any());
+    }
 
-//         assertThat(result.transaction().getPointsDelta()).isEqualTo(15);
-//         assertThat(result.newBalance()).isEqualTo(15);
-//     }
-// }
+    @Test
+    void cancelExchangeWithRefundCreatesAnEarnTransactionForTheAbsoluteAmount() {
+        Customer customer = new Customer();
+        customer.setId(UUID.randomUUID());
+
+        PointTransaction tx = new PointTransaction();
+        tx.setId(UUID.randomUUID());
+        tx.setState(TransactionState.PENDING);
+        tx.setPoints(-20);
+        tx.setCustomer(customer);
+
+        Employee employee = new Employee();
+        employee.setId(UUID.randomUUID());
+
+        when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
+        when(employeeRepository.findById(employee.getId())).thenReturn(Optional.of(employee));
+        when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), employee.getId(), true));
+
+        ArgumentCaptor<PointTransaction> captor = ArgumentCaptor.forClass(PointTransaction.class);
+        verify(pointTransactionRepository, times(2)).save(captor.capture());
+
+        PointTransaction refund = captor.getAllValues().get(1);
+        assertThat(refund.getPoints()).isEqualTo(20);
+        assertThat(refund.getTransactionType()).isEqualTo(TransactionType.EARN);
+        assertThat(refund.getState()).isEqualTo(TransactionState.DELIVERED);
+        assertThat(refund.getCustomer()).isEqualTo(customer);
+    }
+
+    @Test
+    void customerCancelExchangeAlwaysRefundsPoints() {
+        Customer customer = new Customer();
+        customer.setId(UUID.randomUUID());
+
+        PointTransaction tx = new PointTransaction();
+        tx.setId(UUID.randomUUID());
+        tx.setState(TransactionState.PENDING);
+        tx.setPoints(-15);
+        tx.setCustomer(customer);
+
+        when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
+        when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        pointTransactionService.customerCancelExchange(new CustomerCancelExchangeRequest(tx.getId()));
+
+        assertThat(tx.getState()).isEqualTo(TransactionState.CANCELLED);
+
+        ArgumentCaptor<PointTransaction> captor = ArgumentCaptor.forClass(PointTransaction.class);
+        verify(pointTransactionRepository, times(2)).save(captor.capture());
+
+        PointTransaction refund = captor.getAllValues().get(1);
+        assertThat(refund.getPoints()).isEqualTo(15);
+        assertThat(refund.getTransactionType()).isEqualTo(TransactionType.EARN);
+        assertThat(refund.getState()).isEqualTo(TransactionState.DELIVERED);
+    }
+
+    @Test
+    void verifyExchangeWithUnknownCodeThrowsNotFound() {
+        when(exchangeCodeRepository.findActiveByCode("000000")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> pointTransactionService.verifyExchange("000000")).isInstanceOf(NotFoundException.class);
+    }
+}

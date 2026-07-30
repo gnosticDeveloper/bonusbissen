@@ -1,10 +1,9 @@
 package studio.gnosticdeveloper.bonusbissen;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import studio.gnosticdeveloper.bonusbissen.integration.AbstractIntegrationTest;
 
-@SpringBootTest
-class BonusbissenApplicationTests {
+class BonusbissenApplicationTests extends AbstractIntegrationTest {
 
     @Test
     void contextLoads() {

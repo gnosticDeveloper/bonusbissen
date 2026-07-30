@@ -1,19 +1,20 @@
 import { Gift, Clock, Users, Sparkles, ArrowUpRight } from "lucide-react";
 import StatCard from "@/components/stat-card";
 import PingDot from "@/components/ping-dot";
-import { getHomeStats, getPendingExchanges, TopReward } from "./actions";
+import { getHomeStats, getPendingExchanges, getTopRewards, getTopClients } from "./actions";
 import HomeTitle from "@/components/home-title";
 
 export default async function HomePage() {
-  const [stats, pendingExchanges] = await Promise.all([
+  const [stats, pendingExchanges, topRewards, topClients] = await Promise.all([
     getHomeStats(),
-    // getTopRewards(),
     getPendingExchanges(),
+    getTopRewards(),
+    getTopClients(),
   ]);
 
-  const topRewards: TopReward[] = [];
-
   const hasPending = pendingExchanges.length > 0;
+  const visibleSections = [hasPending, topRewards.length > 0, topClients.length > 0].filter(Boolean).length;
+  const gridColsClass = visibleSections >= 3 ? "grid-cols-3" : visibleSections === 2 ? "grid-cols-2" : "grid-cols-1";
 
   return (
     <div className="flex flex-col gap-10">
@@ -35,7 +36,7 @@ export default async function HomePage() {
         <StatCard label="Puntos otorgados" value={stats.totalPointsAwarded.toLocaleString("es-AR")} icon={Sparkles} accent="amber" />
       </section>
 
-      <section className={`grid gap-6 ${hasPending ? "grid-cols-2" : "grid-cols-1"}`}>
+      <section className={`grid gap-6 ${gridColsClass}`}>
         {hasPending ? (
           <div className="rounded-2xl border border-ink/10 bg-cream-dark/30 p-6">
             <div className="flex items-center justify-between mb-6">
@@ -80,6 +81,23 @@ export default async function HomePage() {
                     </div>
                   </div>
                   <p className="text-lg text-sage-dark font-semibold">{r.points} pts</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {topClients.length > 0 ? (
+          <div className="rounded-2xl border border-ink/10 bg-cream-dark/30 p-6">
+            <h3 className="text-2xl font-bold text-ink mb-6">Clientes destacados</h3>
+            <ul className="flex flex-col gap-3">
+              {topClients.map((c, i) => (
+                <li key={c.id} className="flex items-center justify-between rounded-xl bg-cream px-4 py-3">
+                  <div className="flex items-center gap-4">
+                    <span className="text-xl font-bold text-amber-dark w-6">{i + 1}</span>
+                    <p className="text-xl text-ink font-medium">{c.name}</p>
+                  </div>
+                  <p className="text-lg text-sage-dark font-semibold">{c.totalPoints.toLocaleString("es-AR")} pts</p>
                 </li>
               ))}
             </ul>

@@ -15,6 +15,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
 import studio.gnosticdeveloper.bonusbissen.service.CustomerService;
 
 @RestController
@@ -64,6 +65,12 @@ public class CustomerController {
     @GetMapping("/{id}/movements")
     public List<MovementResponse> getMovementsHistory(@PathVariable UUID id) {
         return customerService.getMovementsByCustomerId(id);
+    }
+
+    @GetMapping("/top")
+    @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
+    public List<TopClientResponse> getTopClients() {
+        return customerService.getTopClients();
     }
 
     /**

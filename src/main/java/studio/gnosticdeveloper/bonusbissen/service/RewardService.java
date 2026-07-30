@@ -8,11 +8,14 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RewardCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RewardUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
@@ -44,11 +47,11 @@ public class RewardService {
         return rewardRepository.findById(id).orElseThrow(() -> new NotFoundException("Reward not found: " + id));
     }
 
-    // @Transactional(readOnly = true)
-    // public List<TopRewardResponse> getTopRewards() {
-    //     Pageable topTen = PageRequest.of(0, 10);
-    //     return rewardRepository.getTopRewards(topTen);
-    // }
+    @Transactional(readOnly = true)
+    public List<TopRewardResponse> getTopRewards() {
+        Pageable topTen = PageRequest.of(0, 10);
+        return rewardRepository.getTopRewards(topTen);
+    }
 
     @Transactional
     public Reward create(RewardCreateRequest request) {

@@ -3,6 +3,8 @@ package studio.gnosticdeveloper.bonusbissen.service;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
@@ -12,6 +14,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsAwardRespo
 import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Customer;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
@@ -105,6 +108,12 @@ public class CustomerService {
     public List<MovementResponse> getMovementsByCustomerId(UUID customerId) {
         List<PointTransaction> movements = pointTransactionRepository.findAllByCustomerIdOrderByCreatedAtDesc(customerId);
         return movements.stream().map(MovementResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<TopClientResponse> getTopClients() {
+        Pageable topTen = PageRequest.of(0, 10);
+        return customerRepository.getTopClients(topTen);
     }
 
     @Transactional

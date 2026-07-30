@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RewardCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RewardUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.RewardResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse;
 import studio.gnosticdeveloper.bonusbissen.service.RewardService;
 
 @RestController
@@ -34,11 +35,11 @@ public class RewardController {
         return RewardResponse.from(rewardService.findById(id));
     }
 
-    // @GetMapping("/top")
-    // @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
-    // public List<TopRewardResponse> getTopRewards() {
-    //     return rewardService.getTopRewards();
-    // }
+    @GetMapping("/top")
+    @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
+    public List<TopRewardResponse> getTopRewards() {
+        return rewardService.getTopRewards();
+    }
 
     @PostMapping(consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
     @PreAuthorize("hasRole('ADMIN')")
