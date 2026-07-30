@@ -32,8 +32,6 @@ fi
 
 mkdir -p "nginx/certbot/conf/live/$DOMAIN" nginx/certbot/www
 
-# Dummy cert so nginx has something to load and can start serving the
-# ACME HTTP challenge on port 80.
 if [ ! -f "nginx/certbot/conf/live/$DOMAIN/fullchain.pem" ]; then
   openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
     -keyout "nginx/certbot/conf/live/$DOMAIN/privkey.pem" \
@@ -42,6 +40,10 @@ if [ ! -f "nginx/certbot/conf/live/$DOMAIN/fullchain.pem" ]; then
 fi
 
 docker compose up -d nginx
+
+rm -rf "nginx/certbot/conf/live/$DOMAIN" \
+       "nginx/certbot/conf/archive/$DOMAIN" \
+       "nginx/certbot/conf/renewal/$DOMAIN.conf"
 
 docker compose run --rm certbot certonly \
   --webroot -w /var/www/certbot \
