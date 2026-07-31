@@ -79,6 +79,96 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void grantPointsToInactiveCustomerReturnsNotFound() {
+        Employee cashier = createEmployee("cashier-grant-inactive", "password123", EmployeeRole.CASHIER);
+        String token = loginEmployee("cashier-grant-inactive", "password123");
+        Customer customer = createInactiveCustomer("+5493462002001");
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/customers/grant",
+            HttpMethod.POST,
+            authed(token, new GrantPointsRequest(customer.getId(), 50)),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void getCustomerByPhoneForInactiveCustomerReturnsNotFound() {
+        Employee cashier = createEmployee("cashier-lookup-inactive", "password123", EmployeeRole.CASHIER);
+        String token = loginEmployee("cashier-lookup-inactive", "password123");
+        createInactiveCustomer("+5493462002002");
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/customers/phone/+5493462002002",
+            HttpMethod.GET,
+            authed(token),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void claimRewardWithStaleTokenAfterDeactivationIsRejected() {
+        // JwtAuthFilter re-resolves the token's principal against the DB on every
+        // request (see PrincipalResolver); once active=false the principal no longer
+        // resolves, so the request falls through as anonymous and Spring Security
+        // rejects it here, before CustomerService.claimReward's own active check
+        // would ever run.
+        Employee admin = createEmployee("admin-deactivate", "password123", EmployeeRole.ADMIN);
+        String adminToken = loginEmployee("admin-deactivate", "password123");
+        Employee cashier = createEmployee("cashier-deactivate", "password123", EmployeeRole.CASHIER);
+        String cashierToken = loginEmployee("cashier-deactivate", "password123");
+
+        Customer customer = createCustomer("+5493462002003");
+        grant(cashierToken, customer.getId(), 100);
+        String customerToken = loginCustomer("+5493462002003");
+
+        Reward reward = createReward("Free Croissant", 30);
+
+        restTemplate.exchange(
+            baseUrl() + "/customers/" + customer.getId(),
+            HttpMethod.DELETE,
+            authed(adminToken),
+            Void.class
+        );
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/customers/claim-reward",
+            HttpMethod.POST,
+            authed(customerToken, new ClaimRewardRequest(customer.getId(), reward.getId())),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void claimRewardOnBehalfOfAnotherCustomerIsRejectedRegardlessOfTheirActiveStatus() {
+        // claim-reward now requires the caller's own id to match the target
+        // customerId (see AdversarialIntegrationTest), so that check fires
+        // before CustomerService.claimReward's own active-customer check ever
+        // gets a chance to run — 403, not 404.
+        Employee cashier = createEmployee("cashier-claim-inactive", "password123", EmployeeRole.CASHIER);
+        String cashierToken = loginEmployee("cashier-claim-inactive", "password123");
+        Customer requester = createCustomer("+5493462002004");
+        String requesterToken = loginCustomer("+5493462002004");
+        Customer inactiveCustomer = createInactiveCustomer("+5493462002005");
+        Reward reward = createReward("Free Scone", 30);
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/customers/claim-reward",
+            HttpMethod.POST,
+            authed(requesterToken, new ClaimRewardRequest(inactiveCustomer.getId(), reward.getId())),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
     void grantPointsRequiresCashierOrAdminRole() {
         Customer customer = createCustomer("+5493462001002");
         String customerToken = loginCustomer("+5493462001002");

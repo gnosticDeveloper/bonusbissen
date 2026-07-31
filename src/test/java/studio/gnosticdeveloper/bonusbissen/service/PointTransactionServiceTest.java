@@ -6,6 +6,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCancelExchangeRequest;
@@ -14,6 +15,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.Employee;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
+import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
@@ -71,6 +73,20 @@ class PointTransactionServiceTest {
     }
 
     @Test
+    void approveExchangeThatIsNotPendingThrowsConflict() {
+        PointTransaction tx = new PointTransaction();
+        tx.setId(UUID.randomUUID());
+        tx.setState(TransactionState.DELIVERED);
+
+        when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
+
+        assertThatThrownBy(() -> pointTransactionService.approveExchange(new ApproveExchangeRequest(tx.getId(), UUID.randomUUID())))
+            .isInstanceOf(ConflictException.class);
+
+        verify(pointTransactionRepository, times(0)).save(any());
+    }
+
+    @Test
     void cancelExchangeWithoutRefundOnlySavesTheOriginalTransaction() {
         PointTransaction tx = new PointTransaction();
         tx.setId(UUID.randomUUID());
@@ -87,6 +103,20 @@ class PointTransactionServiceTest {
 
         assertThat(tx.getState()).isEqualTo(TransactionState.CANCELLED);
         verify(pointTransactionRepository, times(1)).save(any());
+    }
+
+    @Test
+    void cancelExchangeThatIsNotPendingThrowsConflict() {
+        PointTransaction tx = new PointTransaction();
+        tx.setId(UUID.randomUUID());
+        tx.setState(TransactionState.CANCELLED);
+
+        when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
+
+        assertThatThrownBy(() -> pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), UUID.randomUUID(), true)))
+            .isInstanceOf(ConflictException.class);
+
+        verify(pointTransactionRepository, times(0)).save(any());
     }
 
     @Test
@@ -133,7 +163,7 @@ class PointTransactionServiceTest {
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        pointTransactionService.customerCancelExchange(new CustomerCancelExchangeRequest(tx.getId()));
+        pointTransactionService.customerCancelExchange(new CustomerCancelExchangeRequest(tx.getId()), customer.getId());
 
         assertThat(tx.getState()).isEqualTo(TransactionState.CANCELLED);
 
@@ -144,6 +174,44 @@ class PointTransactionServiceTest {
         assertThat(refund.getPoints()).isEqualTo(15);
         assertThat(refund.getTransactionType()).isEqualTo(TransactionType.EARN);
         assertThat(refund.getState()).isEqualTo(TransactionState.DELIVERED);
+    }
+
+    @Test
+    void customerCancelExchangeForAnotherCustomerThrowsAccessDenied() {
+        Customer owner = new Customer();
+        owner.setId(UUID.randomUUID());
+        UUID caller = UUID.randomUUID();
+
+        PointTransaction tx = new PointTransaction();
+        tx.setId(UUID.randomUUID());
+        tx.setState(TransactionState.PENDING);
+        tx.setPoints(-15);
+        tx.setCustomer(owner);
+
+        when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
+
+        assertThatThrownBy(() -> pointTransactionService.customerCancelExchange(new CustomerCancelExchangeRequest(tx.getId()), caller))
+            .isInstanceOf(AccessDeniedException.class);
+
+        verify(pointTransactionRepository, times(0)).save(any());
+    }
+
+    @Test
+    void customerCancelExchangeThatIsNotPendingThrowsConflict() {
+        Customer customer = new Customer();
+        customer.setId(UUID.randomUUID());
+
+        PointTransaction tx = new PointTransaction();
+        tx.setId(UUID.randomUUID());
+        tx.setState(TransactionState.DELIVERED);
+        tx.setCustomer(customer);
+
+        when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
+
+        assertThatThrownBy(() -> pointTransactionService.customerCancelExchange(new CustomerCancelExchangeRequest(tx.getId()), customer.getId()))
+            .isInstanceOf(ConflictException.class);
+
+        verify(pointTransactionRepository, times(0)).save(any());
     }
 
     @Test

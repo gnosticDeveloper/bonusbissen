@@ -22,6 +22,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
+import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.CustomerRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
@@ -73,6 +74,7 @@ public class CustomerService {
     public Customer getByPhone(String phone) {
         return customerRepository
             .findByPhone(phone)
+            .filter(Customer::isActive)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el número de teléfono " + phone + "."));
     }
 
@@ -122,6 +124,7 @@ public class CustomerService {
         tx.setCustomer(
             customerRepository
                 .findById(request.customerId())
+                .filter(Customer::isActive)
                 .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.customerId() + "."))
         );
         tx.setPoints(request.points());
@@ -136,12 +139,18 @@ public class CustomerService {
         PointTransaction tx = new PointTransaction();
         Customer customer = customerRepository
             .findById(request.customerId())
+            .filter(Customer::isActive)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.customerId() + "."));
         tx.setCustomer(customer);
         Reward reward = rewardRepository
             .findById(request.rewardId())
+            .filter(Reward::isActive)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar una recompensa con el ID " + request.rewardId() + "."));
         tx.setReward(reward);
+
+        if (getBalance(customer.getId()) < reward.getCostPoints()) {
+            throw new InsufficientPointsException("El cliente no tiene puntos suficientes para canjear \"" + reward.getTitle() + "\".");
+        }
 
         int negativePoints = reward.getCostPoints() * -1;
 

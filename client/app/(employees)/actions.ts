@@ -119,24 +119,24 @@ export async function grantPointsToCustomer(customerId: string, points: number):
 }
 
 export async function verifyExchangeCode(code: string): Promise<Exchange | null> {
-  const res = await apiFetch(
-    `/exchanges/verify`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+  try {
+    const res = await apiFetch(
+      `/exchanges/verify`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ code }),
       },
-      body: JSON.stringify({ code }),
-    },
-    { redirectTo: "/login", tokenKey: "employee_token" },
-  );
+      { redirectTo: "/login", tokenKey: "employee_token" },
+    );
 
-  if (!res.ok) {
+    return await res.json();
+  } catch {
+    // apiFetch throws on any non-2xx response, e.g. a code that doesn't exist.
     return null;
   }
-
-  const data = await res.json();
-  return data;
 }
 
 export type VerifyCodeState = {

@@ -8,12 +8,15 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeReviewResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
+import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
 import studio.gnosticdeveloper.bonusbissen.service.PointTransactionService;
 
 import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -58,20 +61,23 @@ public class PointTransactionController {
     }
 
     @PostMapping("/cancel")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     @ResponseStatus(code = HttpStatus.OK)
     public void cancelExchange(@RequestBody CancelExchangeRequest request) {
         pointTransactionService.cancelExchange(request);
     }
 
     @PostMapping("/approve")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     @ResponseStatus(code = HttpStatus.OK)
     public void approveExchange(@RequestBody ApproveExchangeRequest request) {
         pointTransactionService.approveExchange(request);
     }
 
     @PostMapping("/customer-cancel")
+    @PreAuthorize("hasRole('CUSTOMER')")
     @ResponseStatus(code = HttpStatus.OK)
-    public void customerCancelExchange(@RequestBody CustomerCancelExchangeRequest request) {
-        pointTransactionService.customerCancelExchange(request);
+    public void customerCancelExchange(@RequestBody CustomerCancelExchangeRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        pointTransactionService.customerCancelExchange(request, principal.id());
     }
 }

@@ -16,10 +16,13 @@ import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
+import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
+
+import org.springframework.security.access.AccessDeniedException;
 
 @Service
 public class PointTransactionService {
@@ -81,6 +84,10 @@ public class PointTransactionService {
             .findById(request.id())
             .orElseThrow(() -> new NotFoundException("Point transaction not found: " + request.id()));
 
+        if (pointTransaction.getState() != TransactionState.PENDING) {
+            throw new ConflictException("El canje " + request.id() + " ya fue procesado (" + pointTransaction.getState() + ").");
+        }
+
         Employee employee = employeeRepository
             .findById(request.employeeId())
             .orElseThrow(() -> new NotFoundException("Employee not found: " + request.employeeId()));
@@ -95,6 +102,10 @@ public class PointTransactionService {
         PointTransaction pointTransaction = pointTransactionRepository
             .findById(request.id())
             .orElseThrow(() -> new NotFoundException("Point transaction not found: " + request.id()));
+
+        if (pointTransaction.getState() != TransactionState.PENDING) {
+            throw new ConflictException("El canje " + request.id() + " ya fue procesado (" + pointTransaction.getState() + ").");
+        }
 
         Employee employee = employeeRepository
             .findById(request.employeeId())
@@ -121,12 +132,25 @@ public class PointTransactionService {
     }
 
     @Transactional
-    public void customerCancelExchange(CustomerCancelExchangeRequest request) {
+    public void customerCancelExchange(CustomerCancelExchangeRequest request, UUID callerId) {
         PointTransaction pointTransaction = pointTransactionRepository
             .findById(request.exchangeId())
             .orElseThrow(() -> new NotFoundException("Point transaction not found: " + request.exchangeId()));
 
+        if (!pointTransaction.getCustomer().getId().equals(callerId)) {
+            throw new AccessDeniedException("No podés cancelar el canje de otro cliente.");
+        }
+
+        if (pointTransaction.getState() != TransactionState.PENDING) {
+            throw new ConflictException("El canje " + request.exchangeId() + " ya fue procesado (" + pointTransaction.getState() + ").");
+        }
+
         pointTransaction.setState(TransactionState.CANCELLED);
+
+        if (pointTransaction.getExchangeCode() != null) {
+            pointTransaction.getExchangeCode().setActive(false);
+        }
+
         pointTransactionRepository.save(pointTransaction);
 
         // refund points to customer by creating a new point transaction

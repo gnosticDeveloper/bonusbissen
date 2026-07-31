@@ -142,13 +142,6 @@ export async function getRewards(): Promise<Reward[]> {
   return formattedData;
 }
 
-export async function getReward(id: string): Promise<Reward> {
-  const res = await apiFetch(`/rewards/${id}`, {}, { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" });
-
-  if (!res.ok) throw new Error("No se pudo obtener la recompensa");
-  return await res.json();
-}
-
 export type LoginState = {
   error: string | null;
 };

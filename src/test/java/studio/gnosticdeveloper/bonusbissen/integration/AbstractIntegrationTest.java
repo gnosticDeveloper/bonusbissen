@@ -75,6 +75,12 @@ public abstract class AbstractIntegrationTest {
         return customerRepository.save(customer);
     }
 
+    protected Customer createInactiveCustomer(String phone) {
+        Customer customer = createCustomer(phone);
+        customer.setActive(false);
+        return customerRepository.save(customer);
+    }
+
     protected Reward createReward(String title, int costPoints) {
         Reward reward = new Reward();
         reward.setTitle(title);

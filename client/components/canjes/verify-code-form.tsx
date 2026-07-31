@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Check, Ban, AlertCircle, Search } from "lucide-react";
+import { Check, Ban, AlertCircle, CheckCircle2, Search } from "lucide-react";
 import { useAuth } from "@/providers/auth-provider";
 import CancelExchangeModal from "./cancel-exchange-modal";
 import { annulateExchange, approveExchange, verifyCodeAction, VerifyCodeState } from "@/app/(employees)/actions";
@@ -28,7 +28,7 @@ function VerifyButton() {
 // Todo lo que depende de "found" vive acá adentro. Al montarse con
 // key={exchange.id} desde el padre, arranca siempre con estado limpio,
 // no necesita ningún efecto para "resetearse" cuando cambia el canje.
-function FoundExchangePanel({ exchange }: { exchange: Exchange }) {
+function FoundExchangePanel({ exchange, onSettledAction }: { exchange: Exchange; onSettledAction: (message: string) => void }) {
   const [found, setFound] = useState<Exchange | null>(exchange);
   const [showCancel, setShowCancel] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -43,6 +43,7 @@ function FoundExchangePanel({ exchange }: { exchange: Exchange }) {
     try {
       await approveExchange(found.id, employee.user.id);
       setFound(null);
+      onSettledAction("Canje entregado con éxito.");
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "No se pudo entregar el canje.");
     } finally {
@@ -58,6 +59,7 @@ function FoundExchangePanel({ exchange }: { exchange: Exchange }) {
       await annulateExchange(found.id, employee.user.id, shouldRefundPoints);
       setShowCancel(false);
       setFound(null);
+      onSettledAction("Canje anulado con éxito.");
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "No se pudo anular el canje.");
       setShowCancel(false);
@@ -111,12 +113,18 @@ function FoundExchangePanel({ exchange }: { exchange: Exchange }) {
 
 export default function VerifyCodeForm() {
   const [state, formAction] = useActionState(verifyCodeAction, initialState);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  function handleSubmit(formData: FormData) {
+    setSuccessMessage(null);
+    formAction(formData);
+  }
 
   return (
     <div className="rounded-2xl border border-ink/10 bg-cream-dark/30 p-6 flex flex-col flex-1 gap-4">
       <h3 className="text-2xl font-bold text-ink">Verificar código de canje</h3>
 
-      <form action={formAction} className="flex flex-col gap-3">
+      <form action={handleSubmit} className="flex flex-col gap-3">
         <input
           type="text"
           autoComplete="off"
@@ -128,6 +136,13 @@ export default function VerifyCodeForm() {
         <VerifyButton />
       </form>
 
+      {successMessage && (
+        <div className="flex items-start gap-2 rounded-xl bg-sage/10 border border-sage/30 px-4 py-3">
+          <CheckCircle2 className="h-5 w-5 text-sage-dark shrink-0 mt-0.5" />
+          <p className="text-lg text-sage-dark">{successMessage}</p>
+        </div>
+      )}
+
       {state.error && (
         <div className="flex items-start gap-2 rounded-xl bg-rust/10 border border-rust/20 px-4 py-3">
           <AlertCircle className="h-5 w-5 text-rust-dark shrink-0 mt-0.5" />
@@ -135,7 +150,7 @@ export default function VerifyCodeForm() {
         </div>
       )}
 
-      {state.exchange && <FoundExchangePanel key={state.exchange.id} exchange={state.exchange} />}
+      {state.exchange && <FoundExchangePanel key={state.exchange.id} exchange={state.exchange} onSettledAction={setSuccessMessage} />}
     </div>
   );
 }

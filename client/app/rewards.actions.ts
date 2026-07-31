@@ -30,7 +30,12 @@ export async function getReward(id: string): Promise<Reward> {
   const res = await apiFetch(`/rewards/${id}`);
 
   if (!res.ok) throw new Error("No se pudo obtener la recompensa");
-  return await res.json();
+  const reward: Reward = await res.json();
+
+  return {
+    ...reward,
+    imagePath: reward.imagePath ? `${process.env.ASSETS_URL}${reward.imagePath}` : undefined,
+  };
 }
 
 export async function createReward(formData: FormData): Promise<void> {

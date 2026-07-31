@@ -17,6 +17,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
+import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.CustomerRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
@@ -93,6 +94,61 @@ class CustomerServiceTest {
     }
 
     @Test
+    void getByPhoneReturnsActiveCustomer() {
+        Customer customer = new Customer();
+        customer.setPhone("123");
+        customer.setActive(true);
+
+        when(customerRepository.findByPhone("123")).thenReturn(Optional.of(customer));
+
+        assertThat(customerService.getByPhone("123")).isSameAs(customer);
+    }
+
+    @Test
+    void getByPhoneWithInactiveCustomerThrowsNotFound() {
+        Customer customer = new Customer();
+        customer.setPhone("123");
+        customer.setActive(false);
+
+        when(customerRepository.findByPhone("123")).thenReturn(Optional.of(customer));
+
+        assertThatThrownBy(() -> customerService.getByPhone("123")).isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void grantPointsWithInactiveCustomerThrowsNotFound() {
+        UUID customerId = UUID.randomUUID();
+        Customer customer = new Customer();
+        customer.setId(customerId);
+        customer.setActive(false);
+
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+
+        assertThatThrownBy(() -> customerService.grantPoints(new GrantPointsRequest(customerId, 50)))
+            .isInstanceOf(NotFoundException.class);
+
+        verify(pointTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void claimRewardWithInactiveCustomerThrowsNotFound() {
+        UUID customerId = UUID.randomUUID();
+        Customer customer = new Customer();
+        customer.setId(customerId);
+        customer.setActive(false);
+
+        UUID rewardId = UUID.randomUUID();
+
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+
+        assertThatThrownBy(() -> customerService.claimReward(new ClaimRewardRequest(customerId, rewardId)))
+            .isInstanceOf(NotFoundException.class);
+
+        verify(rewardRepository, never()).findById(any());
+        verify(pointTransactionRepository, never()).save(any());
+    }
+
+    @Test
     void grantPointsCreatesDeliveredEarnTransaction() {
         UUID customerId = UUID.randomUUID();
         Customer customer = new Customer();
@@ -136,6 +192,7 @@ class CustomerServiceTest {
 
         when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
         when(rewardRepository.findById(rewardId)).thenReturn(Optional.of(reward));
+        when(pointTransactionRepository.calculatePointsByCustomerId(customerId)).thenReturn(30);
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         String code = customerService.claimReward(new ClaimRewardRequest(customerId, rewardId));
@@ -149,6 +206,48 @@ class CustomerServiceTest {
         assertThat(captor.getValue().getPoints()).isEqualTo(-30);
 
         verify(exchangeCodeRepository).save(any(ExchangeCode.class));
+    }
+
+    @Test
+    void claimRewardWithInsufficientBalanceThrowsInsufficientPoints() {
+        UUID customerId = UUID.randomUUID();
+        Customer customer = new Customer();
+        customer.setId(customerId);
+
+        UUID rewardId = UUID.randomUUID();
+        Reward reward = new Reward();
+        reward.setId(rewardId);
+        reward.setCostPoints(30);
+
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+        when(rewardRepository.findById(rewardId)).thenReturn(Optional.of(reward));
+        when(pointTransactionRepository.calculatePointsByCustomerId(customerId)).thenReturn(29);
+
+        assertThatThrownBy(() -> customerService.claimReward(new ClaimRewardRequest(customerId, rewardId)))
+            .isInstanceOf(InsufficientPointsException.class);
+
+        verify(pointTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void claimRewardWithDeactivatedRewardThrowsNotFound() {
+        UUID customerId = UUID.randomUUID();
+        Customer customer = new Customer();
+        customer.setId(customerId);
+
+        UUID rewardId = UUID.randomUUID();
+        Reward reward = new Reward();
+        reward.setId(rewardId);
+        reward.setCostPoints(30);
+        reward.setActive(false);
+
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+        when(rewardRepository.findById(rewardId)).thenReturn(Optional.of(reward));
+
+        assertThatThrownBy(() -> customerService.claimReward(new ClaimRewardRequest(customerId, rewardId)))
+            .isInstanceOf(NotFoundException.class);
+
+        verify(pointTransactionRepository, never()).save(any());
     }
 
     @Test

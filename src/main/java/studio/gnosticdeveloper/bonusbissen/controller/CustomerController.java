@@ -4,7 +4,9 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
@@ -16,6 +18,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
+import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
 import studio.gnosticdeveloper.bonusbissen.service.CustomerService;
 
 @RestController
@@ -37,12 +40,14 @@ public class CustomerController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteById(@PathVariable UUID id) {
+    public void deleteById(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        requireSelfIfCustomer(id, principal);
         customerService.deleteById(id);
     }
 
     @GetMapping("/{id}")
-    public CustomerPointsResponse getById(@PathVariable UUID id) {
+    public CustomerPointsResponse getById(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        requireSelfIfCustomer(id, principal);
         return customerService.getCustomerPointsById(id);
     }
 
@@ -58,13 +63,21 @@ public class CustomerController {
     }
 
     @GetMapping("/{id}/exchanges")
-    public List<HistoricalExchangeResponse> getHistoricalExchanges(@PathVariable UUID id) {
+    public List<HistoricalExchangeResponse> getHistoricalExchanges(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        requireSelfIfCustomer(id, principal);
         return customerService.getHistoricalExchangesByCustomerId(id);
     }
 
     @GetMapping("/{id}/movements")
-    public List<MovementResponse> getMovementsHistory(@PathVariable UUID id) {
+    public List<MovementResponse> getMovementsHistory(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        requireSelfIfCustomer(id, principal);
         return customerService.getMovementsByCustomerId(id);
+    }
+
+    private void requireSelfIfCustomer(UUID id, AuthenticatedPrincipal principal) {
+        if ("CUSTOMER".equals(principal.role()) && !principal.id().equals(id)) {
+            throw new AccessDeniedException("No podés acceder a los datos de otro cliente.");
+        }
     }
 
     @GetMapping("/top")
@@ -80,7 +93,11 @@ public class CustomerController {
      * @return The code of the reward that was claimed.
      */
     @PostMapping("/claim-reward")
-    public String claimReward(@Valid @RequestBody ClaimRewardRequest request) {
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public String claimReward(@Valid @RequestBody ClaimRewardRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        if (!principal.id().equals(request.customerId())) {
+            throw new AccessDeniedException("No podés canjear recompensas en nombre de otro cliente.");
+        }
         return customerService.claimReward(request);
     }
 }
