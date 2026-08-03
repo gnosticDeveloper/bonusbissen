@@ -129,7 +129,7 @@ public class RewardService {
                 System.err.println("Error al guardar la imagen: " + e.getMessage());
                 reward = rewardRepository.save(reward);
             }
-        } else if (request.removeImage()) {
+        } else if (Boolean.TRUE.equals(request.removeImage())) {
             // Caso 3: sacar imagen sin poner otra.
             reward.setImagePath(null);
             reward = rewardRepository.save(reward);

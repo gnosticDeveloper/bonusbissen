@@ -10,7 +10,7 @@ public record RewardUpdateRequest(
     @NotBlank String title,
     String description,
     MultipartFile image,
-    boolean removeImage,
+    Boolean removeImage,
     @NotNull @Positive Integer costPoints,
     BigDecimal discountValue
 ) {}
