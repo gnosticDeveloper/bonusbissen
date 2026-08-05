@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import ImageDropzone from "@/components/recompensas/image-dropzone";
 import Form from "next/form";
@@ -12,6 +13,7 @@ export default function CreateRewardForm() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
 
   if (!employee) return null;
 
@@ -25,6 +27,7 @@ export default function CreateRewardForm() {
     const result = await createReward(formData);
     if (result.ok) {
       formRef.current?.reset();
+      router.refresh();
     } else {
       setError(result.error);
     }

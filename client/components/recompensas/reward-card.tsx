@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Gift, ImageOff, Percent, Pencil, Trash2 } from "lucide-react";
 import Image from "next/image";
 import type { Reward } from "@/lib/definitions";
@@ -16,6 +17,7 @@ export default function RewardCard({ r }: { r: Reward }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const employee = useAuth();
 
@@ -27,6 +29,7 @@ export default function RewardCard({ r }: { r: Reward }) {
     const result = await deleteReward(r.id);
     if (result.ok) {
       setShowDeleteModal(false);
+      router.refresh();
     } else {
       setError(result.error);
     }
@@ -39,6 +42,7 @@ export default function RewardCard({ r }: { r: Reward }) {
     const result = await updateReward(r.id, formData);
     if (result.ok) {
       setShowEditModal(false);
+      router.refresh();
     } else {
       setError(result.error);
     }
