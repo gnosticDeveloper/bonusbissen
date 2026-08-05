@@ -35,7 +35,7 @@ public class AuthService {
 
     public LoginResponse login(LoginRequest request) {
         Employee employee = employeeRepository
-            .findByUsername(request.username())
+            .findByUsername(request.username().toLowerCase())
             .filter(Employee::isActive)
             .orElseThrow(() -> new BadCredentialsException("Invalid username or password"));
 
