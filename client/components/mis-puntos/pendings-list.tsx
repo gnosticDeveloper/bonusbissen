@@ -7,12 +7,17 @@ import { useState } from "react";
 export default function PendingsList({ pendings }: { pendings: PendingExchange[] }) {
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [items, setItems] = useState(pendings);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleCancel(id: string) {
-    // TODO: this method should return a proper response, like a success message or a boolean.
-    await cancelExchange(id);
-    setItems((prev) => prev.filter((p) => p.id !== id));
-    setCancelId(null);
+    setError(null);
+    const result = await cancelExchange(id);
+    if (result.ok) {
+      setItems((prev) => prev.filter((p) => p.id !== id));
+      setCancelId(null);
+    } else {
+      setError(result.error);
+    }
   }
 
   async function handleCopy(code: string) {
@@ -30,6 +35,7 @@ export default function PendingsList({ pendings }: { pendings: PendingExchange[]
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-2xl font-bold text-ink">Tenés canjes pendientes de retirar</h2>
+      {error && <p className="text-lg text-rust-dark">{error}</p>}
       <div className="flex flex-col gap-3">
         {items.map((p) => (
           <div key={p.id} className="rounded-2xl border border-rust/20 bg-rust/5 px-5 py-4 flex flex-col gap-3">

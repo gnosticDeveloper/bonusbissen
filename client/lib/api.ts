@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { ApiError } from "@/lib/api-error";
 
 export async function apiFetch(
   path: string,
@@ -22,8 +23,8 @@ export async function apiFetch(
 
   if (!res.ok) {
     console.log({ res });
-    const error = (await res.json()) as { error: string };
-    throw new Error(error.error);
+    const error = (await res.json()) as { error: string; code?: string; customerId?: string };
+    throw new ApiError(error.error, { code: error.code, customerId: error.customerId });
   }
   return res;
 }

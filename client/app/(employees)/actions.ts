@@ -1,6 +1,7 @@
 "use server";
 
 import { apiFetch } from "@/lib/api";
+import { ActionResult, runAction } from "@/lib/action-result";
 import { Customer, Exchange } from "@/lib/definitions";
 import { updateTag } from "next/cache";
 import { cookies } from "next/headers";
@@ -103,19 +104,19 @@ type CustomerPointsAward = {
   pointsGranted: number;
 };
 
-export async function grantPointsToCustomer(customerId: string, points: number): Promise<CustomerPointsAward> {
-  const response = await apiFetch(
-    "/customers/grant",
-    {
-      method: "POST",
-      body: JSON.stringify({ customerId, points }),
-      headers: { "Content-Type": "application/json" },
-    },
-    { tokenKey: "employee_token", redirectTo: "/login" },
-  );
-
-  const data = await response.json();
-  return data;
+export async function grantPointsToCustomer(customerId: string, points: number): Promise<ActionResult<CustomerPointsAward>> {
+  return runAction(async () => {
+    const response = await apiFetch(
+      "/customers/grant",
+      {
+        method: "POST",
+        body: JSON.stringify({ customerId, points }),
+        headers: { "Content-Type": "application/json" },
+      },
+      { tokenKey: "employee_token", redirectTo: "/login" },
+    );
+    return await response.json();
+  });
 }
 
 export async function verifyExchangeCode(code: string): Promise<Exchange | null> {
@@ -163,41 +164,42 @@ export async function verifyCodeAction(_prevState: VerifyCodeState, formData: Fo
   return { error: null, exchange };
 }
 
-export async function annulateExchange(exchangeId: string, employeeId: string, shouldRefundPoints: boolean = false): Promise<boolean> {
-  const res = await apiFetch(
-    `/exchanges/cancel`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+export async function annulateExchange(exchangeId: string, employeeId: string, shouldRefundPoints: boolean = false): Promise<ActionResult<void>> {
+  return runAction(async () => {
+    await apiFetch(
+      `/exchanges/cancel`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id: exchangeId, employeeId, shouldRefundPoints }),
       },
-      body: JSON.stringify({ id: exchangeId, employeeId, shouldRefundPoints }),
-    },
-    { redirectTo: "/login", tokenKey: "employee_token" },
-  );
+      { redirectTo: "/login", tokenKey: "employee_token" },
+    );
 
-  updateTag("pending-exchanges-employee");
-  updateTag("pending-exchanges-count");
-
-  return res.ok;
+    updateTag("pending-exchanges-employee");
+    updateTag("pending-exchanges-count");
+  });
 }
 
-export async function approveExchange(exchangeId: string, employeeId: string): Promise<boolean> {
-  const res = await apiFetch(
-    `/exchanges/approve`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+export async function approveExchange(exchangeId: string, employeeId: string): Promise<ActionResult<void>> {
+  return runAction(async () => {
+    await apiFetch(
+      `/exchanges/approve`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id: exchangeId, employeeId }),
       },
-      body: JSON.stringify({ id: exchangeId, employeeId }),
-    },
-    { redirectTo: "/login", tokenKey: "employee_token" },
-  );
+      { redirectTo: "/login", tokenKey: "employee_token" },
+    );
 
-  updateTag("pending-exchanges-employee");
-  updateTag("pending-exchanges-count");
-  return res.ok;
+    updateTag("pending-exchanges-employee");
+    updateTag("pending-exchanges-count");
+  });
 }
 
 export type LoginState = {

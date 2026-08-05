@@ -37,6 +37,12 @@ public class CustomerController {
         return CustomerResponse.from(customerService.create(request));
     }
 
+    @PatchMapping("/{id}/reactivate")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
+    public CustomerResponse reactivate(@PathVariable UUID id) {
+        return CustomerResponse.from(customerService.reactivate(id));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
     @ResponseStatus(HttpStatus.NO_CONTENT)

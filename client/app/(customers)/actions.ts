@@ -1,5 +1,6 @@
 "use server";
 import { apiFetch } from "@/lib/api";
+import { ActionResult, runAction } from "@/lib/action-result";
 import { Customer, ExchangeState, Reward } from "@/lib/definitions";
 import { updateTag } from "next/cache";
 import { cookies } from "next/headers";
@@ -31,38 +32,31 @@ export async function getPendingExchangesByCustomerId(customerId: string) {
   return exchanges as PendingExchange[];
 }
 
-export async function cancelExchange(exchangeId: string) {
-  const response = await apiFetch(
-    `/exchanges/customer-cancel`,
-    {
-      method: "POST",
-      body: JSON.stringify({ exchangeId }),
-      headers: { "Content-Type": "application/json" },
-    },
-    { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" },
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to cancel exchange");
-  }
-  updateTag("pending-exchanges");
-  return;
+export async function cancelExchange(exchangeId: string): Promise<ActionResult<void>> {
+  return runAction(async () => {
+    await apiFetch(
+      `/exchanges/customer-cancel`,
+      {
+        method: "POST",
+        body: JSON.stringify({ exchangeId }),
+        headers: { "Content-Type": "application/json" },
+      },
+      { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" },
+    );
+    updateTag("pending-exchanges");
+  });
 }
 
-export async function deleteCustomerById(customerId: string) {
-  const response = await apiFetch(
-    `/customers/${customerId}`,
-    {
-      method: "DELETE",
-    },
-    { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" },
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to delete customer");
-  }
-
-  return;
+export async function deleteCustomerById(customerId: string): Promise<ActionResult<void>> {
+  return runAction(async () => {
+    await apiFetch(
+      `/customers/${customerId}`,
+      {
+        method: "DELETE",
+      },
+      { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" },
+    );
+  });
 }
 
 export type HistoricalExchange = {

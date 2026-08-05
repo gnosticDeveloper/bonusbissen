@@ -23,6 +23,13 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", ex.getMessage()));
     }
 
+    @ExceptionHandler(InactiveCustomerConflictException.class)
+    public ResponseEntity<Map<String, String>> handleInactiveCustomerConflict(InactiveCustomerConflictException ex) {
+        return ResponseEntity
+            .status(HttpStatus.CONFLICT)
+            .body(Map.of("error", ex.getMessage(), "code", "INACTIVE_CUSTOMER", "customerId", ex.getCustomerId().toString()));
+    }
+
     @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<Map<String, String>> handleBadRequest(BadRequestException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));

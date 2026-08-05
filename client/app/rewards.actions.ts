@@ -1,6 +1,7 @@
 "use server";
 
 import { apiFetch } from "@/lib/api";
+import { ActionResult, runAction } from "@/lib/action-result";
 import type { Reward } from "@/lib/definitions";
 import { updateTag } from "next/cache";
 
@@ -38,42 +39,45 @@ export async function getReward(id: string): Promise<Reward> {
   };
 }
 
-export async function createReward(formData: FormData): Promise<void> {
-  const res = await apiFetch(
-    `/rewards`,
-    {
-      method: "POST",
-      body: formData, // esto no necesita Content-Type manual
-    },
-    { redirectTo: "/login", tokenKey: "employee_token" },
-  );
-  if (!res.ok) throw new Error("No se pudo crear la recompensa");
-  updateTag("get-rewards");
+export async function createReward(formData: FormData): Promise<ActionResult<Reward>> {
+  return runAction(async () => {
+    const res = await apiFetch(
+      `/rewards`,
+      {
+        method: "POST",
+        body: formData, // esto no necesita Content-Type manual
+      },
+      { redirectTo: "/login", tokenKey: "employee_token" },
+    );
+    const reward = await res.json();
+    updateTag("get-rewards");
+    return reward;
+  });
 }
 
-export async function updateReward(id: string, formData: FormData): Promise<Reward> {
-  const res = await apiFetch(
-    `/rewards/${id}`,
-    {
-      method: "PUT",
-      body: formData,
-    },
-    { redirectTo: "/login", tokenKey: "employee_token" },
-  );
-
-  if (!res.ok) throw new Error("No se pudo actualizar la recompensa");
-  return await res.json();
+export async function updateReward(id: string, formData: FormData): Promise<ActionResult<Reward>> {
+  return runAction(async () => {
+    const res = await apiFetch(
+      `/rewards/${id}`,
+      {
+        method: "PUT",
+        body: formData,
+      },
+      { redirectTo: "/login", tokenKey: "employee_token" },
+    );
+    return await res.json();
+  });
 }
 
-export async function deleteReward(id: string): Promise<void> {
-  const res = await apiFetch(
-    `/rewards/${id}`,
-    {
-      method: "DELETE",
-    },
-    { redirectTo: "/login", tokenKey: "employee_token" },
-  );
-
-  if (!res.ok) throw new Error("No se pudo eliminar la recompensa");
-  updateTag("get-rewards");
+export async function deleteReward(id: string): Promise<ActionResult<void>> {
+  return runAction(async () => {
+    await apiFetch(
+      `/rewards/${id}`,
+      {
+        method: "DELETE",
+      },
+      { redirectTo: "/login", tokenKey: "employee_token" },
+    );
+    updateTag("get-rewards");
+  });
 }

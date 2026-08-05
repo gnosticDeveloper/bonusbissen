@@ -23,30 +23,26 @@ export default function RewardCard({ r }: { r: Reward }) {
 
   const handleDelete = async () => {
     setError(null);
-    const { id } = r;
-
-    try {
-      setLoading(true);
-      await deleteReward(id);
+    setLoading(true);
+    const result = await deleteReward(r.id);
+    if (result.ok) {
       setShowDeleteModal(false);
-    } catch (error) {
-      if (error instanceof Error) setError(error.message);
-    } finally {
-      setLoading(false);
+    } else {
+      setError(result.error);
     }
+    setLoading(false);
   };
 
   const handleUpdate = async (formData: FormData) => {
     setError(null);
     setLoading(true);
-    try {
-      await updateReward(r.id, formData);
+    const result = await updateReward(r.id, formData);
+    if (result.ok) {
       setShowEditModal(false);
-    } catch (error) {
-      if (error instanceof Error) setError(error.message);
-    } finally {
-      setLoading(false);
+    } else {
+      setError(result.error);
     }
+    setLoading(false);
   };
 
   return (
@@ -154,18 +150,19 @@ export default function RewardCard({ r }: { r: Reward }) {
                 <span className="text-lg text-ink-soft">Descuento aplicado (100% = producto gratis)</span>
                 <div className="relative">
                   <input
-                    defaultValue={r.discountValue}
+                    defaultValue={r.discountValue ?? undefined}
                     name="discountValue"
                     type="number"
                     min={1}
                     max={100}
-                    required
                     placeholder="Ej: 10"
                     className="w-full rounded-xl border border-ink/15 bg-cream px-4 py-3 text-xl text-ink placeholder:text-ink-soft/70 outline-none focus:border-amber pr-10"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xl text-ink-soft">%</span>
                 </div>
               </label>
+
+              {error && <p className="text-lg text-rust-dark">{error}</p>}
 
               <div className="flex gap-3 items-center">
                 <button
@@ -177,10 +174,11 @@ export default function RewardCard({ r }: { r: Reward }) {
 
                 <button
                   type="submit"
-                  className="flex flex-1 whitespace-nowrap items-center justify-center gap-2 rounded-xl bg-amber px-6 py-3 text-xl font-medium text-cream hover:bg-amber-dark transition-colors"
+                  disabled={loading}
+                  className="flex flex-1 whitespace-nowrap items-center justify-center gap-2 rounded-xl bg-amber px-6 py-3 text-xl font-medium text-cream hover:bg-amber-dark transition-colors disabled:opacity-50"
                 >
                   <Pencil className="h-5 w-5" />
-                  Editar recompensa
+                  {loading ? "Guardando..." : "Editar recompensa"}
                 </button>
               </div>
             </Form>

@@ -40,32 +40,29 @@ function FoundExchangePanel({ exchange, onSettledAction }: { exchange: Exchange;
     if (!found || !employee?.user?.id) return;
     setSubmitting(true);
     setActionError(null);
-    try {
-      await approveExchange(found.id, employee.user.id);
+    const result = await approveExchange(found.id, employee.user.id);
+    if (result.ok) {
       setFound(null);
       onSettledAction("Canje entregado con éxito.");
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "No se pudo entregar el canje.");
-    } finally {
-      setSubmitting(false);
+    } else {
+      setActionError(result.error);
     }
+    setSubmitting(false);
   }
 
   async function handleConfirmCancel(shouldRefundPoints: boolean = false) {
     if (!found || !employee?.user?.id) return;
     setSubmitting(true);
     setActionError(null);
-    try {
-      await annulateExchange(found.id, employee.user.id, shouldRefundPoints);
-      setShowCancel(false);
+    const result = await annulateExchange(found.id, employee.user.id, shouldRefundPoints);
+    setShowCancel(false);
+    if (result.ok) {
       setFound(null);
       onSettledAction("Canje anulado con éxito.");
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "No se pudo anular el canje.");
-      setShowCancel(false);
-    } finally {
-      setSubmitting(false);
+    } else {
+      setActionError(result.error);
     }
+    setSubmitting(false);
   }
 
   if (!found) return null;

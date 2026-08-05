@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import ImageDropzone from "@/components/recompensas/image-dropzone";
 import Form from "next/form";
@@ -8,6 +9,9 @@ import { EmployeeRole, useAuth } from "@/providers/auth-provider";
 
 export default function CreateRewardForm() {
   const employee = useAuth();
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   if (!employee) return null;
 
@@ -15,8 +19,20 @@ export default function CreateRewardForm() {
 
   if (!isAdmin) return null;
 
+  const handleSubmit = async (formData: FormData) => {
+    setError(null);
+    setSubmitting(true);
+    const result = await createReward(formData);
+    if (result.ok) {
+      formRef.current?.reset();
+    } else {
+      setError(result.error);
+    }
+    setSubmitting(false);
+  };
+
   return (
-    <Form action={createReward} className="col-span-1 rounded-2xl border border-ink/10 bg-cream-dark/30 p-6 flex flex-col gap-5 sticky top-10">
+    <Form ref={formRef} action={handleSubmit} className="col-span-1 rounded-2xl border border-ink/10 bg-cream-dark/30 p-6 flex flex-col gap-5 sticky top-10">
       <h3 className="text-2xl font-bold text-ink">Nueva recompensa</h3>
 
       <label className="flex flex-col gap-2">
@@ -62,7 +78,6 @@ export default function CreateRewardForm() {
             type="number"
             min={1}
             max={100}
-            required
             placeholder="Ej: 10"
             className="w-full rounded-xl border border-ink/15 bg-cream px-4 py-3 text-xl text-ink placeholder:text-ink-soft/70 outline-none focus:border-amber pr-10"
           />
@@ -70,12 +85,15 @@ export default function CreateRewardForm() {
         </div>
       </label>
 
+      {error && <p className="text-lg text-rust-dark">{error}</p>}
+
       <button
         type="submit"
-        className="flex items-center justify-center gap-2 rounded-xl bg-amber px-6 py-3 text-xl font-medium text-cream hover:bg-amber-dark transition-colors"
+        disabled={submitting}
+        className="flex items-center justify-center gap-2 rounded-xl bg-amber px-6 py-3 text-xl font-medium text-cream hover:bg-amber-dark transition-colors disabled:opacity-50"
       >
         <Plus className="h-5 w-5" />
-        Crear recompensa
+        {submitting ? "Creando..." : "Crear recompensa"}
       </button>
     </Form>
   );

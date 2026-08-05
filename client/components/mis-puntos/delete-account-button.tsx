@@ -15,6 +15,7 @@ export default function EliminarPerfilButton({
 }) {
   const router = useRouter();
   const [mostrarModal, setMostrarModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function handleClick() {
     if (pendings) return;
@@ -22,7 +23,12 @@ export default function EliminarPerfilButton({
   }
 
   async function handleConfirmar() {
-    await deleteCustomerById(customerId);
+    setError(null);
+    const result = await deleteCustomerById(customerId);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
     // Sin esto, la cookie de sesión sigue viva apuntando a un cliente ya
     // inactivo.
     const response = await fetch("/api/customers/logout", { method: "POST" });
@@ -47,6 +53,7 @@ export default function EliminarPerfilButton({
           Primero tenés que retirar o cancelar tus canjes pendientes.
         </p>
       )}
+      {error && <p className="text-base text-rust-dark text-center">{error}</p>}
 
       {mostrarModal && (
         <EliminarPerfilModal

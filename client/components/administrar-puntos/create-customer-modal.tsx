@@ -3,7 +3,7 @@
 import { SubmitEventHandler, useState } from "react";
 import { X } from "lucide-react";
 import { normalizePhoneNumber } from "@/lib/normalize-phone-number";
-import { createCustomer } from "@/app/customers.actions";
+import { createCustomer, reactivateCustomer } from "@/app/customers.actions";
 import { Customer } from "@/lib/definitions";
 import Modal from "@/components/modal";
 
@@ -22,6 +22,7 @@ export default function CreateCustomerModal({
   const [phone, setPhone] = useState(initialPhone);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inactiveCustomerId, setInactiveCustomerId] = useState<string | null>(null);
 
   const handler: SubmitEventHandler = async (e) => {
     e.preventDefault();
@@ -34,18 +35,34 @@ export default function CreateCustomerModal({
 
     setSubmitting(true);
     setError(null);
+    setInactiveCustomerId(null);
 
-    try {
-      const newCustomer = {
-        name,
-        phone: normalizedPhone,
-      }
-      const customer = await createCustomer(newCustomer);
-      onCreated(customer);
-    } catch (e) {
-      setError((e as Error).message);
-      setSubmitting(false);
+    const newCustomer = {
+      name,
+      phone: normalizedPhone,
     }
+    const result = await createCustomer(newCustomer);
+    if (result.ok) {
+      onCreated(result.data);
+      return;
+    }
+    setError(result.error);
+    if (result.code === "INACTIVE_CUSTOMER" && result.customerId) {
+      setInactiveCustomerId(result.customerId);
+    }
+    setSubmitting(false);
+  }
+
+  const handleReactivate = async () => {
+    if (!inactiveCustomerId) return;
+    setSubmitting(true);
+    const result = await reactivateCustomer(inactiveCustomerId);
+    if (result.ok) {
+      onCreated(result.data);
+      return;
+    }
+    setError(result.error);
+    setSubmitting(false);
   }
 
   return (
@@ -88,13 +105,24 @@ export default function CreateCustomerModal({
 
         {error && <p className="text-lg text-rust-dark">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="rounded-2xl bg-amber px-6 py-4 text-xl font-semibold text-cream hover:bg-amber-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {submitting ? "Creando..." : "Confirmar"}
-        </button>
+        {inactiveCustomerId ? (
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={handleReactivate}
+            className="rounded-2xl bg-amber px-6 py-4 text-xl font-semibold text-cream hover:bg-amber-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? "Reactivando..." : "Reactivar cliente"}
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded-2xl bg-amber px-6 py-4 text-xl font-semibold text-cream hover:bg-amber-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? "Creando..." : "Confirmar"}
+          </button>
+        )}
       </form>
     </Modal>
   );

@@ -73,19 +73,18 @@ export default function GrantPointsForm() {
     setGranting(true);
     setGrantError(null);
 
-    try {
-      const result = await grantPointsToCustomer(selectedCustomer.id, computedPoints);
-      setSuccessMessage(`Le sumaste ${result.pointsGranted} puntos a ${result.customerName}.`);
-      console.log({ result, newAmount: selectedCustomer.points + result.pointsGranted })
+    const result = await grantPointsToCustomer(selectedCustomer.id, computedPoints);
+    if (result.ok) {
+      const { pointsGranted, customerName } = result.data;
+      setSuccessMessage(`Le sumaste ${pointsGranted} puntos a ${customerName}.`);
       setSelectedCustomer((prev) =>
-        prev ? { ...prev, points: prev.points + result.pointsGranted } : prev
+        prev ? { ...prev, points: prev.points + pointsGranted } : prev
       );
       setAmountInput("");
-    } catch {
-      setGrantError("No pudimos sumar los puntos. Probá de nuevo.");
-    } finally {
-      setGranting(false);
+    } else {
+      setGrantError(result.error);
     }
+    setGranting(false);
   }
 
   return (

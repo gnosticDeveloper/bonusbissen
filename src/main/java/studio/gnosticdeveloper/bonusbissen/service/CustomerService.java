@@ -22,6 +22,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
+import studio.gnosticdeveloper.bonusbissen.exception.InactiveCustomerConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.CustomerRepository;
@@ -51,12 +52,30 @@ public class CustomerService {
 
     @Transactional
     public Customer create(CustomerCreateRequest request) {
-        if (customerRepository.existsByPhone(request.phone())) {
-            throw new ConflictException("El número de teléfono " + request.phone() + " ya está registrado. Por favor, intenta con otro número.");
-        }
+        customerRepository
+            .findByPhone(request.phone())
+            .ifPresent(existing -> {
+                if (existing.isActive()) {
+                    throw new ConflictException("Ese número ya está registrado. Por favor, intenta con otro número.");
+                }
+                throw new InactiveCustomerConflictException(
+                    "Ese número pertenece a un cliente que fue borrado. Podés reactivarlo en vez de crear uno nuevo.",
+                    existing.getId()
+                );
+            });
         Customer customer = new Customer();
         customer.setName(request.name());
         customer.setPhone(request.phone());
+        return customerRepository.save(customer);
+    }
+
+    @Transactional
+    public Customer reactivate(UUID id) {
+        Customer customer = customerRepository
+            .findById(id)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
+
+        customer.setActive(true);
         return customerRepository.save(customer);
     }
 
