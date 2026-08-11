@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,26 +37,33 @@ public class PointTransactionController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     public List<ExchangeResponse> getAllExchanges() {
         return pointTransactionService.getAll();
     }
 
     @GetMapping("/pending/{id}")
-    public List<PendingExchangeResponse> getAllPendingExchangesByCustomerId(@PathVariable UUID id) {
+    public List<PendingExchangeResponse> getAllPendingExchangesByCustomerId(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        if ("CUSTOMER".equals(principal.role()) && !principal.id().equals(id)) {
+            throw new AccessDeniedException("No podés acceder a los canjes de otro cliente.");
+        }
         return pointTransactionService.getAllPendingExchangesById(id);
     }
 
     @GetMapping("/pending")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     public List<PendingExchangeReviewResponse> getAllPendingExchanges() {
         return pointTransactionService.getAllByState(TransactionState.PENDING);
     }
 
     @GetMapping("/pending-count")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     public int getPendingExchangesCount() {
         return pointTransactionService.countByState(TransactionState.PENDING);
     }
 
     @PostMapping("/verify")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     public ExchangeResponse verifyExchange(@RequestBody ExchangeVerifyRequest request) {
         return pointTransactionService.verifyExchange(request.code());
     }
