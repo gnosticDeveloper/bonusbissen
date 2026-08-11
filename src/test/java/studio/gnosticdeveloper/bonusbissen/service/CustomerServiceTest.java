@@ -6,10 +6,15 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsAwardResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Customer;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
@@ -24,12 +29,15 @@ import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -83,6 +91,31 @@ class CustomerServiceTest {
         customerService.deleteById(id);
 
         assertThat(customer.isActive()).isFalse();
+    }
+
+    @Test
+    void searchBlankTermIsTreatedAsNoFilter() {
+        Pageable pageable = PageRequest.of(0, 10);
+        when(customerRepository.search(isNull(), eq(pageable))).thenReturn(Page.empty());
+
+        customerService.search("   ", pageable);
+
+        verify(customerRepository).search(isNull(), eq(pageable));
+    }
+
+    @Test
+    void searchTrimsTermAndMapsResultsToResponses() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Customer customer = new Customer();
+        customer.setId(UUID.randomUUID());
+        customer.setName("Someone");
+        customer.setPhone("123");
+
+        when(customerRepository.search(eq("abc"), eq(pageable))).thenReturn(new PageImpl<>(List.of(customer)));
+
+        Page<CustomerResponse> result = customerService.search("  abc  ", pageable);
+
+        assertThat(result.getContent()).containsExactly(CustomerResponse.from(customer));
     }
 
     @Test

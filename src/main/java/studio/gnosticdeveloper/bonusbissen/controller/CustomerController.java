@@ -3,6 +3,8 @@ package studio.gnosticdeveloper.bonusbissen.controller;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -35,6 +37,12 @@ public class CustomerController {
     @ResponseStatus(HttpStatus.CREATED)
     public CustomerResponse create(@Valid @RequestBody CustomerCreateRequest request) {
         return CustomerResponse.from(customerService.create(request));
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
+    public Page<CustomerResponse> search(@RequestParam(required = false) String search, Pageable pageable) {
+        return customerService.search(search, pageable);
     }
 
     @PatchMapping("/{id}/reactivate")
