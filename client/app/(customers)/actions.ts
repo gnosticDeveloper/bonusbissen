@@ -111,6 +111,7 @@ export async function claimReward(customerId: string, rewardId: string): Promise
   if (!response.ok) return null;
 
   const code = await response.text();
+  updateTag("pending-exchanges");
   return code;
 }
 
