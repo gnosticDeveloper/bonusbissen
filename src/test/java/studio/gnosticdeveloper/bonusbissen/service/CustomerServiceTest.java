@@ -22,6 +22,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
+import studio.gnosticdeveloper.bonusbissen.exception.InactiveCustomerConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.CustomerRepository;
@@ -59,7 +60,11 @@ class CustomerServiceTest {
 
     @Test
     void createRejectsDuplicatePhone() {
-        when(customerRepository.existsByPhone("123")).thenReturn(true);
+        Customer existing = new Customer();
+        existing.setId(UUID.randomUUID());
+        existing.setPhone("123");
+        existing.setActive(true);
+        when(customerRepository.findByPhone("123")).thenReturn(Optional.of(existing));
 
         assertThatThrownBy(() -> customerService.create(new CustomerCreateRequest("Someone", "123")))
             .isInstanceOf(ConflictException.class);
@@ -68,8 +73,22 @@ class CustomerServiceTest {
     }
 
     @Test
+    void createWithInactiveExistingPhoneThrowsInactiveCustomerConflict() {
+        Customer existing = new Customer();
+        existing.setId(UUID.randomUUID());
+        existing.setPhone("123");
+        existing.setActive(false);
+        when(customerRepository.findByPhone("123")).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> customerService.create(new CustomerCreateRequest("Someone", "123")))
+            .isInstanceOf(InactiveCustomerConflictException.class);
+
+        verify(customerRepository, never()).save(any());
+    }
+
+    @Test
     void createSavesNewCustomer() {
-        when(customerRepository.existsByPhone("123")).thenReturn(false);
+        when(customerRepository.findByPhone("123")).thenReturn(Optional.empty());
         when(customerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         Customer customer = customerService.create(new CustomerCreateRequest("Someone", "123"));

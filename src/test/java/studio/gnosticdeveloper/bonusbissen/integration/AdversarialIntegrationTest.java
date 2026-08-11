@@ -8,6 +8,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCancelExchangeRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsResponse;
@@ -379,5 +380,135 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
 
         assertThat(response.getStatusCode()).isNotEqualTo(HttpStatus.OK);
         assertThat(getBalance(cashierToken, customer.getId()).points()).isZero();
+    }
+
+    // --- GET /exchanges has no role restriction: any authenticated customer
+    // could list every exchange in the system, across every other customer. ---
+    @Test
+    void customerCannotListAllExchanges() {
+        Customer customer = createCustomer("+5493462003016");
+        String customerToken = loginCustomer("+5493462003016");
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/exchanges",
+            HttpMethod.GET,
+            authed(customerToken),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    // --- GET /exchanges/pending/{id} never checked that the id being queried
+    // belonged to the calling customer: a customer token could enumerate any
+    // other customer's pending exchanges. ---
+    @Test
+    void customerCannotViewAnotherCustomersPendingExchanges() {
+        Employee cashier = createEmployee("cashier-pending-idor", "password123", EmployeeRole.CASHIER);
+        String cashierToken = loginEmployee("cashier-pending-idor", "password123");
+
+        Customer victim = createCustomer("+5493462003017");
+        grant(cashierToken, victim.getId(), 100);
+        Reward reward = createReward("Pending IDOR Reward", 30);
+        String victimToken = loginCustomer("+5493462003017");
+        restTemplate.exchange(
+            baseUrl() + "/customers/claim-reward",
+            HttpMethod.POST,
+            authed(victimToken, new ClaimRewardRequest(victim.getId(), reward.getId())),
+            String.class
+        );
+
+        Customer attacker = createCustomer("+5493462003018");
+        String attackerToken = loginCustomer("+5493462003018");
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/exchanges/pending/" + victim.getId(),
+            HttpMethod.GET,
+            authed(attackerToken),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    // --- A customer requesting their own pending exchanges must still work
+    // (this endpoint is used by the customer-facing "mis puntos" page). ---
+    @Test
+    void customerCanViewTheirOwnPendingExchanges() {
+        Employee cashier = createEmployee("cashier-own-pending", "password123", EmployeeRole.CASHIER);
+        String cashierToken = loginEmployee("cashier-own-pending", "password123");
+
+        Customer customer = createCustomer("+5493462003019");
+        grant(cashierToken, customer.getId(), 100);
+        Reward reward = createReward("Own Pending Reward", 30);
+        String customerToken = loginCustomer("+5493462003019");
+        restTemplate.exchange(
+            baseUrl() + "/customers/claim-reward",
+            HttpMethod.POST,
+            authed(customerToken, new ClaimRewardRequest(customer.getId(), reward.getId())),
+            String.class
+        );
+
+        ResponseEntity<List<PendingExchangeResponse>> response = restTemplate.exchange(
+            baseUrl() + "/exchanges/pending/" + customer.getId(),
+            HttpMethod.GET,
+            authed(customerToken),
+            new org.springframework.core.ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).hasSize(1);
+    }
+
+    // --- GET /exchanges/pending is the staff-facing review queue for every
+    // customer's pending redemptions; a customer token must not see it. ---
+    @Test
+    void customerCannotViewGlobalPendingQueue() {
+        Customer customer = createCustomer("+5493462003020");
+        String customerToken = loginCustomer("+5493462003020");
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/exchanges/pending",
+            HttpMethod.GET,
+            authed(customerToken),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    // --- POST /exchanges/verify is the cashier-facing redemption-code lookup
+    // used at pickup; a customer token must not be able to call it directly. ---
+    @Test
+    void customerCannotVerifyExchangeCode() {
+        Customer customer = createCustomer("+5493462003021");
+        String customerToken = loginCustomer("+5493462003021");
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/exchanges/verify",
+            HttpMethod.POST,
+            authed(customerToken, new ExchangeVerifyRequest("ABC123")),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    // --- DELETE /rewards/{id} is ADMIN-only: a CASHIER token attempting to
+    // deactivate a reward must be rejected, not just discouraged by the UI. ---
+    @Test
+    void cashierCannotDeleteReward() {
+        Employee cashier = createEmployee("cashier-delete-reward", "password123", EmployeeRole.CASHIER);
+        String cashierToken = loginEmployee("cashier-delete-reward", "password123");
+        Reward reward = createReward("Cashier Cannot Delete Me", 30);
+
+        ResponseEntity<Void> response = restTemplate.exchange(
+            baseUrl() + "/rewards/" + reward.getId(),
+            HttpMethod.DELETE,
+            authed(cashierToken),
+            Void.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 }
