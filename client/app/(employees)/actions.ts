@@ -21,18 +21,15 @@ export async function getHomeStats(): Promise<HomeStats> {
   return data;
 }
 
-export async function getCustomerByPhone(phone: string): Promise<Customer | undefined> {
-  const response = await apiFetch(
-    `/customers/phone/${phone}`,
-    {
-      method: "GET",
-    },
-    { redirectTo: "/login", tokenKey: "employee_token" },
-  );
+export async function searchCustomers(query: string, size: number): Promise<Customer[]> {
+  const params = new URLSearchParams({ search: query, size: size.toString() });
 
-  if (!response.ok) return undefined;
+  const response = await apiFetch(`/customers?${params.toString()}`, { method: "GET" }, { redirectTo: "/login", tokenKey: "employee_token" });
+
+  if (!response.ok) return [];
+
   const data = await response.json();
-  return data;
+  return data.content ?? [];
 }
 
 export async function getPendingExchangesCount(): Promise<number> {

@@ -8,18 +8,16 @@ import { Customer } from "@/lib/definitions";
 import Modal from "@/components/modal";
 
 type CreateCustomerModalProps = {
-  initialPhone: string;
   onCancel: () => void;
   onCreated: (customer: Customer) => void;
 };
 
 export default function CreateCustomerModal({
-  initialPhone,
   onCancel,
   onCreated,
 }: CreateCustomerModalProps) {
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState(initialPhone);
+  const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inactiveCustomerId, setInactiveCustomerId] = useState<string | null>(null);
