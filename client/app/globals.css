@@ -16,6 +16,40 @@
     --color-rust-dark: #ff8a80;
 
     --font-sans: var(--font-instrument-sans), sans-serif;
+
+    --color-background: var(--color-cream);
+    --color-foreground: var(--color-ink);
+
+    --color-card: var(--color-cream-dark);
+    --color-card-foreground: var(--color-ink);
+    --color-popover: var(--color-cream-dark);
+    --color-popover-foreground: var(--color-ink);
+
+    --color-primary: var(--color-amber);
+    --color-primary-foreground: var(--color-ink);
+
+    --color-secondary: var(--color-cream-dark);
+    --color-secondary-foreground: var(--color-ink);
+
+    --color-muted: var(--color-cream-dark);
+    --color-muted-foreground: var(--color-ink-soft);
+
+    --color-accent: var(--color-cream-dark);
+    --color-accent-foreground: var(--color-ink);
+
+    --color-destructive: var(--color-rust);
+    --color-destructive-foreground: var(--color-ink);
+
+    --color-success: var(--color-sage);
+    --color-success-foreground: var(--color-ink);
+
+    /* Sin color dedicado en tu paleta — uso amber-dark como placeholder */
+    --color-warning: var(--color-amber-dark);
+    --color-warning-foreground: var(--color-cream);
+
+    --color-border: color-mix(in srgb, var(--color-ink-soft) 20%, transparent);
+    --color-input: color-mix(in srgb, var(--color-ink-soft) 20%, transparent);
+    --color-ring: var(--color-amber);
 }
 
 html,

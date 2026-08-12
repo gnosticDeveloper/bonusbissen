@@ -1,72 +1,114 @@
 "use client";
 
-import { useState } from "react";
-import { UserPlus, CircleCheck } from "lucide-react";
+import { useMemo, useState } from "react";
+import { HandCoins, UserPlus, Wallet } from "lucide-react";
 import CreateCustomerModal from "@/components/administrar-puntos/create-customer-modal";
 import { CustomerAutocomplete } from "@/components/administrar-puntos/customer-autocomplete";
 import { grantPointsToCustomer } from "@/app/(employees)/actions";
 import { Customer } from "@/lib/definitions";
+import { formatPoints, parsePositiveInt } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { FieldError, Input, Label } from "../ui/input";
+import { Button } from "../ui/button";
+
+const POINTS_PER_CURRENCY = 1000; // 1 punto por cada $1000 gastados
+const MAX_SPEND = 10_000_000;
+const MAX_POINTS = 1_000_000;
 
 export default function GrantPointsForm() {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [mode, setMode] = useState<"spend" | "manual">("spend");
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [amountInput, setAmountInput] = useState("");
   const [granting, setGranting] = useState(false);
-  const [grantError, setGrantError] = useState<string | null>(null);
+  const [spend, setSpend] = useState("");
+  const [manual, setManual] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const parsedAmount = Number(amountInput);
-  const computedPoints =
-    amountInput && !Number.isNaN(parsedAmount) && parsedAmount > 0
-      ? Math.floor(parsedAmount / 1000)
-      : 0;
+  const computedFromSpend = useMemo(() => {
+    const n = parsePositiveInt(spend, { max: MAX_SPEND });
+    return n ? Math.floor(n / POINTS_PER_CURRENCY) : 0;
+  }, [spend]);
 
   function clearSelection() {
     setSelectedCustomer(null);
-    setAmountInput("");
     setSuccessMessage(null);
-    setGrantError(null);
+    setSpend("");
+    setManual("");
+    setError(null);
   }
 
   function handleCustomerCreated(customer: Customer) {
     setShowCreateModal(false);
     setSelectedCustomer(customer);
-    setAmountInput("");
+    setSpend("");
+    setManual("");
     setSuccessMessage(null);
-    setGrantError(null);
+    setError(null);
   }
 
   async function handleConfirm() {
-    if (!selectedCustomer || computedPoints <= 0) return;
+    console.log({ selectedCustomer, computedFromSpend, mode, spend, manual });
+    if (!selectedCustomer) return;
 
     setGranting(true);
-    setGrantError(null);
+    setError(null);
 
-    const result = await grantPointsToCustomer(selectedCustomer.id, computedPoints);
-    if (result.ok) {
-      const { pointsGranted, customerName } = result.data;
-      setSuccessMessage(`Le sumaste ${pointsGranted} puntos a ${customerName}.`);
-      // TODO: reincorporar cuando CustomerResponse traiga `points` del backend.
-      // setSelectedCustomer((prev) =>
-      //   prev ? { ...prev, points: prev.points + pointsGranted } : prev
-      // );
-      setAmountInput("");
+    if (mode === "spend") {
+      const amount = parsePositiveInt(spend, { max: MAX_SPEND });
+      if (amount == null) {
+        setError("Ingresá un monto gastado válido (número mayor a 0, sin decimales).");
+        return;
+      }
+      const points = Math.floor(amount / POINTS_PER_CURRENCY);
+      if (points <= 0) {
+        setError(`El monto es muy bajo para sumar puntos (mínimo $${POINTS_PER_CURRENCY}).`);
+        return;
+      }
+      const result = await grantPointsToCustomer(selectedCustomer.id, points);
+      if (result.ok) {
+        const { pointsGranted, customerName } = result.data;
+        setSuccessMessage(`Se sumaron ${formatPoints(pointsGranted)} puntos a ${customerName}.`);
+        // TODO: reincorporar cuando CustomerResponse traiga `points` del backend.
+        // setSelectedCustomer((prev) =>
+        //   prev ? { ...prev, points: prev.points + pointsGranted } : prev
+        // );
+        setSpend("");
+      } else {
+        setError(result.error);
+      }
     } else {
-      setGrantError(result.error);
+      const points = parsePositiveInt(manual, { max: MAX_POINTS });
+      if (points == null) {
+        setError("Ingresá una cantidad de puntos válida (número entero mayor a 0).");
+        return;
+      }
+      const result = await grantPointsToCustomer(selectedCustomer.id, points);
+      if (result.ok) {
+        const { pointsGranted, customerName } = result.data;
+        setSuccessMessage(`Se sumaron ${formatPoints(pointsGranted)} puntos a ${customerName}.`);
+        // TODO: reincorporar cuando CustomerResponse traiga `points` del backend.
+        // setSelectedCustomer((prev) =>
+        //   prev ? { ...prev, points: prev.points + pointsGranted } : prev
+        // );
+        setManual("");
+      } else {
+        setError(result.error);
+      }
     }
     setGranting(false);
   }
+
+  const isNotValidAmount =
+    ((Number(spend) < POINTS_PER_CURRENCY || Number(spend) > MAX_SPEND) && mode === "spend") ||
+    ((Number(manual) <= 0 || Number(manual) > MAX_SPEND) && mode === "manual");
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <span className="text-lg text-ink-soft">Cliente</span>
-        <CustomerAutocomplete
-          selected={selectedCustomer}
-          onSelect={setSelectedCustomer}
-          onClear={clearSelection}
-        />
+        <CustomerAutocomplete selected={selectedCustomer} onSelect={setSelectedCustomer} onClear={clearSelection} />
         <button
           type="button"
           onClick={() => setShowCreateModal(true)}
@@ -77,42 +119,73 @@ export default function GrantPointsForm() {
         </button>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <label className="flex flex-col gap-2">
-          <span className="text-lg text-ink-soft">
-            Monto total gastado ($) {!selectedCustomer ? "• Seleccione un cliente para ingresar el monto total gastado" : null}
-          </span>
-          <input
-            type="number"
-            min={0}
-            step={1}
-            value={amountInput}
-            onChange={(e) => setAmountInput(e.target.value)}
-            disabled={!selectedCustomer}
-            placeholder="Ej: 15600"
-            className="rounded-xl border border-ink/15 bg-cream-dark/30 px-5 py-3 text-xl text-ink placeholder:text-ink-soft/70 outline-none focus:border-amber disabled:opacity-50"
-          />
-        </label>
-        <p className="text-lg text-ink-soft">
-          Se le van a sumar <strong className="text-amber-dark">{computedPoints}</strong> puntos.
-        </p>
+      <div className="grid grid-cols-2 gap-2 rounded-lg p-1">
+        <button
+          type="button"
+          onClick={() => setMode("spend")}
+          className={cn(
+            "flex items-center border-muted-foreground border justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors",
+            mode === "spend" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Wallet className="size-4" /> Por monto
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("manual")}
+          className={cn(
+            "flex items-center justify-center border-muted-foreground border gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors",
+            mode === "manual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <HandCoins className="size-4" /> Puntos manuales
+        </button>
       </div>
 
-      {grantError && <p className="text-lg text-rust-dark">{grantError}</p>}
-      {successMessage && <p className="text-lg text-sage-dark">{successMessage}</p>}
+      <div className="flex flex-col gap-3">
+        {mode === "spend" ? (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="spend">Monto gastado ($)</Label>
+            <Input
+              id="spend"
+              inputMode="numeric"
+              placeholder="Ej: 12000"
+              value={spend}
+              onChange={(e) => setSpend(e.target.value.replace(/[^\d]/g, ""))}
+            />
+            <p className="text-xs text-muted-foreground">
+              Conversión: 1 punto por cada ${POINTS_PER_CURRENCY}.{" "}
+              {Number(spend) > MAX_SPEND ? (
+                <span className="font-semibold text-red-500">SUPERASTE EL LÍMITE (Máximo: {formatPoints(MAX_SPEND)})</span>
+              ) : Number(spend) < POINTS_PER_CURRENCY ? (
+                <span className="font-semibold text-red-500">MÍNIMO: {formatPoints(POINTS_PER_CURRENCY)}</span>
+              ) : (
+                <span>
+                  Sumará <strong className="text-primary">{formatPoints(computedFromSpend)} puntos</strong>
+                </span>
+              )}
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="manual">Puntos a sumar</Label>
+            <Input
+              id="manual"
+              inputMode="numeric"
+              placeholder="Ej: 100"
+              value={manual}
+              onChange={(e) => setManual(e.target.value.replace(/[^\d]/g, ""))}
+            />
+          </div>
+        )}
+        {successMessage && <p className="text-lg text-sage-dark">{successMessage}</p>}
+        <FieldError message={error} />
+        <Button type="button" onClick={handleConfirm} className="w-full" disabled={!selectedCustomer || granting || isNotValidAmount}>
+          {granting ? "Sumando..." : "Sumar puntos"}
+        </Button>
+      </div>
 
-      <button
-        type="button"
-        onClick={handleConfirm}
-        disabled={!selectedCustomer || computedPoints <= 0 || granting}
-        className="rounded-2xl bg-amber px-6 py-4 text-xl font-semibold text-cream hover:bg-amber-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {granting ? "Sumando..." : "Confirmar"}
-      </button>
-
-      {showCreateModal && (
-        <CreateCustomerModal onCancel={() => setShowCreateModal(false)} onCreated={handleCustomerCreated} />
-      )}
+      {showCreateModal && <CreateCustomerModal onCancel={() => setShowCreateModal(false)} onCreated={handleCustomerCreated} />}
     </div>
   );
 }
