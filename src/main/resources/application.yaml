@@ -21,3 +21,13 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   uploads:
     dir: /var/lib/bonusbissen/uploads/rewards
+  backup:
+    # DR_BACKUP_* unset (local dev/test): the placeholder endpoint below keeps the
+    # S3Client bean constructible; the nightly job just fails harmlessly at
+    # upload time instead, caught by DatabaseBackupService#runScheduledBackup.
+    cron: ${DR_BACKUP_CRON:0 0 5 * * *}
+    s3:
+      endpoint: ${DR_BACKUP_S3_ENDPOINT:localhost}
+      bucket: ${DR_BACKUP_S3_BUCKET:unset}
+      access-key: ${DR_BACKUP_S3_ACCESS_KEY:unset}
+      secret-key: ${DR_BACKUP_S3_SECRET_KEY:unset}

@@ -7,7 +7,10 @@ RUN mvn -B package -DskipTests
 
 FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
-RUN addgroup -S spring && adduser -S spring -G spring \
+# postgresql16-client provides pg_dump, matching the postgres:16-alpine server
+# in docker-compose.yml, used by DatabaseBackupService for nightly backups.
+RUN apk add --no-cache postgresql16-client \
+    && addgroup -S spring && adduser -S spring -G spring \
     && mkdir -p /var/lib/bonusbissen/uploads/rewards \
     && chown -R spring:spring /var/lib/bonusbissen
 USER spring
