@@ -51,7 +51,7 @@ export function createSeedData(): StoreData {
         description: 'Un café de especialidad de la casa, recién molido, para acompañar tu visita.',
         discountValue: 'Gratis',
         pointsRequired: 100,
-        imageUrl: rewardImage('specialty coffee cup latte art'),
+        imageUrl: "/mock-images/mock-coffee.jpeg",
       },
       {
         id: 'rew-2',
@@ -59,7 +59,7 @@ export function createSeedData(): StoreData {
         description: 'Llevá dos pintas de nuestra selección de cervezas artesanales pagando una sola.',
         discountValue: '2x1',
         pointsRequired: 300,
-        imageUrl: rewardImage('craft beer glasses bar'),
+        imageUrl: "/mock-images/mock-beer.jpg",
       },
       {
         id: 'rew-3',
@@ -67,7 +67,7 @@ export function createSeedData(): StoreData {
         description: 'Descuento del 20% sobre el total de tu consumo, aplicable de lunes a jueves.',
         discountValue: '20% OFF',
         pointsRequired: 500,
-        imageUrl: rewardImage('restaurant bill discount table'),
+        imageUrl: "/mock-images/mock-20-off.jpg",
       },
       {
         id: 'rew-4',
@@ -75,7 +75,7 @@ export function createSeedData(): StoreData {
         description: 'Tabla de fiambres, quesos y encurtidos ideal para compartir entre dos personas.',
         discountValue: 'Gratis',
         pointsRequired: 800,
-        imageUrl: rewardImage('charcuterie board cheese platter'),
+        imageUrl: "/mock-images/mock-picada.avif",
       },
       {
         id: 'rew-5',
@@ -83,7 +83,7 @@ export function createSeedData(): StoreData {
         description: 'Una botella de nuestro vino tinto seleccionado para acompañar tu cena.',
         discountValue: 'Gratis',
         pointsRequired: 1200,
-        imageUrl: rewardImage('bottle of red wine restaurant'),
+        imageUrl: "/mock-images/mock-wine.webp",
       },
     ],
     redemptions: [
