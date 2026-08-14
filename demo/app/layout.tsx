@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Script from "next/script";
+import { ToastProvider } from "@/components/toast";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -17,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Demo • Bonus Bissen • Fidelización de puntos",
+  title: "Demo • Bonus Bissen • Sistema de fidelización de clientes",
   description: "Sistema de fidelización de puntos y recompensas para tu negocio. Demo funcional de Bonus Bissen.",
   generator: "v0.app",
 };
@@ -47,7 +48,7 @@ export default function RootLayout({
         <Script id="theme-init" strategy="beforeInteractive">
           {`(function(){try{var t=sessionStorage.getItem('bb_theme');if(t==='dark'){document.documentElement.classList.add('dark')}}catch(e){}})();`}
         </Script>
-        {children}
+        <ToastProvider>{children}</ToastProvider>
         {process.env.NODE_ENV === "production" && <Analytics />}
       </body>
     </html>
