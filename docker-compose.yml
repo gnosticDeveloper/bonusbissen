@@ -21,6 +21,11 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://localhost}
+      DR_BACKUP_S3_ENDPOINT: ${DR_BACKUP_S3_ENDPOINT:-}
+      DR_BACKUP_S3_BUCKET: ${DR_BACKUP_S3_BUCKET:-}
+      DR_BACKUP_S3_ACCESS_KEY: ${DR_BACKUP_S3_ACCESS_KEY:-}
+      DR_BACKUP_S3_SECRET_KEY: ${DR_BACKUP_S3_SECRET_KEY:-}
+      DR_BACKUP_CRON: ${DR_BACKUP_CRON:-0 0 5 * * *}
     volumes:
       - uploads:/var/lib/bonusbissen/uploads
     depends_on:
