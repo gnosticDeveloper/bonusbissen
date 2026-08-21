@@ -15,7 +15,7 @@ type Payload = {
   role: UserRole;
   iat: number;
   exp: number;
-}
+};
 
 function decodePayload(token: string): Payload | null {
   try {
@@ -33,27 +33,23 @@ function isExpired(payload: Payload | null) {
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const isEmployeeRoute = EMPLOYEE_ROUTES.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`)
-  );
+  const isEmployeeRoute = EMPLOYEE_ROUTES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   if (isEmployeeRoute) {
     const token = request.cookies.get("employee_token")?.value;
     const payload = token ? decodePayload(token) : null;
     const hasExpired = isExpired(payload);
     const validRole = payload?.role === UserRole.ADMIN || payload?.role === UserRole.CASHIER;
-    console.log({ token, payload, hasExpired, validRole, role: payload?.role })
+    console.log({ token, payload, hasExpired, validRole, role: payload?.role });
 
     if (!token || isExpired(payload) || !validRole) {
-      return NextResponse.redirect(new URL("/login", request.url));
+      return NextResponse.redirect(new URL("/1234/sign-in", request.url));
     }
 
     return NextResponse.next();
   }
 
-  const isCustomerRoute =
-    pathname.startsWith("/mis-puntos") &&
-    !CUSTOMER_PUBLIC_ROUTES.includes(pathname);
+  const isCustomerRoute = pathname.startsWith("/mis-puntos") && !CUSTOMER_PUBLIC_ROUTES.includes(pathname);
 
   if (isCustomerRoute) {
     const token = request.cookies.get("customer_token")?.value;
@@ -70,10 +66,7 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/",
-    "/verificar-canjes/:path*",
-    "/recompensas/:path*",
-    "/administrar-puntos/:path*",
-    "/mis-puntos/:path*",
+    // Exclude API routes, static files, image optimizations, and .png files
+    "/((?!api|_next/static|_next/image|.*\\.png$).*)",
   ],
 };

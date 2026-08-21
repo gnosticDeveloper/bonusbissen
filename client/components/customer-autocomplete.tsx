@@ -4,9 +4,9 @@ import { Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Customer } from "@/lib/definitions";
-import { searchCustomers } from "@/app/(employees)/actions";
 // import { formatPoints } from "@/lib/format"; // TODO: reincorporar cuando haya `points`
 import { cn } from "@/lib/utils";
+import { getAllCustomers } from "@/app/dashboard/actions";
 
 const DEBOUNCE_MS = 250;
 const MIN_QUERY_LENGTH = 2;
@@ -39,9 +39,10 @@ export function CustomerAutocomplete({
     debounceTimeout.current = setTimeout(async () => {
       const requestId = ++requestIdRef.current;
       try {
-        const results = await searchCustomers(q, 10);
+        const results = await getAllCustomers(q, 10);
         if (requestId !== requestIdRef.current) return;
-        setMatches(results);
+        // TODO: implement points in Customers.
+        setMatches(results.map((v) => ({ ...v, points: 0 })));
       } catch {
         if (requestId !== requestIdRef.current) return;
         setError("No se pudo buscar. Probá de nuevo.");
@@ -144,10 +145,7 @@ export function CustomerAutocomplete({
       </div>
 
       {open && query.trim().length >= MIN_QUERY_LENGTH && (
-        <ul
-          className="absolute bg-neutral-950 z-30 mt-1.5 max-h-64 w-full overflow-y-auto rounded-xl border border-border bg-popover shadow-lg"
-          role="listbox"
-        >
+        <ul className="absolute z-30 mt-1.5 max-h-64 w-full overflow-y-auto rounded-xl border border-border bg-popover shadow-lg" role="listbox">
           {loading ? (
             <li className="px-3 py-2.5 text-sm text-muted-foreground">Buscando…</li>
           ) : error ? (

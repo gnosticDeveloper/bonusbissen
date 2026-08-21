@@ -106,12 +106,12 @@ export function truncate(value: string, length: number): string {
 
 /* ---------- status labels ---------- */
 
-export function redemptionStatusLabel(status: 'pending' | 'confirmed' | 'cancelled'): string {
+export function redemptionStatusLabel(status: 'pending' | 'delivered' | 'cancelled'): string {
   switch (status) {
     case 'pending':
       return 'Pendiente'
-    case 'confirmed':
-      return 'Confirmado'
+    case 'delivered':
+      return 'Entregado'
     case 'cancelled':
       return 'Anulado'
   }

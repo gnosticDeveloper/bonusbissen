@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { HandCoins, UserPlus, Wallet } from "lucide-react";
 import CreateCustomerModal from "@/components/administrar-puntos/create-customer-modal";
-import { CustomerAutocomplete } from "@/components/administrar-puntos/customer-autocomplete";
+import { CustomerAutocomplete } from "@/components/customer-autocomplete";
 import { grantPointsToCustomer } from "@/app/(employees)/actions";
 import { Customer } from "@/lib/definitions";
 import { formatPoints, parsePositiveInt } from "@/lib/format";
