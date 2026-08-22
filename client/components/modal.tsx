@@ -63,14 +63,14 @@ export function ModalProvider({ children }: { children: ReactNode }) {
     <ModalContext.Provider value={{ modal, open, close }}>
       {isOpen ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-          <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={close} />
+          <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={close} />
           <div
             role="dialog"
             aria-modal="true"
             aria-label={modalTitle ?? ""}
             className={cn(
               "relative z-10 flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-border bg-card text-card-foreground shadow-xl sm:max-w-lg sm:rounded-2xl",
-              // className,
+              "modal_content",
             )}
           >
             <div className="flex items-start justify-between gap-3 border-b border-border p-4 sm:p-5">
@@ -78,7 +78,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
                 <h2 className="text-base font-semibold text-balance">{modalTitle}</h2>
                 {modalDesc ? <p className="text-sm text-muted-foreground leading-relaxed">{modalDesc}</p> : null}
               </div>
-              <Button variant="ghost" size="icon-sm" onClick={close} aria-label="Cerrar">
+              <Button variant="destructive" size="icon-sm" className="cursor-pointer hover:scale-110" onClick={close} aria-label="Cerrar">
                 <X />
               </Button>
             </div>

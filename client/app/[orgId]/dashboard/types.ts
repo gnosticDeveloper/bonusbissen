@@ -1,3 +1,11 @@
+export type PagedResponse<T> = {
+  items: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+};
+
 export type FormState = {
   message: string | null;
   status: "success" | "error" | null;

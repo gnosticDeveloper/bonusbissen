@@ -1,13 +1,35 @@
 "use server";
-import { apiFetch } from "@/lib/api";
 import { ActionResult, runAction } from "@/lib/action-result";
+import { ApiError } from "@/lib/api-error";
 import { Customer, ExchangeState, Reward } from "@/lib/definitions";
 import { updateTag } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+const apiFetch = async (path: string, reqArgs?: RequestInit) => {
+  const cookiesStore = await cookies();
+  const token = cookiesStore.get("customer_token")?.value;
+
+  if (!token) redirect("/mis-puntos/login", "replace");
+
+  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
+
+  const res = await fetch(`${backendUrl}${path}`, {
+    ...reqArgs,
+    headers: {
+      ...reqArgs?.headers,
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  // TODO: show proper, user-fliendly error messages.
+  if (!res.ok) throw new ApiError("Algo salió mal, por favor intente nuevamente.", { code: res.statusText });
+
+  return res;
+};
+
 export async function getCustomerById(customerId: string) {
-  const response = await apiFetch(`/customers/${customerId}`, {}, { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" });
+  const response = await apiFetch(`/customers/${customerId}`);
 
   const customer = await response.json();
   return customer as Customer;
@@ -25,7 +47,6 @@ export async function getPendingExchangesByCustomerId(customerId: string) {
   const response = await apiFetch(
     `/exchanges/pending/${customerId}`,
     { next: { tags: ["pending-exchanges"] } },
-    { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" },
   );
 
   const exchanges = await response.json();
@@ -41,7 +62,6 @@ export async function cancelExchange(exchangeId: string): Promise<ActionResult<v
         body: JSON.stringify({ exchangeId }),
         headers: { "Content-Type": "application/json" },
       },
-      { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" },
     );
     updateTag("pending-exchanges");
   });
@@ -54,7 +74,6 @@ export async function deleteCustomerById(customerId: string): Promise<ActionResu
       {
         method: "DELETE",
       },
-      { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" },
     );
   });
 }
@@ -68,7 +87,7 @@ export type HistoricalExchange = {
 };
 
 export async function getExchangesByCustomerId(customerId: string) {
-  const response = await apiFetch(`/customers/${customerId}/exchanges`, {}, { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" });
+  const response = await apiFetch(`/customers/${customerId}/exchanges`, {});
 
   const exchanges = await response.json();
   return exchanges as HistoricalExchange[];
@@ -84,7 +103,7 @@ export type Movement = {
 };
 
 export async function getMovementsByCustomerId(customerId: string) {
-  const response = await apiFetch(`/customers/${customerId}/movements`, {}, { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" });
+  const response = await apiFetch(`/customers/${customerId}/movements`, {});
 
   const movements = (await response.json()) as Movement[];
   const formattedData = movements.map((r) => ({
@@ -105,7 +124,6 @@ export async function claimReward(customerId: string, rewardId: string): Promise
         "Content-Type": "application/json",
       },
     },
-    { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" },
   );
 
   if (!response.ok) return null;
@@ -123,7 +141,6 @@ export async function getRewards(): Promise<Reward[]> {
         tags: ["get-rewards"],
       },
     },
-    { redirectTo: "/mis-puntos/login", tokenKey: "customer_token" },
   );
 
   if (!response.ok) throw new Error("No se pudo obtener las recompensas");

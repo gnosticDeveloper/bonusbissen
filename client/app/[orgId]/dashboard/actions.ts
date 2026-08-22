@@ -10,6 +10,7 @@ import type {
   HomeStats,
   LoginState,
   Organization,
+  PagedResponse,
   PendingExchangeReview,
   PointAction,
   TopClient,
@@ -59,12 +60,21 @@ export const getAllPointActions = async (id?: string): Promise<PointAction[]> =>
 };
 
 // TODO: this should return a customer with points, but we will implement it later.
-type CustomerWithNoPoints = Omit<Customer, "points">;
+export type CustomerPointsResponse = {
+  id: string;
+  name: string;
+  phone: string;
+  formattedCreatedAt: string;
+  points: number;
+};
 
-export const getAllCustomers = async (query?: string, page: number = 0): Promise<CustomerWithNoPoints[]> => {
+export const getAllCustomers = async (
+  query?: string,
+  page: number = 0,
+  size: number = 10,
+): Promise<PagedResponse<CustomerPointsResponse>> => {
   const params = new URLSearchParams();
-  // Note: only need the last 10 since we are not implementing pagination for now.
-  params.append("size", "10");
+  params.append("size", size.toString());
   params.append("page", page.toString());
   if (query && query.trim()) params.append("search", query);
 

@@ -1,22 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { HandCoins, UserPlus, Wallet } from "lucide-react";
-import CreateCustomerModal from "@/components/administrar-puntos/create-customer-modal";
+import { HandCoins, Wallet } from "lucide-react";
 import { CustomerAutocomplete } from "@/components/customer-autocomplete";
-import { grantPointsToCustomer } from "@/app/(employees)/actions";
 import { Customer } from "@/lib/definitions";
 import { formatPoints, parsePositiveInt } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { FieldError, Input, Label } from "../ui/input";
-import { Button } from "../ui/button";
+import { FieldError, Input, Label } from "./ui/input";
+import { Button } from "./ui/button";
+import { grantPointsTo } from "@/app/[orgId]/dashboard/actions";
+import CreateCustomerButton from "./create-customer-button";
 
 const POINTS_PER_CURRENCY = 1000; // 1 punto por cada $1000 gastados
 const MAX_SPEND = 10_000_000;
 const MAX_POINTS = 1_000_000;
 
 export default function GrantPointsForm() {
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [mode, setMode] = useState<"spend" | "manual">("spend");
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -39,15 +38,6 @@ export default function GrantPointsForm() {
     setError(null);
   }
 
-  function handleCustomerCreated(customer: Customer) {
-    setShowCreateModal(false);
-    setSelectedCustomer(customer);
-    setSpend("");
-    setManual("");
-    setSuccessMessage(null);
-    setError(null);
-  }
-
   async function handleConfirm() {
     console.log({ selectedCustomer, computedFromSpend, mode, spend, manual });
     if (!selectedCustomer) return;
@@ -66,7 +56,7 @@ export default function GrantPointsForm() {
         setError(`El monto es muy bajo para sumar puntos (mínimo $${POINTS_PER_CURRENCY}).`);
         return;
       }
-      const result = await grantPointsToCustomer(selectedCustomer.id, points);
+      const result = await grantPointsTo(selectedCustomer.id, points);
       if (result.ok) {
         const { pointsGranted, customerName } = result.data;
         setSuccessMessage(`Se sumaron ${formatPoints(pointsGranted)} puntos a ${customerName}.`);
@@ -84,7 +74,7 @@ export default function GrantPointsForm() {
         setError("Ingresá una cantidad de puntos válida (número entero mayor a 0).");
         return;
       }
-      const result = await grantPointsToCustomer(selectedCustomer.id, points);
+      const result = await grantPointsTo(selectedCustomer.id, points);
       if (result.ok) {
         const { pointsGranted, customerName } = result.data;
         setSuccessMessage(`Se sumaron ${formatPoints(pointsGranted)} puntos a ${customerName}.`);
@@ -109,14 +99,7 @@ export default function GrantPointsForm() {
       <div className="flex flex-col gap-2">
         <span className="text-lg text-ink-soft">Cliente</span>
         <CustomerAutocomplete selected={selectedCustomer} onSelect={setSelectedCustomer} onClear={clearSelection} />
-        <button
-          type="button"
-          onClick={() => setShowCreateModal(true)}
-          className="self-start w-full flex items-center justify-center gap-2 rounded-xl bg-sage px-6 py-3 text-xl font-medium text-cream hover:bg-sage-dark transition-colors"
-        >
-          <UserPlus className="h-5 w-5" />
-          Crear cliente
-        </button>
+        <CreateCustomerButton />
       </div>
 
       <div className="grid grid-cols-2 gap-2 rounded-lg p-1">
@@ -184,8 +167,6 @@ export default function GrantPointsForm() {
           {granting ? "Sumando..." : "Sumar puntos"}
         </Button>
       </div>
-
-      {showCreateModal && <CreateCustomerModal onCancel={() => setShowCreateModal(false)} onCreated={handleCustomerCreated} />}
     </div>
   );
 }

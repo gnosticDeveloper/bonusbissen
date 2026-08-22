@@ -4,9 +4,9 @@ import { Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Customer } from "@/lib/definitions";
-// import { formatPoints } from "@/lib/format"; // TODO: reincorporar cuando haya `points`
+import { formatPoints } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { getAllCustomers } from "@/app/dashboard/actions";
+import { getAllCustomers } from "@/app/[orgId]/dashboard/actions";
 
 const DEBOUNCE_MS = 250;
 const MIN_QUERY_LENGTH = 2;
@@ -39,10 +39,9 @@ export function CustomerAutocomplete({
     debounceTimeout.current = setTimeout(async () => {
       const requestId = ++requestIdRef.current;
       try {
-        const results = await getAllCustomers(q, 10);
+        const { items } = await getAllCustomers(q, 0, 10);
         if (requestId !== requestIdRef.current) return;
-        // TODO: implement points in Customers.
-        setMatches(results.map((v) => ({ ...v, points: 0 })));
+        setMatches(items.map((v) => ({ ...v, points: 0 })));
       } catch {
         if (requestId !== requestIdRef.current) return;
         setError("No se pudo buscar. Probá de nuevo.");
@@ -93,8 +92,7 @@ export function CustomerAutocomplete({
           <div className="flex flex-col">
             <span className="text-sm font-semibold">{selected.name}</span>
             <span className="text-xs text-muted-foreground">
-              {selected.phone}
-              {/* TODO: · {formatPoints(selected.points)} pts */}
+              {selected.phone} · {formatPoints(selected.points)} pts
             </span>
           </div>
         </div>
@@ -172,7 +170,7 @@ export function CustomerAutocomplete({
                     <span className="text-sm font-medium">{c.name}</span>
                     <span className="text-xs text-muted-foreground">{c.phone}</span>
                   </span>
-                  {/* TODO: <span className="text-xs font-semibold text-primary">{formatPoints(c.points)} pts</span> */}
+                  <span className="text-xs font-semibold text-primary">{formatPoints(c.points)} pts</span>
                 </button>
               </li>
             ))

@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 // import { ReactivateButton } from "@/components/reactivate-customer-button";
 import { Input, Label } from "@/components/ui/input";
 import { useModal } from "@/components/modal";
-import { createCustomer } from "@/app/dashboard/actions";
 import { useActionState } from "react";
-import { FormState } from "@/app/dashboard/types";
+import { createCustomer } from "@/app/[orgId]/dashboard/actions";
+import { FormState } from "@/app/[orgId]/dashboard/types";
 
 const initialState: FormState = {
   message: null,

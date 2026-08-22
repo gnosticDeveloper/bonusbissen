@@ -3,7 +3,6 @@ package studio.gnosticdeveloper.bonusbissen.controller;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
@@ -19,7 +18,9 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
+import studio.gnosticdeveloper.bonusbissen.entity.Customer;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
 import studio.gnosticdeveloper.bonusbissen.service.CustomerService;
 
@@ -41,8 +42,9 @@ public class CustomerController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
-    public Page<CustomerResponse> search(@RequestParam(required = false) String search, Pageable pageable) {
-        return customerService.search(search, pageable);
+    public PagedResponse<CustomerResponse> search(@RequestParam(required = false) String search, Pageable pageable) {
+        // this should return a CustomerPointsResponse instead of just a CustomerResponse since I need the points to be shown on the list view.
+        return PagedResponse.from(customerService.search(search, pageable));
     }
 
     @PatchMapping("/{id}/reactivate")
