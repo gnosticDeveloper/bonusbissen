@@ -1,3 +1,7 @@
+# Copy to nginx.conf and replace YOUR_DOMAIN with your real domain before
+# running docker compose up. nginx.conf itself is gitignored so an edited,
+# domain-specific copy never ends up committed.
+
 worker_processes auto;
 
 events {

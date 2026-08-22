@@ -3,6 +3,9 @@ target/
 .env
 !.env.example
 nginx/certs/
+nginx/certbot/
+nginx/nginx.conf
+!nginx/nginx.conf.example
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
