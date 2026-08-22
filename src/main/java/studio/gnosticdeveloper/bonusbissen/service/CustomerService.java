@@ -54,17 +54,15 @@ public class CustomerService {
 
     @Transactional
     public Customer create(CustomerCreateRequest request) {
-        customerRepository
-            .findByPhone(request.phone())
-            .ifPresent(existing -> {
-                if (existing.isActive()) {
-                    throw new ConflictException("Ese número ya está registrado. Por favor, intenta con otro número.");
-                }
-                throw new InactiveCustomerConflictException(
-                    "Ese número pertenece a un cliente que fue borrado. Podés reactivarlo en vez de crear uno nuevo.",
-                    existing.getId()
-                );
-            });
+        customerRepository.findByPhone(request.phone()).ifPresent(existing -> {
+            if (existing.isActive()) {
+                throw new ConflictException("Ese número ya está registrado. Por favor, intenta con otro número.");
+            }
+            throw new InactiveCustomerConflictException(
+                "Ese número pertenece a un cliente que fue borrado. Podés reactivarlo en vez de crear uno nuevo.",
+                existing.getId()
+            );
+        });
         Customer customer = new Customer();
         customer.setName(request.name());
         customer.setPhone(request.phone());
@@ -109,13 +107,13 @@ public class CustomerService {
         Customer customer = customerRepository
             .findById(id)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
-        return new CustomerPointsResponse(customer.getId(), customer.getName(), customer.getPhone(), getBalance(id));
+        return CustomerPointsResponse.from(customer, getBalance(id));
     }
 
     @Transactional(readOnly = true)
     public CustomerPointsResponse getCustomerPointsByPhone(String phone) {
         Customer customer = getByPhone(phone);
-        return new CustomerPointsResponse(customer.getId(), customer.getName(), customer.getPhone(), getBalance(customer.getId()));
+        return CustomerPointsResponse.from(customer, getBalance(customer.getId()));
     }
 
     @Transactional(readOnly = true)
