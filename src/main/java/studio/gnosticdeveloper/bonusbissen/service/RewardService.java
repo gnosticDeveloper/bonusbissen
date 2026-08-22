@@ -16,14 +16,18 @@ import org.springframework.web.multipart.MultipartFile;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RewardCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RewardUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse;
+import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
+import org.springframework.security.access.AccessDeniedException;
+import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 
 @Service
 public class RewardService {
 
     private final RewardRepository rewardRepository;
+    private final OrganizationRepository organizationRepository;
 
     private static final long MAX_BYTES = 2 * 1024 * 1024; // 2MB
     // private static final int MAX_WIDTH = 1000;
@@ -32,14 +36,15 @@ public class RewardService {
     @Value("${app.uploads.dir}")
     private String uploadsDir;
 
-    public RewardService(RewardRepository rewardRepository) {
+    public RewardService(RewardRepository rewardRepository, OrganizationRepository organizationRepository) {
         this.rewardRepository = rewardRepository;
+        this.organizationRepository = organizationRepository;
     }
 
     @Transactional(readOnly = true)
-    public List<Reward> listActive(String search) {
+    public List<Reward> listActive(String search, UUID organizationId) {
         String term = search == null || search.isBlank() ? null : search.trim();
-        return rewardRepository.findByActiveTrue(term);
+        return rewardRepository.findByActiveTrue(term, organizationId);
     }
 
     @Transactional(readOnly = true)
@@ -48,13 +53,13 @@ public class RewardService {
     }
 
     @Transactional(readOnly = true)
-    public List<TopRewardResponse> getTopRewards() {
+    public List<TopRewardResponse> getTopRewards(UUID organizationId) {
         Pageable topTen = PageRequest.of(0, 10);
-        return rewardRepository.getTopRewards(topTen);
+        return rewardRepository.getTopRewards(organizationId, topTen);
     }
 
     @Transactional
-    public Reward create(RewardCreateRequest request) {
+    public Reward create(RewardCreateRequest request, UUID organizationId) {
         String imagePath = null;
 
         if (request.image() != null && !request.image().isEmpty()) {
@@ -67,7 +72,12 @@ public class RewardService {
             }
         }
 
+        Organization organization = organizationRepository
+            .findById(organizationId)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la organización con ID " + organizationId + "."));
+
         Reward reward = new Reward();
+        reward.setOrganization(organization);
         reward.setTitle(request.title());
         reward.setDescription(request.description());
         reward.setCostPoints(request.costPoints());
@@ -77,10 +87,17 @@ public class RewardService {
     }
 
     @Transactional
-    public void delete(UUID id) {
+    public void delete(UUID id, UUID organizationId) {
         Reward reward = rewardRepository.findById(id).orElseThrow(() -> new NotFoundException("No se encontró la recompensa con id: " + id));
+        requireOwnership(reward, organizationId);
         reward.setActive(false);
         rewardRepository.save(reward);
+    }
+
+    private void requireOwnership(Reward reward, UUID organizationId) {
+        if (!reward.getOrganization().getId().equals(organizationId)) {
+            throw new AccessDeniedException("No podés modificar recompensas de otra organización.");
+        }
     }
 
     private String saveImage(MultipartFile file) throws IOException {
@@ -103,8 +120,9 @@ public class RewardService {
     }
 
     @Transactional
-    public Reward update(UUID id, RewardUpdateRequest request) {
+    public Reward update(UUID id, RewardUpdateRequest request, UUID organizationId) {
         Reward reward = rewardRepository.findById(id).orElseThrow(() -> new NotFoundException("Reward not found: " + id));
+        requireOwnership(reward, organizationId);
 
         reward.setTitle(request.title());
         reward.setDescription(request.description());

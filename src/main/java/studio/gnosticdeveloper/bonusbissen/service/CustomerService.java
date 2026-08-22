@@ -8,17 +8,23 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.AccessDeniedException;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCreateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Customer;
+import studio.gnosticdeveloper.bonusbissen.entity.Employee;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
+import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
@@ -28,6 +34,7 @@ import studio.gnosticdeveloper.bonusbissen.exception.InactiveCustomerConflictExc
 import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.CustomerRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
@@ -39,31 +46,62 @@ public class CustomerService {
     private final PointTransactionRepository pointTransactionRepository;
     private final RewardRepository rewardRepository;
     private final ExchangeCodeRepository exchangeCodeRepository;
+    private final EmployeeRepository employeeRepository;
 
     public CustomerService(
         CustomerRepository customerRepository,
         PointTransactionRepository pointTransactionRepository,
         RewardRepository rewardRepository,
-        ExchangeCodeRepository exchangeCodeRepository
+        ExchangeCodeRepository exchangeCodeRepository,
+        EmployeeRepository employeeRepository
     ) {
         this.customerRepository = customerRepository;
         this.pointTransactionRepository = pointTransactionRepository;
         this.rewardRepository = rewardRepository;
         this.exchangeCodeRepository = exchangeCodeRepository;
+        this.employeeRepository = employeeRepository;
     }
 
     @Transactional
-    public Customer create(CustomerCreateRequest request) {
-        customerRepository.findByPhone(request.phone()).ifPresent(existing -> {
-            if (existing.isActive()) {
-                throw new ConflictException("Ese número ya está registrado. Por favor, intenta con otro número.");
-            }
-            throw new InactiveCustomerConflictException(
-                "Ese número pertenece a un cliente que fue borrado. Podés reactivarlo en vez de crear uno nuevo.",
-                existing.getId()
-            );
-        });
+    public Customer create(CustomerCreateRequest request, UUID employeeId) {
+        customerRepository
+            .findByPhone(request.phone())
+            .ifPresent(existing -> {
+                if (existing.isActive()) {
+                    throw new ConflictException("Ese número ya está registrado. Por favor, intenta con otro número.");
+                }
+                throw new InactiveCustomerConflictException(
+                    "Ese número pertenece a un cliente que fue borrado. Podés reactivarlo en vez de crear uno nuevo.",
+                    existing.getId()
+                );
+            });
         Customer customer = new Customer();
+        customer.setName(request.name());
+        customer.setPhone(request.phone());
+        customer = customerRepository.save(customer);
+
+        if (request.points() != null && request.points() > 0) {
+            grantPoints(new GrantPointsRequest(customer.getId(), request.points(), null), employeeId);
+        }
+
+        return customer;
+    }
+
+    @Transactional
+    public Customer update(UUID id, CustomerUpdateRequest request) {
+        Customer customer = customerRepository
+            .findById(id)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
+
+        if (!customer.getPhone().equals(request.phone())) {
+            customerRepository
+                .findByPhone(request.phone())
+                .filter(other -> !other.getId().equals(id))
+                .ifPresent(other -> {
+                    throw new ConflictException("Ese número ya está registrado. Por favor, intenta con otro número.");
+                });
+        }
+
         customer.setName(request.name());
         customer.setPhone(request.phone());
         return customerRepository.save(customer);
@@ -132,20 +170,31 @@ public class CustomerService {
     }
 
     @Transactional(readOnly = true)
-    public Page<CustomerResponse> search(String search, Pageable pageable) {
+    public Page<CustomerPointsResponse> search(String search, Pageable pageable) {
         String term = search == null || search.isBlank() ? null : search.trim();
-        return customerRepository.search(term, pageable).map(CustomerResponse::from);
+        return customerRepository.search(term, pageable).map(customer -> CustomerPointsResponse.from(customer, getBalance(customer.getId())));
     }
 
     @Transactional(readOnly = true)
-    public List<TopClientResponse> getTopClients() {
+    public List<TopClientResponse> getTopClients(UUID organizationId) {
         Pageable topTen = PageRequest.of(0, 10);
-        return customerRepository.getTopClients(topTen);
+        return customerRepository.getTopClients(organizationId, topTen);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PointActionResponse> getGrantHistory(UUID organizationId, UUID customerId, int size) {
+        Pageable pageable = PageRequest.of(0, size);
+        return pointTransactionRepository.findGrantHistory(organizationId, customerId, pageable).stream().map(PointActionResponse::from).toList();
     }
 
     @Transactional
-    public CustomerPointsAwardResponse grantPoints(GrantPointsRequest request) {
+    public CustomerPointsAwardResponse grantPoints(GrantPointsRequest request, UUID employeeId) {
+        Employee employee = employeeRepository
+            .findById(employeeId)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + employeeId + "."));
+
         PointTransaction tx = new PointTransaction();
+        tx.setEmployee(employee);
         tx.setCustomer(
             customerRepository
                 .findById(request.customerId())
@@ -153,10 +202,38 @@ public class CustomerService {
                 .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.customerId() + "."))
         );
         tx.setPoints(request.points());
+        tx.setNote(request.note());
         tx.setTransactionType(TransactionType.EARN);
         tx.setState(TransactionState.DELIVERED);
         tx = pointTransactionRepository.save(tx);
         return new CustomerPointsAwardResponse(tx.getCustomer().getName(), request.points());
+    }
+
+    @Transactional
+    public PointActionResponse updateGrant(UUID transactionId, GrantPointsUpdateRequest request, UUID organizationId) {
+        PointTransaction tx = getOwnedGrant(transactionId, organizationId);
+        tx.setPoints(request.points());
+        tx.setNote(request.note());
+        tx = pointTransactionRepository.save(tx);
+        return PointActionResponse.from(tx);
+    }
+
+    @Transactional
+    public void deleteGrant(UUID transactionId, UUID organizationId) {
+        pointTransactionRepository.delete(getOwnedGrant(transactionId, organizationId));
+    }
+
+    private PointTransaction getOwnedGrant(UUID transactionId, UUID organizationId) {
+        PointTransaction tx = pointTransactionRepository
+            .findById(transactionId)
+            .filter(t -> t.getTransactionType() == TransactionType.EARN && t.getEmployee() != null)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un movimiento de puntos con el ID " + transactionId + "."));
+
+        if (!tx.getEmployee().getOrganization().getId().equals(organizationId)) {
+            throw new AccessDeniedException("No podés operar sobre un movimiento de puntos de otra organización.");
+        }
+
+        return tx;
     }
 
     @Transactional
@@ -184,8 +261,8 @@ public class CustomerService {
         tx.setState(TransactionState.PENDING);
         tx = pointTransactionRepository.save(tx);
 
-        // generate code
         ExchangeCode exchangeCode = new ExchangeCode();
+        exchangeCode.setOrganization(reward.getOrganization());
         exchangeCode.setPointTransaction(tx);
         exchangeCode.setCustomer(customer);
         exchangeCode.setCode(generateExchangeCode());

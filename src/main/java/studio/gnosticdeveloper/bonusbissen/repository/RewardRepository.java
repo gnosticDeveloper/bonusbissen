@@ -11,23 +11,40 @@ import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 
 public interface RewardRepository extends JpaRepository<Reward, UUID> {
     @Query(
-        """
-        SELECT r FROM Reward r
-        WHERE r.active = true
-          AND (
-               CAST(:search AS string) IS NULL
-               OR LOWER(r.title) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))
-               OR LOWER(r.description) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))
-          )
-        """
+        value =
+            """
+            select * from rewards r
+            where r.active = true
+              and (cast(:organizationId as uuid) is null or r.organization_id = :organizationId)
+              and (
+                   cast(:search as text) is null
+                   or lower(r.title) like lower(concat('%', cast(:search as text), '%'))
+                   or lower(r.description) like lower(concat('%', cast(:search as text), '%'))
+              )
+            """,
+        nativeQuery = true
     )
-    List<Reward> findByActiveTrue(@Param("search") String search);
+    List<Reward> findByActiveTrue(@Param("search") String search, @Param("organizationId") UUID organizationId);
+
 
     @Query(
-        value = "select new studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse(r.id, r.title, cast(count(tx) as integer), r.costPoints) " +
-                "from PointTransaction tx, Reward r " +
-                "where tx.state != 'cancelled' and tx.reward.id = r.id " +
-                "group by r.id, r.title, r.costPoints order by count(tx) DESC"
+        value =
+            """
+            select r.id as id, r.title as title, cast(count(tx.id) as integer) as claim_count, r.cost_points as points
+            from point_transactions tx
+            join rewards r on r.id = tx.reward_id
+            where tx.state != 'cancelled' and r.organization_id = :organizationId
+            group by r.id, r.title, r.cost_points
+            order by count(tx.id) desc
+            """,
+        nativeQuery = true
     )
-    List<TopRewardResponse> getTopRewards(Pageable pageable);
+    List<Object[]> findTopRewardsRaw(@Param("organizationId") UUID organizationId, Pageable pageable);
+
+    default List<TopRewardResponse> getTopRewards(UUID organizationId, Pageable pageable) {
+        return findTopRewardsRaw(organizationId, pageable)
+            .stream()
+            .map(row -> new TopRewardResponse((UUID) row[0], (String) row[1], ((Number) row[2]).intValue(), ((Number) row[3]).intValue()))
+            .toList();
+    }
 }

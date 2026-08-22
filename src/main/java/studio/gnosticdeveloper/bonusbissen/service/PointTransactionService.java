@@ -2,6 +2,7 @@ package studio.gnosticdeveloper.bonusbissen.service;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,8 +43,13 @@ public class PointTransactionService {
     }
 
     @Transactional(readOnly = true)
-    public List<ExchangeResponse> getAll() {
-        return pointTransactionRepository.findAllWithRelations().stream().map(ExchangeResponse::from).toList();
+    public List<ExchangeResponse> getAll(UUID organizationId) {
+        return pointTransactionRepository.findAllWithRelations(organizationId).stream().map(ExchangeResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ExchangeResponse> getResolved(UUID organizationId, Pageable pageable) {
+        return pointTransactionRepository.findAllResolvedByOrganizationId(organizationId, pageable).stream().map(ExchangeResponse::from).toList();
     }
 
     @Transactional
@@ -56,19 +62,23 @@ public class PointTransactionService {
     }
 
     @Transactional
-    public List<PendingExchangeReviewResponse> getAllByState(TransactionState state) {
-        return pointTransactionRepository.findAllByStateOrderByCreatedAtDesc(state).stream().map(PendingExchangeReviewResponse::from).toList();
+    public List<PendingExchangeReviewResponse> getAllByState(TransactionState state, UUID organizationId) {
+        return pointTransactionRepository
+            .findAllByStateAndOrganizationIdOrderByCreatedAtDesc(state, organizationId)
+            .stream()
+            .map(PendingExchangeReviewResponse::from)
+            .toList();
     }
 
     @Transactional
-    public Integer countByState(TransactionState state) {
-        return pointTransactionRepository.countByState(state);
+    public Integer countByState(TransactionState state, UUID organizationId) {
+        return pointTransactionRepository.countByStateAndOrganizationId(state, organizationId);
     }
 
     @Transactional
-    public ExchangeResponse verifyExchange(String code) {
+    public ExchangeResponse verifyExchange(String code, UUID organizationId) {
         ExchangeCode exchangeCode = exchangeCodeRepository
-            .findActiveByCode(code)
+            .findActiveByCodeAndOrganizationId(code, organizationId)
             .orElseThrow(() -> new NotFoundException("No pudimos encontrar el código de intercambio: " + code));
 
         PointTransaction pointTransaction = exchangeCode.getPointTransaction();
@@ -79,10 +89,11 @@ public class PointTransactionService {
     }
 
     @Transactional
-    public void approveExchange(ApproveExchangeRequest request) {
+    public void approveExchange(ApproveExchangeRequest request, UUID organizationId) {
         PointTransaction pointTransaction = pointTransactionRepository
             .findById(request.id())
             .orElseThrow(() -> new NotFoundException("Point transaction not found: " + request.id()));
+        requireOwnership(pointTransaction, organizationId);
 
         if (pointTransaction.getState() != TransactionState.PENDING) {
             throw new ConflictException("El canje " + request.id() + " ya fue procesado (" + pointTransaction.getState() + ").");
@@ -98,10 +109,11 @@ public class PointTransactionService {
     }
 
     @Transactional
-    public void cancelExchange(CancelExchangeRequest request) {
+    public void cancelExchange(CancelExchangeRequest request, UUID organizationId) {
         PointTransaction pointTransaction = pointTransactionRepository
             .findById(request.id())
             .orElseThrow(() -> new NotFoundException("Point transaction not found: " + request.id()));
+        requireOwnership(pointTransaction, organizationId);
 
         if (pointTransaction.getState() != TransactionState.PENDING) {
             throw new ConflictException("El canje " + request.id() + " ya fue procesado (" + pointTransaction.getState() + ").");
@@ -123,11 +135,18 @@ public class PointTransactionService {
         // refund points to customer by creating a new point transaction
         if (request.shouldRefundPoints()) {
             PointTransaction refundTransaction = new PointTransaction();
+            refundTransaction.setRefundedTransaction(pointTransaction);
             refundTransaction.setCustomer(pointTransaction.getCustomer());
             refundTransaction.setPoints(Math.abs(pointTransaction.getPoints()));
             refundTransaction.setTransactionType(TransactionType.EARN);
             refundTransaction.setState(TransactionState.DELIVERED);
             pointTransactionRepository.save(refundTransaction);
+        }
+    }
+
+    private void requireOwnership(PointTransaction pointTransaction, UUID organizationId) {
+        if (!pointTransaction.getOrganization().getId().equals(organizationId)) {
+            throw new AccessDeniedException("No podés operar sobre un canje de otra organización.");
         }
     }
 
@@ -155,6 +174,7 @@ public class PointTransactionService {
 
         // refund points to customer by creating a new point transaction
         PointTransaction refundTransaction = new PointTransaction();
+        refundTransaction.setRefundedTransaction(pointTransaction);
         refundTransaction.setCustomer(pointTransaction.getCustomer());
         refundTransaction.setPoints(Math.abs(pointTransaction.getPoints()));
         refundTransaction.setTransactionType(TransactionType.EARN);

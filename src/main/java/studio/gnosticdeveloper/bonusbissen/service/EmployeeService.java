@@ -38,11 +38,12 @@ public class EmployeeService {
     }
 
     @Transactional
-    public HomeStatsResponse getHomeStats() {
-        int totalExchanges = pointTransactionRepository.countByTransactionType(TransactionType.REDEEM);
-        int pendingExchanges = pointTransactionRepository.countByTransactionTypeStatePending(TransactionType.REDEEM);
+    public HomeStatsResponse getHomeStats(UUID organizationId) {
+        int totalExchanges = pointTransactionRepository.countByTransactionType(TransactionType.REDEEM, organizationId);
+        int pendingExchanges = pointTransactionRepository.countByTransactionTypeStatePending(TransactionType.REDEEM, organizationId);
+        //This should use a many to many once we add subscription mechanics to org's point stores
         int totalCustomers = (int) customerRepository.count();
-        int totalPointsAwarded = pointTransactionRepository.calculatePointsAwarded(TransactionType.EARN);
+        int totalPointsAwarded = pointTransactionRepository.calculatePointsAwarded(TransactionType.EARN, organizationId);
 
         return new HomeStatsResponse(totalExchanges, pendingExchanges, totalCustomers, totalPointsAwarded);
     }

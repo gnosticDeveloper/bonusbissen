@@ -20,6 +20,10 @@ public class ExchangeCode {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 

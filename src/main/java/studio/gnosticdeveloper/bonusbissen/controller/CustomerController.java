@@ -12,13 +12,16 @@ import org.springframework.web.bind.annotation.*;
 
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCreateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Customer;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
@@ -35,16 +38,22 @@ public class CustomerController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     @ResponseStatus(HttpStatus.CREATED)
-    public CustomerResponse create(@Valid @RequestBody CustomerCreateRequest request) {
-        return CustomerResponse.from(customerService.create(request));
+    public CustomerResponse create(@Valid @RequestBody CustomerCreateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return CustomerResponse.from(customerService.create(request, principal.id()));
     }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
-    public PagedResponse<CustomerResponse> search(@RequestParam(required = false) String search, Pageable pageable) {
-        // this should return a CustomerPointsResponse instead of just a CustomerResponse since I need the points to be shown on the list view.
+    public PagedResponse<CustomerPointsResponse> search(@RequestParam(required = false) String search, Pageable pageable) {
         return PagedResponse.from(customerService.search(search, pageable));
+    }
+
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public CustomerResponse update(@PathVariable UUID id, @Valid @RequestBody CustomerUpdateRequest request) {
+        return CustomerResponse.from(customerService.update(id, request));
     }
 
     @PatchMapping("/{id}/reactivate")
@@ -74,8 +83,35 @@ public class CustomerController {
 
     @PostMapping("/grant")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
-    public CustomerPointsAwardResponse grantPoints(@Valid @RequestBody GrantPointsRequest request) {
-        return customerService.grantPoints(request);
+    public CustomerPointsAwardResponse grantPoints(@Valid @RequestBody GrantPointsRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return customerService.grantPoints(request, principal.id());
+    }
+
+    @GetMapping("/grant/history")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
+    public List<PointActionResponse> getGrantHistory(
+        @RequestParam(defaultValue = "10") int size,
+        @RequestParam(name = "of", required = false) UUID of,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
+        return customerService.getGrantHistory(principal.organizationId(), of, size);
+    }
+
+    @PatchMapping("/grant/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
+    public PointActionResponse updateGrant(
+        @PathVariable UUID id,
+        @Valid @RequestBody GrantPointsUpdateRequest request,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
+        return customerService.updateGrant(id, request, principal.organizationId());
+    }
+
+    @DeleteMapping("/grant/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteGrant(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        customerService.deleteGrant(id, principal.organizationId());
     }
 
     @GetMapping("/{id}/exchanges")
@@ -98,8 +134,8 @@ public class CustomerController {
 
     @GetMapping("/top")
     @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
-    public List<TopClientResponse> getTopClients() {
-        return customerService.getTopClients();
+    public List<TopClientResponse> getTopClients(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return customerService.getTopClients(principal.organizationId());
     }
 
     /**

@@ -20,6 +20,10 @@ public class Reward {
     @GeneratedValue
     private UUID id;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
+
     @Column(nullable = false, length = 255)
     private String title;
 

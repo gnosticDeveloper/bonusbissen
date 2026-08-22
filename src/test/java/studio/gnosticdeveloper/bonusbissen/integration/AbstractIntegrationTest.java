@@ -17,9 +17,11 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.LoginResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Customer;
 import studio.gnosticdeveloper.bonusbissen.entity.Employee;
 import studio.gnosticdeveloper.bonusbissen.entity.EmployeeRole;
+import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.repository.CustomerRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -53,7 +55,28 @@ public abstract class AbstractIntegrationTest {
     protected RewardRepository rewardRepository;
 
     @Autowired
+    protected OrganizationRepository organizationRepository;
+
+    @Autowired
     protected PasswordEncoder passwordEncoder;
+
+    // Shared across every test in the suite: existing scenarios assume every
+    // employee/reward belongs to "the" business, so all of them are attached
+    // to this single organization rather than one each.
+    private static volatile Organization sharedOrganization;
+
+    protected Organization defaultOrganization() {
+        if (sharedOrganization == null) {
+            synchronized (AbstractIntegrationTest.class) {
+                if (sharedOrganization == null) {
+                    Organization organization = new Organization();
+                    organization.setName("Test Org");
+                    sharedOrganization = organizationRepository.save(organization);
+                }
+            }
+        }
+        return sharedOrganization;
+    }
 
     protected String baseUrl() {
         return "http://localhost:" + port;
@@ -61,6 +84,7 @@ public abstract class AbstractIntegrationTest {
 
     protected Employee createEmployee(String username, String password, EmployeeRole role) {
         Employee employee = new Employee();
+        employee.setOrganization(defaultOrganization());
         employee.setUsername(username);
         employee.setPasswordHash(passwordEncoder.encode(password));
         employee.setName(username);
@@ -83,6 +107,7 @@ public abstract class AbstractIntegrationTest {
 
     protected Reward createReward(String title, int costPoints) {
         Reward reward = new Reward();
+        reward.setOrganization(defaultOrganization());
         reward.setTitle(title);
         reward.setCostPoints(costPoints);
         return rewardRepository.save(reward);

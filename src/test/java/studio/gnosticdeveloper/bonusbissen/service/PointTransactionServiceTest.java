@@ -12,7 +12,9 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.entity.Customer;
 import studio.gnosticdeveloper.bonusbissen.entity.Employee;
+import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
+import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
@@ -44,11 +46,29 @@ class PointTransactionServiceTest {
     @InjectMocks
     private PointTransactionService pointTransactionService;
 
+    private static Organization organization() {
+        Organization organization = new Organization();
+        organization.setId(UUID.randomUUID());
+        return organization;
+    }
+
+    // These transactions are all REDEEMs, so their organization is derived
+    // via the reward (see PointTransaction.getOrganization()).
+    private static Reward rewardFor(Organization organization) {
+        Reward reward = new Reward();
+        reward.setId(UUID.randomUUID());
+        reward.setOrganization(organization);
+        return reward;
+    }
+
     @Test
     void approveExchangeMarksTransactionAsDeliveredAndAssignsEmployee() {
+        Organization organization = organization();
+
         PointTransaction tx = new PointTransaction();
         tx.setId(UUID.randomUUID());
         tx.setState(TransactionState.PENDING);
+        tx.setReward(rewardFor(organization));
 
         Employee employee = new Employee();
         employee.setId(UUID.randomUUID());
@@ -56,7 +76,7 @@ class PointTransactionServiceTest {
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
         when(employeeRepository.findById(employee.getId())).thenReturn(Optional.of(employee));
 
-        pointTransactionService.approveExchange(new ApproveExchangeRequest(tx.getId(), employee.getId()));
+        pointTransactionService.approveExchange(new ApproveExchangeRequest(tx.getId(), employee.getId()), organization.getId());
 
         assertThat(tx.getState()).isEqualTo(TransactionState.DELIVERED);
         assertThat(tx.getEmployee()).isEqualTo(employee);
@@ -68,19 +88,22 @@ class PointTransactionServiceTest {
         UUID id = UUID.randomUUID();
         when(pointTransactionRepository.findById(id)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> pointTransactionService.approveExchange(new ApproveExchangeRequest(id, UUID.randomUUID())))
+        assertThatThrownBy(() -> pointTransactionService.approveExchange(new ApproveExchangeRequest(id, UUID.randomUUID()), UUID.randomUUID()))
             .isInstanceOf(NotFoundException.class);
     }
 
     @Test
     void approveExchangeThatIsNotPendingThrowsConflict() {
+        Organization organization = organization();
+
         PointTransaction tx = new PointTransaction();
         tx.setId(UUID.randomUUID());
         tx.setState(TransactionState.DELIVERED);
+        tx.setReward(rewardFor(organization));
 
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
 
-        assertThatThrownBy(() -> pointTransactionService.approveExchange(new ApproveExchangeRequest(tx.getId(), UUID.randomUUID())))
+        assertThatThrownBy(() -> pointTransactionService.approveExchange(new ApproveExchangeRequest(tx.getId(), UUID.randomUUID()), organization.getId()))
             .isInstanceOf(ConflictException.class);
 
         verify(pointTransactionRepository, times(0)).save(any());
@@ -88,10 +111,13 @@ class PointTransactionServiceTest {
 
     @Test
     void cancelExchangeWithoutRefundOnlySavesTheOriginalTransaction() {
+        Organization organization = organization();
+
         PointTransaction tx = new PointTransaction();
         tx.setId(UUID.randomUUID());
         tx.setState(TransactionState.PENDING);
         tx.setPoints(-20);
+        tx.setReward(rewardFor(organization));
 
         Employee employee = new Employee();
         employee.setId(UUID.randomUUID());
@@ -99,7 +125,7 @@ class PointTransactionServiceTest {
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
         when(employeeRepository.findById(employee.getId())).thenReturn(Optional.of(employee));
 
-        pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), employee.getId(), false));
+        pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), employee.getId(), false), organization.getId());
 
         assertThat(tx.getState()).isEqualTo(TransactionState.CANCELLED);
         verify(pointTransactionRepository, times(1)).save(any());
@@ -107,13 +133,16 @@ class PointTransactionServiceTest {
 
     @Test
     void cancelExchangeThatIsNotPendingThrowsConflict() {
+        Organization organization = organization();
+
         PointTransaction tx = new PointTransaction();
         tx.setId(UUID.randomUUID());
         tx.setState(TransactionState.CANCELLED);
+        tx.setReward(rewardFor(organization));
 
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
 
-        assertThatThrownBy(() -> pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), UUID.randomUUID(), true)))
+        assertThatThrownBy(() -> pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), UUID.randomUUID(), true), organization.getId()))
             .isInstanceOf(ConflictException.class);
 
         verify(pointTransactionRepository, times(0)).save(any());
@@ -121,6 +150,8 @@ class PointTransactionServiceTest {
 
     @Test
     void cancelExchangeWithRefundCreatesAnEarnTransactionForTheAbsoluteAmount() {
+        Organization organization = organization();
+
         Customer customer = new Customer();
         customer.setId(UUID.randomUUID());
 
@@ -129,6 +160,7 @@ class PointTransactionServiceTest {
         tx.setState(TransactionState.PENDING);
         tx.setPoints(-20);
         tx.setCustomer(customer);
+        tx.setReward(rewardFor(organization));
 
         Employee employee = new Employee();
         employee.setId(UUID.randomUUID());
@@ -137,7 +169,7 @@ class PointTransactionServiceTest {
         when(employeeRepository.findById(employee.getId())).thenReturn(Optional.of(employee));
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), employee.getId(), true));
+        pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), employee.getId(), true), organization.getId());
 
         ArgumentCaptor<PointTransaction> captor = ArgumentCaptor.forClass(PointTransaction.class);
         verify(pointTransactionRepository, times(2)).save(captor.capture());
@@ -216,8 +248,9 @@ class PointTransactionServiceTest {
 
     @Test
     void verifyExchangeWithUnknownCodeThrowsNotFound() {
-        when(exchangeCodeRepository.findActiveByCode("000000")).thenReturn(Optional.empty());
+        UUID organizationId = UUID.randomUUID();
+        when(exchangeCodeRepository.findActiveByCodeAndOrganizationId("000000", organizationId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> pointTransactionService.verifyExchange("000000")).isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> pointTransactionService.verifyExchange("000000", organizationId)).isInstanceOf(NotFoundException.class);
     }
 }

@@ -27,9 +27,13 @@ public class PointTransaction {
     @JoinColumn(name = "reward_id", nullable = true)
     private Reward reward;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id", nullable = true)
     private Employee employee;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "refunded_transaction_id", nullable = true)
+    private PointTransaction refundedTransaction;
 
     @Convert(converter = TransactionTypeConverter.class)
     @Column(name = "transaction_type", nullable = false)
@@ -37,6 +41,9 @@ public class PointTransaction {
 
     @Column(name = "points", nullable = false)
     private int points;
+
+    @Column(columnDefinition = "text")
+    private String note;
 
     @Convert(converter = TransactionStateConverter.class)
     @Column(nullable = false)
@@ -53,5 +60,13 @@ public class PointTransaction {
         if (createdAt == null) {
             createdAt = OffsetDateTime.now();
         }
+    }
+
+
+    public Organization getOrganization() {
+        if (reward != null) return reward.getOrganization();
+        if (employee != null) return employee.getOrganization();
+        if (refundedTransaction != null) return refundedTransaction.getOrganization();
+        return null;
     }
 }

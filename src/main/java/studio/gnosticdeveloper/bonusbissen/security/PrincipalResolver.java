@@ -25,11 +25,11 @@ public class PrincipalResolver {
         return switch (role) {
             case "ADMIN", "CASHIER" -> employeeRepository.findById(id)
                     .filter(Employee::isActive)
-                    .map(e -> new AuthenticatedPrincipal(e.getId(), e.getUsername(), e.getRole().name()));
+                    .map(e -> new AuthenticatedPrincipal(e.getId(), e.getUsername(), e.getRole().name(), e.getOrganization().getId()));
 
             case "CUSTOMER" -> customerRepository.findById(id)
                     .filter(Customer::isActive)
-                    .map(c -> new AuthenticatedPrincipal(c.getId(), c.getName(), "CUSTOMER"));
+                    .map(c -> new AuthenticatedPrincipal(c.getId(), c.getName(), "CUSTOMER", null));
 
             default -> Optional.empty();
         };
