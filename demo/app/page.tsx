@@ -118,7 +118,7 @@ export default function HomePage() {
           Demo funcional · Los datos se guardan solo en tu navegador y se reinician al cerrar la pestaña.
         </p>
 
-        <p className="text-center text-xs text-muted-foreground">
+        {/*<p className="text-center text-xs text-muted-foreground">
           Un producto de{" "}
           <Link
             href="https://glauxlabs.studio"
@@ -128,7 +128,7 @@ export default function HomePage() {
           >
             Glaux Labs
           </Link>
-        </p>
+        </p>*/}
       </div>
     </main>
   );
