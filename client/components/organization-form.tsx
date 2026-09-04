@@ -1,14 +1,15 @@
 "use client";
 
-import { FormState, Organization } from "@/app/dashboard/types";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Clock, MapPin, Save, Type } from "lucide-react";
 import { useActionState, useEffect } from "react";
-import { updateOrganization } from "@/app/dashboard/actions";
 import { useToast } from "@/components/toast";
 import LogoDropzone from "@/components/logo-dropzone";
+import { FormState } from "@/app/[orgId]/(employee)/dashboard/types";
+import { Organization } from "@/lib/types/organization";
+import { updateOrganization } from "@/app/[orgId]/(employee)/dashboard/(admin-only)/your-org/actions";
 
 function SubmitButton() {
   const { pending } = useFormStatus();

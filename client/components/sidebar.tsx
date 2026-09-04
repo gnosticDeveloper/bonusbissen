@@ -2,16 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/helpers/utils";
 import { NAV } from "@/lib/consts";
 
 type SidebarProps = {
-  hasPendings: boolean;
   onNavigate: VoidFunction;
   orgId: string;
 };
 
-export default function Sidebar({ hasPendings, onNavigate, orgId }: SidebarProps) {
+export default function Sidebar({ onNavigate, orgId }: SidebarProps) {
   const pathname = usePathname();
   return (
     <nav className="flex flex-col gap-1">

@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/helpers/utils'
 import type { HTMLAttributes } from 'react'
 
 type Tone = 'neutral' | 'success' | 'warning' | 'destructive' | 'primary'

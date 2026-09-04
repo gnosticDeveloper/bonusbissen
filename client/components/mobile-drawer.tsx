@@ -6,7 +6,7 @@ import Sidebar from "@/components/sidebar";
 import { useEmployeeAuth } from "@/providers/auth-provider";
 import { useMobileDrawer } from "@/providers/mobile-drawer-provider";
 
-export function MobileDrawer({ orgId, hasPendings }: { orgId: string; hasPendings: boolean }) {
+export function MobileDrawer({ orgId }: { orgId: string; }) {
   const { isOpen, close } = useMobileDrawer();
   const user = useEmployeeAuth();
 
@@ -23,7 +23,7 @@ export function MobileDrawer({ orgId, hasPendings }: { orgId: string; hasPending
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto p-3">
-          <Sidebar orgId={orgId} hasPendings={hasPendings} onNavigate={close} />
+          <Sidebar orgId={orgId} onNavigate={close} />
         </div>
       </div>
     </div>

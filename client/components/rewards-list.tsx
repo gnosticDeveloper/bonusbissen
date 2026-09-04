@@ -1,11 +1,9 @@
-"use client";
-
-import { Reward } from "@/lib/definitions";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatPoints, truncate } from "@/lib/format";
-import { Gift, Pencil, Trash2 } from "lucide-react";
+import { formatPoints, truncate } from "@/lib/helpers/format";
+import { Gift } from "lucide-react";
+import { Reward } from "@/lib/types/reward";
+import { DeleteRewardButton, EditRewardButton } from "./create-reward-button";
 
 export default function RewardsList({ rewards, isAdmin }: { rewards: Reward[]; isAdmin: boolean }) {
   return (
@@ -24,12 +22,8 @@ export default function RewardsList({ rewards, isAdmin }: { rewards: Reward[]; i
               <span className="text-sm font-bold text-primary">{formatPoints(r.costPoints)} pts</span>
               {isAdmin ? (
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon-sm" aria-label="Editar recompensa" onClick={() => {}}>
-                    <Pencil />
-                  </Button>
-                  <Button variant="ghost" size="icon-sm" aria-label="Eliminar recompensa" onClick={() => {}}>
-                    <Trash2 className="text-destructive" />
-                  </Button>
+                  <EditRewardButton reward={r} />
+                  <DeleteRewardButton reward={r} />
                 </div>
               ) : null}
             </div>

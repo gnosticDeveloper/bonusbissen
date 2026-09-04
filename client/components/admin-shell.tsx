@@ -3,30 +3,30 @@
 import AppSectionTitle from "@/components/app-section-title";
 import { MobileDrawer } from "@/components/mobile-drawer";
 import Sidebar from "@/components/sidebar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useEmployeeAuth } from "@/providers/auth-provider";
 import { MobileDrawerProvider, useMobileDrawer } from "@/providers/mobile-drawer-provider";
 import { Coins, LogOut, Menu } from "lucide-react";
+import { UserBadge } from "./user-badge";
+import { getProfileInfo } from "@/app/[orgId]/(employee)/dashboard/actions";
 
 type AdminShellProps = {
   children: React.ReactNode;
   orgId: string;
-  hasPendings: boolean;
 };
 
 // Componente interno: es HIJO de MobileDrawerProvider (ver AdminShell más abajo),
 // por eso useMobileDrawer() acá sí lee el estado real. Si este hook se llamara
 // en el mismo componente que crea el Provider, volveríamos al bug original.
-function AdminShellContent({ children, orgId, hasPendings }: AdminShellProps) {
+function AdminShellContent({ children, orgId }: AdminShellProps) {
   const { open } = useMobileDrawer();
-  const user = useEmployeeAuth();
 
   async function handleLogout() {
     // TODO: reemplazar por la acción real de logout cuando exista el endpoint
     // en el back (probablemente un Route Handler que limpie la cookie
     // `employee_token` vía el BFF y redirija a /login).
   }
+
+  // const userPromise = getProfileInfo();
 
   return (
     <div className="flex min-h-svh flex-col bg-muted/30 lg:flex-row">
@@ -39,22 +39,10 @@ function AdminShellContent({ children, orgId, hasPendings }: AdminShellProps) {
           <span className="font-serif text-lg font-semibold text-foreground">Panel</span>
         </div>
         <div className="flex-1 overflow-y-auto p-3">
-          <Sidebar hasPendings={hasPendings} onNavigate={() => {}} orgId={orgId} />
+          <Sidebar onNavigate={() => {}} orgId={orgId} />
         </div>
         <div className="border-t border-border p-3">
-          <div className="mb-2 flex items-center gap-3 rounded-lg px-3 py-2">
-            <div className="flex size-8 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-secondary-foreground">
-              {user?.name?.charAt(0) ?? "?"}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">{user?.name ?? "Invitado"}</p>
-              {user && (
-                <Badge tone={user.role === "ADMIN" ? "primary" : "neutral"}>
-                  {user.role === "ADMIN" ? "Administrador" : "Empleado"}
-                </Badge>
-              )}
-            </div>
-          </div>
+          {/*<UserBadge userPromise={userPromise} />*/}
           <Button variant="ghost" size="lg" className="w-full hover:text-red-500 cursor-pointer justify-start gap-2" onClick={handleLogout}>
             <LogOut className="size-4" /> Cerrar sesión
           </Button>
@@ -76,7 +64,7 @@ function AdminShellContent({ children, orgId, hasPendings }: AdminShellProps) {
         </div>
       </header>
 
-      <MobileDrawer orgId={orgId} hasPendings={hasPendings} />
+      <MobileDrawer orgId={orgId} />
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">

@@ -3,10 +3,10 @@
 import { Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Customer } from "@/lib/definitions";
-import { formatPoints } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import { getAllCustomers } from "@/app/[orgId]/dashboard/actions";
+import { formatPoints } from "@/lib/helpers/format";
+import { cn } from "@/lib/helpers/utils";
+import { getAllCustomers } from "@/app/[orgId]/(employee)/dashboard/points/actions";
+import { Customer } from "@/lib/types/customer";
 
 const DEBOUNCE_MS = 250;
 const MIN_QUERY_LENGTH = 2;

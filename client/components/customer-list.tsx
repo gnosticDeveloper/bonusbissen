@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useModal } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { deleteCustomerById } from "@/app/(customers)/actions";
-import { formatDate, formatPoints } from "@/lib/format";
+import { formatDate, formatPoints } from "@/lib/helpers/format";
 import { Pencil, Trash2 } from "lucide-react";
 import { useEmployeeAuth } from "@/providers/auth-provider";
 import { CustomerPointsResponse } from "@/app/[orgId]/dashboard/actions";

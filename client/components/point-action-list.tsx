@@ -1,13 +1,41 @@
-import { getAllPointActions } from "@/app/dashboard/actions";
+"use client";
+
+import { useEffect, useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDateTime, formatPoints, pointActionLabel } from "@/lib/format";
+import { formatDateTime, formatPoints, pointActionLabel } from "@/lib/helpers/format";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2 } from "lucide-react";
-import { Customer } from "@/lib/definitions";
+import { Customer } from "@/lib/types/customer";
+import { getAllPointActions } from "@/app/[orgId]/(employee)/dashboard/points/actions";
 
-export default async function PointActionList({ selected }: { selected?: Customer }) {
-  const visibleActions = await getAllPointActions(selected?.id);
+type PointAction = Awaited<ReturnType<typeof getAllPointActions>>[number];
+
+export default function PointActionList({
+  selected,
+  refreshKey,
+}: {
+  selected?: Customer;
+  refreshKey?: number;
+}) {
+  const [actions, setActions] = useState<PointAction[]>([]);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    startTransition(() => {
+      getAllPointActions(selected?.id).then((data) => {
+        if (!cancelled) setActions(data);
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selected?.id, refreshKey]);
+
+  const visibleActions = actions;
 
   return (
     <div className="lg:col-span-3">
@@ -20,7 +48,9 @@ export default async function PointActionList({ selected }: { selected?: Custome
           <Badge tone="neutral">{visibleActions.length}</Badge>
         </CardHeader>
         <CardContent className="flex-1">
-          {visibleActions.length === 0 ? (
+          {isPending && visibleActions.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Cargando movimientos…</p>
+          ) : visibleActions.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
               {selected ? "Este cliente todavía no tiene movimientos de puntos." : "Todavía no hay movimientos de puntos registrados."}
             </p>
@@ -43,24 +73,10 @@ export default async function PointActionList({ selected }: { selected?: Custome
                     </span>
                   </div>
                   <div className="flex shrink-0 gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Editar movimiento"
-                      onClick={() => {
-                        // setEditing(a)
-                      }}
-                    >
+                    <Button variant="ghost" size="icon-sm" aria-label="Editar movimiento" onClick={() => {}}>
                       <Pencil />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Eliminar movimiento"
-                      onClick={() => {
-                        // setRemoving(a);
-                      }}
-                    >
+                    <Button variant="ghost" size="icon-sm" aria-label="Eliminar movimiento" onClick={() => {}}>
                       <Trash2 className="text-destructive" />
                     </Button>
                   </div>

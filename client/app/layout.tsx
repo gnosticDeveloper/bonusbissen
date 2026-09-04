@@ -12,7 +12,7 @@ const instrumentSans = Instrument_Sans({
 
 // TODO: use generateMetadata() instead of static metadata obj.
 export const metadata: Metadata = {
-  title: "Bonus Bissen • Sistema de fidelización de clientes",
+  title: "Bonus Bissen • Página principal • Sistema de fidelización de clientes",
   description: "Sistema de puntos y recompensas para clientes frecuentes",
 };
 

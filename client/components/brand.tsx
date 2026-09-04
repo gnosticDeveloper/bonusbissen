@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/helpers/utils";
 import { Sparkles } from "lucide-react";
 
 export function BrandMark({ size = "md", className }: { size?: "sm" | "md" | "lg"; className?: string }) {

@@ -4,10 +4,9 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { LoginState } from "@/app/[orgId]/dashboard/types";
-import { login } from "@/app/[orgId]/dashboard/actions";
+import { AuthState, signIn } from "@/app/(auth)/sign-in/actions";
 
-const initialState: LoginState = {
+const initialState: AuthState = {
   error: null,
 };
 
@@ -22,13 +21,13 @@ function SubmitButton() {
 }
 
 export default function SignInForm() {
-  const [state, action] = useActionState(login, initialState);
+  const [state, action] = useActionState(signIn, initialState);
 
   return (
     <form action={action} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="username">Usuario</Label>
-        <Input id="username" type="username" name="username" autoComplete="off" placeholder="Nombre de usuario" />
+        <Label htmlFor="username">Usuario o correo electrónico</Label>
+        <Input id="username" type="username" name="username" autoComplete="off" placeholder="Ingrese un nombre de usuario o correo" />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="password">Contraseña</Label>

@@ -1,4 +1,4 @@
-import { ApiError } from "@/lib/api-error";
+import { ApiError } from "@/lib/api";
 
 export type ActionResult<T> =
   | { ok: true; data: T }

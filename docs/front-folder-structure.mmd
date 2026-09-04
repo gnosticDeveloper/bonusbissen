@@ -1,0 +1,68 @@
+treeView-beta
+    app/
+        (auth)/
+            sign-in/
+                page.tsx [❌]
+            sign-up/
+                page.tsx [❌]
+        b/
+            layout.tsx [❌] %% Layout for session validating.
+            page.tsx [❌] %% Main page for BonusBissen where users can view all orgs and configurate their profile.
+            perfil/
+                page.tsx [❌] %% User profile page, where it can check his information stored in the app.
+        d/
+            sign-in/
+                page.tsx [❌] %% sign-in by slug input.
+            page.tsx [✔] %% redirect page to user's org dashboard using token.
+            [unique_identifier]/ %% slug based dynamic route (unique_identifier it because I didn't fully decide if I'm using the orgId or a slug here).
+                layout.tsx [❌] %% Dashboard layout where we check the user's token and role.
+                page.tsx [❌] %% redirects to /inicio
+                inicio/
+                    page.tsx [❌] %% Main dashboard page where employees can visualize basic insights and stats for their business.
+                administrar-puntos/
+                    page.tsx [❌] %% Points management page, where employees give users points on each purchase (real purchase on the business, I don't mean a purchase within this app).
+                verificacion-canjes/
+                    page.tsx [❌] %% Page for validating redemption rewards using codes.
+                gestion-recompensas/
+                    page.tsx [❌] %% Reward's list and CRUD page.
+                (admin-only)/
+                    layout.tsx [❌] %% Admin role validation layout.
+                    lista-clientes/
+                        page.tsx [❌] %% A list of all the customers afiliated to this org (We will probably use this page on the future to manage banning or exclusion).
+                    mi-negocio/
+                        page.tsx [❌] %% Admin-only page where users can change the org's information that's shown to customers (address, hours, logo image, description, etc.).
+        descubrir/
+            page.tsx [❌] %% List of all active orgs with BonusBissen. This page reassembles a "discover page" so users can have a quick look for any local business.
+        s/
+            [unique_identifier]/
+                layout.tsx [❌] %% It only validates the global session.
+                afiliarse/
+                    page.tsx [❌] %% It uses the slug, doesn't require a membership.
+                (member-only)/
+                    layout.tsx [❌] %% Here we do validate a membership on this org.
+                    inicio/
+                        page.tsx [❌]
+                    recompensas/
+                        page.tsx [❌]
+                    historial-canjes/
+                        page.tsx [❌]
+        favicon.ico [❌] %% App's favicon (we don't have an icon for this project yet).
+        globals.css [✔] %% Main styling sheet.
+        layout.tsx [❌] %% ThemeScript and general app set ups.
+        page.tsx [❌] %% A welcoming page for bonus bissen (this is not the landing page, just a quick with to engage new users).
+    lib/
+        auth/
+            session.ts [❌] %% getRoleFromToken | decodeJwt
+        helpers/
+            format.ts [❌]
+            utils.ts [❌]
+        types/
+            organization.ts [❌]
+            reward.ts [❌]
+        action-result.ts [❌] %% Server action wrapper to catch errors from spring boot.
+        api.ts [❌] %% Fetch wrapper that handles the token header automatically on each request (only used in server actions).
+        consts.tsx [✔] %% App constants.
+        definitions.ts [✔] %% App types definitions. These are NOT models or DTO's equivalents from Spring Boot but rather types like "NavItem"
+    components/
+        ui/ %% design system hand-built
+    proxy.ts [❌]
