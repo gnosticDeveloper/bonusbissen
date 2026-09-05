@@ -8,7 +8,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 
 public record ExchangeResponse(
     UUID id,
-    String customerName,
+    String userName,
     String employeeName,
     String rewardTitle,
     String state,
@@ -23,7 +23,7 @@ public record ExchangeResponse(
 
         return new ExchangeResponse(
             ex.getId(),
-            ex.getCustomer().getName(),
+            ex.getUser().getName(),
             ex.getEmployee() != null ? ex.getEmployee().getName() : null,
             ex.getReward() != null ? ex.getReward().getTitle() : null,
             ex.getState().getValue(),

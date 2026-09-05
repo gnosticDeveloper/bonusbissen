@@ -8,7 +8,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 
 public record PendingExchangeReviewResponse(
     UUID id,
-    String customerName,
+    String userName,
     String rewardTitle,
     int points,
     String createdAtFormatted
@@ -24,7 +24,7 @@ public record PendingExchangeReviewResponse(
 
         return new PendingExchangeReviewResponse(
                 tx.getId(),
-                tx.getCustomer().getName(),
+                tx.getUser().getName(),
                 tx.getReward().getTitle(),
                 tx.getPoints(),
                 formattedDate

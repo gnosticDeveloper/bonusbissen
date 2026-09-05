@@ -7,13 +7,13 @@ import org.springframework.http.ResponseEntity;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCancelExchangeRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsAwardResponse;
-import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.Customer;
+import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.Employee;
 import studio.gnosticdeveloper.bonusbissen.entity.EmployeeRole;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
@@ -31,25 +31,25 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class AdversarialIntegrationTest extends AbstractIntegrationTest {
 
-    private CustomerPointsResponse getBalance(String token, UUID customerId) {
+    private UserPointsResponse getBalance(String token, UUID userId) {
         return restTemplate
-            .exchange(baseUrl() + "/customers/" + customerId, HttpMethod.GET, authed(token), CustomerPointsResponse.class)
+            .exchange(baseUrl() + "/users/" + userId, HttpMethod.GET, authed(token), UserPointsResponse.class)
             .getBody();
     }
 
-    private void grant(String cashierToken, UUID customerId, int points) {
-        ResponseEntity<CustomerPointsAwardResponse> response = restTemplate.exchange(
-            baseUrl() + "/customers/grant",
+    private void grant(String cashierToken, UUID userId, int points) {
+        ResponseEntity<UserPointsAwardResponse> response = restTemplate.exchange(
+            baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(cashierToken, new GrantPointsRequest(customerId, points, null)),
-            CustomerPointsAwardResponse.class
+            authed(cashierToken, new GrantPointsRequest(userId, points, null)),
+            UserPointsAwardResponse.class
         );
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
-    private PendingExchangeResponse getSolePendingExchange(String employeeToken, UUID customerId) {
+    private PendingExchangeResponse getSolePendingExchange(String employeeToken, UUID userId) {
         ResponseEntity<List<PendingExchangeResponse>> pending = restTemplate.exchange(
-            baseUrl() + "/exchanges/pending/" + customerId,
+            baseUrl() + "/exchanges/pending/" + userId,
             HttpMethod.GET,
             authed(employeeToken),
             new org.springframework.core.ParameterizedTypeReference<>() {}
@@ -58,23 +58,23 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         return pending.getBody().get(0);
     }
 
-    // --- IDOR on /customers/claim-reward: request body carries the target
-    // customerId with no check that it matches the caller's own identity. ---
+    // --- IDOR on /users/claim-reward: request body carries the target
+    // userId with no check that it matches the caller's own identity. ---
     @Test
-    void customerCannotClaimRewardOnBehalfOfAnotherCustomer() {
+    void userCannotClaimRewardOnBehalfOfAnotherUser() {
         Employee cashier = createEmployee("cashier-idor-claim", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-idor-claim", "password123");
 
-        Customer attacker = createCustomer("+5493462003001");
-        String attackerToken = loginCustomer("+5493462003001");
+        User attacker = createUser("+5493462003001");
+        String attackerToken = loginUser("+5493462003001");
 
-        Customer victim = createCustomer("+5493462003002");
+        User victim = createUser("+5493462003002");
         grant(cashierToken, victim.getId(), 100);
 
         Reward reward = createReward("Free Cake", 30);
 
         ResponseEntity<String> response = restTemplate.exchange(
-            baseUrl() + "/customers/claim-reward",
+            baseUrl() + "/users/claim-reward",
             HttpMethod.POST,
             authed(attackerToken, new ClaimRewardRequest(victim.getId(), reward.getId())),
             String.class
@@ -83,27 +83,27 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 
-    // --- No balance check: a customer with 0 points can still claim an
+    // --- No balance check: a user with 0 points can still claim an
     // expensive reward, driving their balance negative for free. ---
     @Test
     void claimRewardWithInsufficientBalanceIsRejected() {
         Employee cashier = createEmployee("cashier-insufficient", "password123", EmployeeRole.CASHIER);
         loginEmployee("cashier-insufficient", "password123");
 
-        Customer customer = createCustomer("+5493462003003");
-        String customerToken = loginCustomer("+5493462003003");
+        User user = createUser("+5493462003003");
+        String userToken = loginUser("+5493462003003");
 
         Reward reward = createReward("Expensive Reward", 1000);
 
         ResponseEntity<String> response = restTemplate.exchange(
-            baseUrl() + "/customers/claim-reward",
+            baseUrl() + "/users/claim-reward",
             HttpMethod.POST,
-            authed(customerToken, new ClaimRewardRequest(customer.getId(), reward.getId())),
+            authed(userToken, new ClaimRewardRequest(user.getId(), reward.getId())),
             String.class
         );
 
         assertThat(response.getStatusCode()).isIn(HttpStatus.CONFLICT, HttpStatus.BAD_REQUEST, HttpStatus.UNPROCESSABLE_ENTITY);
-        assertThat(getBalance(loginEmployee("cashier-insufficient", "password123"), customer.getId()).points()).isZero();
+        assertThat(getBalance(loginEmployee("cashier-insufficient", "password123"), user.getId()).points()).isZero();
     }
 
     // --- No active check on the reward being claimed. ---
@@ -112,50 +112,50 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         Employee cashier = createEmployee("cashier-inactive-reward", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-inactive-reward", "password123");
 
-        Customer customer = createCustomer("+5493462003004");
-        grant(cashierToken, customer.getId(), 100);
-        String customerToken = loginCustomer("+5493462003004");
+        User user = createUser("+5493462003004");
+        grant(cashierToken, user.getId(), 100);
+        String userToken = loginUser("+5493462003004");
 
         Reward reward = createReward("Discontinued Reward", 30);
         reward.setActive(false);
         rewardRepository.save(reward);
 
         ResponseEntity<String> response = restTemplate.exchange(
-            baseUrl() + "/customers/claim-reward",
+            baseUrl() + "/users/claim-reward",
             HttpMethod.POST,
-            authed(customerToken, new ClaimRewardRequest(customer.getId(), reward.getId())),
+            authed(userToken, new ClaimRewardRequest(user.getId(), reward.getId())),
             String.class
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
-    // --- /exchanges/approve has no role restriction: a customer token can
+    // --- /exchanges/approve has no role restriction: a user token can
     // self-approve their own pending redemption by supplying any real
     // employeeId, bypassing in-person handoff entirely. ---
     @Test
-    void customerCannotSelfApproveTheirOwnExchange() {
+    void userCannotSelfApproveTheirOwnExchange() {
         Employee cashier = createEmployee("cashier-self-approve", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-self-approve", "password123");
 
-        Customer customer = createCustomer("+5493462003005");
-        grant(cashierToken, customer.getId(), 100);
-        String customerToken = loginCustomer("+5493462003005");
+        User user = createUser("+5493462003005");
+        grant(cashierToken, user.getId(), 100);
+        String userToken = loginUser("+5493462003005");
 
         Reward reward = createReward("Self-Serve Reward", 30);
         restTemplate.exchange(
-            baseUrl() + "/customers/claim-reward",
+            baseUrl() + "/users/claim-reward",
             HttpMethod.POST,
-            authed(customerToken, new ClaimRewardRequest(customer.getId(), reward.getId())),
+            authed(userToken, new ClaimRewardRequest(user.getId(), reward.getId())),
             String.class
         );
 
-        UUID exchangeId = getSolePendingExchange(cashierToken, customer.getId()).id();
+        UUID exchangeId = getSolePendingExchange(cashierToken, user.getId()).id();
 
         ResponseEntity<Void> response = restTemplate.exchange(
             baseUrl() + "/exchanges/approve",
             HttpMethod.POST,
-            authed(customerToken, new ApproveExchangeRequest(exchangeId, cashier.getId())),
+            authed(userToken, new ApproveExchangeRequest(exchangeId, cashier.getId())),
             Void.class
         );
 
@@ -163,26 +163,26 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     }
 
     // --- Double refund: approving a redemption (reward handed over), then
-    // cancelling it with a refund, pays the customer back for a reward they
+    // cancelling it with a refund, pays the user back for a reward they
     // already received. No state-transition guard prevents this. ---
     @Test
     void cancellingAnAlreadyDeliveredExchangeIsRejected() {
         Employee cashier = createEmployee("cashier-double-refund", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-double-refund", "password123");
 
-        Customer customer = createCustomer("+5493462003006");
-        grant(cashierToken, customer.getId(), 100);
-        String customerToken = loginCustomer("+5493462003006");
+        User user = createUser("+5493462003006");
+        grant(cashierToken, user.getId(), 100);
+        String userToken = loginUser("+5493462003006");
 
         Reward reward = createReward("Delivered Reward", 30);
         restTemplate.exchange(
-            baseUrl() + "/customers/claim-reward",
+            baseUrl() + "/users/claim-reward",
             HttpMethod.POST,
-            authed(customerToken, new ClaimRewardRequest(customer.getId(), reward.getId())),
+            authed(userToken, new ClaimRewardRequest(user.getId(), reward.getId())),
             String.class
         );
 
-        UUID exchangeId = getSolePendingExchange(cashierToken, customer.getId()).id();
+        UUID exchangeId = getSolePendingExchange(cashierToken, user.getId()).id();
 
         restTemplate.exchange(
             baseUrl() + "/exchanges/approve",
@@ -199,7 +199,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         );
 
         assertThat(cancelResponse.getStatusCode()).isIn(HttpStatus.CONFLICT, HttpStatus.BAD_REQUEST);
-        assertThat(getBalance(cashierToken, customer.getId()).points()).isEqualTo(70);
+        assertThat(getBalance(cashierToken, user.getId()).points()).isEqualTo(70);
     }
 
     // --- Double refund via repeated cancellation: nothing stops the same
@@ -209,19 +209,19 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         Employee cashier = createEmployee("cashier-double-cancel", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-double-cancel", "password123");
 
-        Customer customer = createCustomer("+5493462003007");
-        grant(cashierToken, customer.getId(), 100);
-        String customerToken = loginCustomer("+5493462003007");
+        User user = createUser("+5493462003007");
+        grant(cashierToken, user.getId(), 100);
+        String userToken = loginUser("+5493462003007");
 
         Reward reward = createReward("Cancel-Twice Reward", 30);
         restTemplate.exchange(
-            baseUrl() + "/customers/claim-reward",
+            baseUrl() + "/users/claim-reward",
             HttpMethod.POST,
-            authed(customerToken, new ClaimRewardRequest(customer.getId(), reward.getId())),
+            authed(userToken, new ClaimRewardRequest(user.getId(), reward.getId())),
             String.class
         );
 
-        UUID exchangeId = getSolePendingExchange(cashierToken, customer.getId()).id();
+        UUID exchangeId = getSolePendingExchange(cashierToken, user.getId()).id();
 
         restTemplate.exchange(
             baseUrl() + "/exchanges/cancel",
@@ -237,27 +237,27 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         );
 
         assertThat(secondCancel.getStatusCode()).isIn(HttpStatus.CONFLICT, HttpStatus.BAD_REQUEST);
-        assertThat(getBalance(cashierToken, customer.getId()).points()).isEqualTo(100);
+        assertThat(getBalance(cashierToken, user.getId()).points()).isEqualTo(100);
     }
 
-    // --- /exchanges/customer-cancel never checks that the pending exchange
-    // belongs to the calling customer: any authenticated customer can cancel
+    // --- /exchanges/user-cancel never checks that the pending exchange
+    // belongs to the calling user: any authenticated user can cancel
     // (and force-refund) a stranger's in-flight redemption. ---
     @Test
-    void customerCannotCancelAnotherCustomersExchange() {
+    void userCannotCancelAnotherUsersExchange() {
         Employee cashier = createEmployee("cashier-cross-cancel", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-cross-cancel", "password123");
 
-        Customer victim = createCustomer("+5493462003008");
+        User victim = createUser("+5493462003008");
         grant(cashierToken, victim.getId(), 100);
-        String victimToken = loginCustomer("+5493462003008");
+        String victimToken = loginUser("+5493462003008");
 
-        Customer attacker = createCustomer("+5493462003009");
-        String attackerToken = loginCustomer("+5493462003009");
+        User attacker = createUser("+5493462003009");
+        String attackerToken = loginUser("+5493462003009");
 
         Reward reward = createReward("Cross-Cancel Reward", 30);
         restTemplate.exchange(
-            baseUrl() + "/customers/claim-reward",
+            baseUrl() + "/users/claim-reward",
             HttpMethod.POST,
             authed(victimToken, new ClaimRewardRequest(victim.getId(), reward.getId())),
             String.class
@@ -266,25 +266,25 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         UUID exchangeId = getSolePendingExchange(cashierToken, victim.getId()).id();
 
         ResponseEntity<Void> response = restTemplate.exchange(
-            baseUrl() + "/exchanges/customer-cancel",
+            baseUrl() + "/exchanges/user-cancel",
             HttpMethod.POST,
-            authed(attackerToken, new CustomerCancelExchangeRequest(exchangeId)),
+            authed(attackerToken, new UserCancelExchangeRequest(exchangeId)),
             Void.class
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 
-    // --- No ownership check on GET /customers/{id}: any authenticated
-    // customer could view a stranger's balance by guessing/enumerating a UUID. ---
+    // --- No ownership check on GET /users/{id}: any authenticated
+    // user could view a stranger's balance by guessing/enumerating a UUID. ---
     @Test
-    void customerCannotViewAnotherCustomersBalance() {
-        Customer victim = createCustomer("+5493462003011");
-        Customer attacker = createCustomer("+5493462003012");
-        String attackerToken = loginCustomer("+5493462003012");
+    void userCannotViewAnotherUsersBalance() {
+        User victim = createUser("+5493462003011");
+        User attacker = createUser("+5493462003012");
+        String attackerToken = loginUser("+5493462003012");
 
         ResponseEntity<String> response = restTemplate.exchange(
-            baseUrl() + "/customers/" + victim.getId(),
+            baseUrl() + "/users/" + victim.getId(),
             HttpMethod.GET,
             authed(attackerToken),
             String.class
@@ -293,16 +293,16 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 
-    // --- No ownership check on DELETE /customers/{id}: any authenticated
-    // customer could deactivate a stranger's account. ---
+    // --- No ownership check on DELETE /users/{id}: any authenticated
+    // user could deactivate a stranger's account. ---
     @Test
-    void customerCannotDeactivateAnotherCustomersAccount() {
-        Customer victim = createCustomer("+5493462003013");
-        Customer attacker = createCustomer("+5493462003014");
-        String attackerToken = loginCustomer("+5493462003014");
+    void userCannotDeactivateAnotherUsersAccount() {
+        User victim = createUser("+5493462003013");
+        User attacker = createUser("+5493462003014");
+        String attackerToken = loginUser("+5493462003014");
 
         ResponseEntity<Void> response = restTemplate.exchange(
-            baseUrl() + "/customers/" + victim.getId(),
+            baseUrl() + "/users/" + victim.getId(),
             HttpMethod.DELETE,
             authed(attackerToken),
             Void.class
@@ -311,19 +311,19 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 
-    // --- Employees are still allowed to look up any customer (unlike
-    // customers, who are restricted to themselves above). ---
+    // --- Employees are still allowed to look up any user (unlike
+    // users, who are restricted to themselves above). ---
     @Test
-    void employeeCanStillViewAnyCustomersBalance() {
+    void employeeCanStillViewAnyUsersBalance() {
         Employee cashier = createEmployee("cashier-view-any", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-view-any", "password123");
-        Customer customer = createCustomer("+5493462003015");
+        User user = createUser("+5493462003015");
 
-        ResponseEntity<CustomerPointsResponse> response = restTemplate.exchange(
-            baseUrl() + "/customers/" + customer.getId(),
+        ResponseEntity<UserPointsResponse> response = restTemplate.exchange(
+            baseUrl() + "/users/" + user.getId(),
             HttpMethod.GET,
             authed(cashierToken),
-            CustomerPointsResponse.class
+            UserPointsResponse.class
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -369,30 +369,30 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     void grantingNegativePointsDoesNotCorruptBalanceEvenThoughErrorHandlingIsUgly() {
         Employee cashier = createEmployee("cashier-negative-grant", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-negative-grant", "password123");
-        Customer customer = createCustomer("+5493462003010");
+        User user = createUser("+5493462003010");
 
         ResponseEntity<String> response = restTemplate.exchange(
-            baseUrl() + "/customers/grant",
+            baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(cashierToken, new GrantPointsRequest(customer.getId(), -50, null)),
+            authed(cashierToken, new GrantPointsRequest(user.getId(), -50, null)),
             String.class
         );
 
         assertThat(response.getStatusCode()).isNotEqualTo(HttpStatus.OK);
-        assertThat(getBalance(cashierToken, customer.getId()).points()).isZero();
+        assertThat(getBalance(cashierToken, user.getId()).points()).isZero();
     }
 
-    // --- GET /exchanges has no role restriction: any authenticated customer
-    // could list every exchange in the system, across every other customer. ---
+    // --- GET /exchanges has no role restriction: any authenticated user
+    // could list every exchange in the system, across every other user. ---
     @Test
-    void customerCannotListAllExchanges() {
-        Customer customer = createCustomer("+5493462003016");
-        String customerToken = loginCustomer("+5493462003016");
+    void userCannotListAllExchanges() {
+        User user = createUser("+5493462003016");
+        String userToken = loginUser("+5493462003016");
 
         ResponseEntity<String> response = restTemplate.exchange(
             baseUrl() + "/exchanges",
             HttpMethod.GET,
-            authed(customerToken),
+            authed(userToken),
             String.class
         );
 
@@ -400,26 +400,26 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     }
 
     // --- GET /exchanges/pending/{id} never checked that the id being queried
-    // belonged to the calling customer: a customer token could enumerate any
-    // other customer's pending exchanges. ---
+    // belonged to the calling user: a user token could enumerate any
+    // other user's pending exchanges. ---
     @Test
-    void customerCannotViewAnotherCustomersPendingExchanges() {
+    void userCannotViewAnotherUsersPendingExchanges() {
         Employee cashier = createEmployee("cashier-pending-idor", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-pending-idor", "password123");
 
-        Customer victim = createCustomer("+5493462003017");
+        User victim = createUser("+5493462003017");
         grant(cashierToken, victim.getId(), 100);
         Reward reward = createReward("Pending IDOR Reward", 30);
-        String victimToken = loginCustomer("+5493462003017");
+        String victimToken = loginUser("+5493462003017");
         restTemplate.exchange(
-            baseUrl() + "/customers/claim-reward",
+            baseUrl() + "/users/claim-reward",
             HttpMethod.POST,
             authed(victimToken, new ClaimRewardRequest(victim.getId(), reward.getId())),
             String.class
         );
 
-        Customer attacker = createCustomer("+5493462003018");
-        String attackerToken = loginCustomer("+5493462003018");
+        User attacker = createUser("+5493462003018");
+        String attackerToken = loginUser("+5493462003018");
 
         ResponseEntity<String> response = restTemplate.exchange(
             baseUrl() + "/exchanges/pending/" + victim.getId(),
@@ -431,28 +431,28 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 
-    // --- A customer requesting their own pending exchanges must still work
-    // (this endpoint is used by the customer-facing "mis puntos" page). ---
+    // --- A user requesting their own pending exchanges must still work
+    // (this endpoint is used by the user-facing "mis puntos" page). ---
     @Test
-    void customerCanViewTheirOwnPendingExchanges() {
+    void userCanViewTheirOwnPendingExchanges() {
         Employee cashier = createEmployee("cashier-own-pending", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-own-pending", "password123");
 
-        Customer customer = createCustomer("+5493462003019");
-        grant(cashierToken, customer.getId(), 100);
+        User user = createUser("+5493462003019");
+        grant(cashierToken, user.getId(), 100);
         Reward reward = createReward("Own Pending Reward", 30);
-        String customerToken = loginCustomer("+5493462003019");
+        String userToken = loginUser("+5493462003019");
         restTemplate.exchange(
-            baseUrl() + "/customers/claim-reward",
+            baseUrl() + "/users/claim-reward",
             HttpMethod.POST,
-            authed(customerToken, new ClaimRewardRequest(customer.getId(), reward.getId())),
+            authed(userToken, new ClaimRewardRequest(user.getId(), reward.getId())),
             String.class
         );
 
         ResponseEntity<List<PendingExchangeResponse>> response = restTemplate.exchange(
-            baseUrl() + "/exchanges/pending/" + customer.getId(),
+            baseUrl() + "/exchanges/pending/" + user.getId(),
             HttpMethod.GET,
-            authed(customerToken),
+            authed(userToken),
             new org.springframework.core.ParameterizedTypeReference<>() {}
         );
 
@@ -461,16 +461,16 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     }
 
     // --- GET /exchanges/pending is the staff-facing review queue for every
-    // customer's pending redemptions; a customer token must not see it. ---
+    // user's pending redemptions; a user token must not see it. ---
     @Test
-    void customerCannotViewGlobalPendingQueue() {
-        Customer customer = createCustomer("+5493462003020");
-        String customerToken = loginCustomer("+5493462003020");
+    void userCannotViewGlobalPendingQueue() {
+        User user = createUser("+5493462003020");
+        String userToken = loginUser("+5493462003020");
 
         ResponseEntity<String> response = restTemplate.exchange(
             baseUrl() + "/exchanges/pending",
             HttpMethod.GET,
-            authed(customerToken),
+            authed(userToken),
             String.class
         );
 
@@ -478,16 +478,16 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     }
 
     // --- POST /exchanges/verify is the cashier-facing redemption-code lookup
-    // used at pickup; a customer token must not be able to call it directly. ---
+    // used at pickup; a user token must not be able to call it directly. ---
     @Test
-    void customerCannotVerifyExchangeCode() {
-        Customer customer = createCustomer("+5493462003021");
-        String customerToken = loginCustomer("+5493462003021");
+    void userCannotVerifyExchangeCode() {
+        User user = createUser("+5493462003021");
+        String userToken = loginUser("+5493462003021");
 
         ResponseEntity<String> response = restTemplate.exchange(
             baseUrl() + "/exchanges/verify",
             HttpMethod.POST,
-            authed(customerToken, new ExchangeVerifyRequest("ABC123")),
+            authed(userToken, new ExchangeVerifyRequest("ABC123")),
             String.class
         );
 

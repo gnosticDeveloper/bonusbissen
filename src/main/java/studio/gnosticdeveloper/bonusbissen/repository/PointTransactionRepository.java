@@ -31,28 +31,28 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
         """;
     String ORG_MATCH = "(r.organization_id = :organizationId or e.organization_id = :organizationId or rtr.organization_id = :organizationId)";
 
-    @Query(value = "select t.* from point_transactions t where t.customer_id = :customerId and t.state = :state order by t.created_at desc", nativeQuery = true)
-    List<PointTransaction> findAllPendingByCustomerIdOrderByCreatedAtDescRaw(@Param("customerId") UUID customerId, @Param("state") String state);
+    @Query(value = "select t.* from point_transactions t where t.user_id = :userId and t.state = :state order by t.created_at desc", nativeQuery = true)
+    List<PointTransaction> findAllPendingByUserIdOrderByCreatedAtDescRaw(@Param("userId") UUID userId, @Param("state") String state);
 
-    default List<PointTransaction> findAllPendingByCustomerIdOrderByCreatedAtDesc(UUID customerId, TransactionState state) {
-        return findAllPendingByCustomerIdOrderByCreatedAtDescRaw(customerId, state.getValue());
+    default List<PointTransaction> findAllPendingByUserIdOrderByCreatedAtDesc(UUID userId, TransactionState state) {
+        return findAllPendingByUserIdOrderByCreatedAtDescRaw(userId, state.getValue());
     }
 
     @Query(
-        value = "select t.* from point_transactions t where t.customer_id = :customerId and t.transaction_type = :transactionType order by t.created_at desc",
+        value = "select t.* from point_transactions t where t.user_id = :userId and t.transaction_type = :transactionType order by t.created_at desc",
         nativeQuery = true
     )
-    List<PointTransaction> findAllByCustomerIdAndTypeOrderByCreatedAtDescRaw(@Param("customerId") UUID customerId, @Param("transactionType") String transactionType);
+    List<PointTransaction> findAllByUserIdAndTypeOrderByCreatedAtDescRaw(@Param("userId") UUID userId, @Param("transactionType") String transactionType);
 
-    default List<PointTransaction> findAllByCustomerIdAndTypeOrderByCreatedAtDesc(UUID customerId, TransactionType transactionType) {
-        return findAllByCustomerIdAndTypeOrderByCreatedAtDescRaw(customerId, transactionType.getValue());
+    default List<PointTransaction> findAllByUserIdAndTypeOrderByCreatedAtDesc(UUID userId, TransactionType transactionType) {
+        return findAllByUserIdAndTypeOrderByCreatedAtDescRaw(userId, transactionType.getValue());
     }
 
-    @Query(value = "select t.* from point_transactions t where t.customer_id = :customerId order by t.created_at desc", nativeQuery = true)
-    List<PointTransaction> findAllByCustomerIdOrderByCreatedAtDesc(@Param("customerId") UUID customerId);
+    @Query(value = "select t.* from point_transactions t where t.user_id = :userId order by t.created_at desc", nativeQuery = true)
+    List<PointTransaction> findAllByUserIdOrderByCreatedAtDesc(@Param("userId") UUID userId);
 
-    @Query(value = "select coalesce(sum(t.points), 0) from point_transactions t where t.customer_id = :customerId", nativeQuery = true)
-    int calculatePointsByCustomerId(@Param("customerId") UUID customerId);
+    @Query(value = "select coalesce(sum(t.points), 0) from point_transactions t where t.user_id = :userId", nativeQuery = true)
+    int calculatePointsByUserId(@Param("userId") UUID userId);
 
     @Query(value = "select coalesce(count(t.id), 0) from point_transactions t " + ORG_JOINS + "where t.state = :state and " + ORG_MATCH, nativeQuery = true)
     Integer countByStateAndOrganizationIdRaw(@Param("state") String state, @Param("organizationId") UUID organizationId);
@@ -120,16 +120,13 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
             join employees e on e.id = t.employee_id
             where e.organization_id = :organizationId
               and t.transaction_type = 'earn'
-              and (:customerId is null or t.customer_id = :customerId)
+              and (:userId is null or t.user_id = :userId)
             order by t.created_at desc
             """,
         nativeQuery = true
     )
-    List<PointTransaction> findGrantHistory(@Param("organizationId") UUID organizationId, @Param("customerId") UUID customerId, Pageable pageable);
+    List<PointTransaction> findGrantHistory(@Param("organizationId") UUID organizationId, @Param("userId") UUID userId, Pageable pageable);
 
-    // Resolved = a redemption that isn't waiting on staff anymore (delivered
-    // or cancelled). Grants/refunds are 'earn' and never 'pending' in the
-    // first place, so this is scoped to redeem transactions specifically.
     @Query(
         value =
             """

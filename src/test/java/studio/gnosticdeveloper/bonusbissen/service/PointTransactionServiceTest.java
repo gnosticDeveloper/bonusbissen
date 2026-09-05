@@ -9,8 +9,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCancelExchangeRequest;
-import studio.gnosticdeveloper.bonusbissen.entity.Customer;
+import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
+import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.Employee;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
@@ -152,14 +152,14 @@ class PointTransactionServiceTest {
     void cancelExchangeWithRefundCreatesAnEarnTransactionForTheAbsoluteAmount() {
         Organization organization = organization();
 
-        Customer customer = new Customer();
-        customer.setId(UUID.randomUUID());
+        User user = new User();
+        user.setId(UUID.randomUUID());
 
         PointTransaction tx = new PointTransaction();
         tx.setId(UUID.randomUUID());
         tx.setState(TransactionState.PENDING);
         tx.setPoints(-20);
-        tx.setCustomer(customer);
+        tx.setUser(user);
         tx.setReward(rewardFor(organization));
 
         Employee employee = new Employee();
@@ -178,24 +178,24 @@ class PointTransactionServiceTest {
         assertThat(refund.getPoints()).isEqualTo(20);
         assertThat(refund.getTransactionType()).isEqualTo(TransactionType.EARN);
         assertThat(refund.getState()).isEqualTo(TransactionState.DELIVERED);
-        assertThat(refund.getCustomer()).isEqualTo(customer);
+        assertThat(refund.getUser()).isEqualTo(user);
     }
 
     @Test
-    void customerCancelExchangeAlwaysRefundsPoints() {
-        Customer customer = new Customer();
-        customer.setId(UUID.randomUUID());
+    void userCancelExchangeAlwaysRefundsPoints() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
 
         PointTransaction tx = new PointTransaction();
         tx.setId(UUID.randomUUID());
         tx.setState(TransactionState.PENDING);
         tx.setPoints(-15);
-        tx.setCustomer(customer);
+        tx.setUser(user);
 
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        pointTransactionService.customerCancelExchange(new CustomerCancelExchangeRequest(tx.getId()), customer.getId());
+        pointTransactionService.userCancelExchange(new UserCancelExchangeRequest(tx.getId()), user.getId());
 
         assertThat(tx.getState()).isEqualTo(TransactionState.CANCELLED);
 
@@ -209,8 +209,8 @@ class PointTransactionServiceTest {
     }
 
     @Test
-    void customerCancelExchangeForAnotherCustomerThrowsAccessDenied() {
-        Customer owner = new Customer();
+    void userCancelExchangeForAnotherUserThrowsAccessDenied() {
+        User owner = new User();
         owner.setId(UUID.randomUUID());
         UUID caller = UUID.randomUUID();
 
@@ -218,29 +218,29 @@ class PointTransactionServiceTest {
         tx.setId(UUID.randomUUID());
         tx.setState(TransactionState.PENDING);
         tx.setPoints(-15);
-        tx.setCustomer(owner);
+        tx.setUser(owner);
 
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
 
-        assertThatThrownBy(() -> pointTransactionService.customerCancelExchange(new CustomerCancelExchangeRequest(tx.getId()), caller))
+        assertThatThrownBy(() -> pointTransactionService.userCancelExchange(new UserCancelExchangeRequest(tx.getId()), caller))
             .isInstanceOf(AccessDeniedException.class);
 
         verify(pointTransactionRepository, times(0)).save(any());
     }
 
     @Test
-    void customerCancelExchangeThatIsNotPendingThrowsConflict() {
-        Customer customer = new Customer();
-        customer.setId(UUID.randomUUID());
+    void userCancelExchangeThatIsNotPendingThrowsConflict() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
 
         PointTransaction tx = new PointTransaction();
         tx.setId(UUID.randomUUID());
         tx.setState(TransactionState.DELIVERED);
-        tx.setCustomer(customer);
+        tx.setUser(user);
 
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
 
-        assertThatThrownBy(() -> pointTransactionService.customerCancelExchange(new CustomerCancelExchangeRequest(tx.getId()), customer.getId()))
+        assertThatThrownBy(() -> pointTransactionService.userCancelExchange(new UserCancelExchangeRequest(tx.getId()), user.getId()))
             .isInstanceOf(ConflictException.class);
 
         verify(pointTransactionRepository, times(0)).save(any());

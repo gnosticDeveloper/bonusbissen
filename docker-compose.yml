@@ -23,6 +23,16 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://localhost}
+      # Mail: leave MAIL_ENABLED=false (dev default) to skip SMTP entirely --
+      # verification links are just logged. Set it to true in a real deploy and
+      # provide the Mailgun SMTP settings below.
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      MAIL_HOST: ${MAIL_HOST:-smtp.mailgun.org}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-bonusbissen <no-reply@bonusbissen.local>}
+      MAIL_VERIFICATION_URL: ${MAIL_VERIFICATION_URL:-http://localhost:3000/verify-email}
     volumes:
       - uploads:/var/lib/bonusbissen/uploads
     ports:

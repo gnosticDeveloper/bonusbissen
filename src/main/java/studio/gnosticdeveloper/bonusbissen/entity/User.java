@@ -9,18 +9,27 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "customers")
+@Table(name = "users")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Customer {
+public class User {
 
     @Id
     @GeneratedValue
     private UUID id;
 
-    @Column(nullable = false, unique = true, length = 20)
-    private String phone;
+    @Column(nullable = false, unique = true, length = 100)
+    private String username;
+
+    @Column(unique = true, length = 255)
+    private String email;
+
+    @Column(name = "password_hash", nullable = false, length = 255)
+    private String passwordHash;
+
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified = false;
 
     @Column(nullable = false, length = 255)
     private String name;

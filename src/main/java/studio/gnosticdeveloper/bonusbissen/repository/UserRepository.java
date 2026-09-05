@@ -1,7 +1,7 @@
 package studio.gnosticdeveloper.bonusbissen.repository;
 
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.Customer;
+import studio.gnosticdeveloper.bonusbissen.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,44 +13,45 @@ import java.util.Optional;
 import java.util.UUID;
 
 
-public interface CustomerRepository extends JpaRepository<Customer, UUID> {
-    Optional<Customer> findByPhone(String phone);
-    boolean existsByPhone(String phone);
-
-    @Query(value = "select * from customers where phone = :phone for update", nativeQuery = true)
-    Optional<Customer> findByPhoneForUpdate(@Param("phone") String phone);
+public interface UserRepository extends JpaRepository<User, UUID> {
+    Optional<User> findByUsername(String username);
+    Optional<User> findByEmail(String email);
+    boolean existsByUsername(String username);
+    boolean existsByEmail(String email);
 
     @Query(
         value =
             """
-            select * from customers c
+            select * from users c
             where c.active = true
               and (
                    cast(:search as text) is null
                    or lower(c.name) like lower(concat('%', cast(:search as text), '%'))
-                   or c.phone like concat('%', cast(:search as text), '%')
+                   or lower(c.username) like lower(concat('%', cast(:search as text), '%'))
+                   or lower(c.email) like lower(concat('%', cast(:search as text), '%'))
               )
             """,
         countQuery =
             """
-            select count(*) from customers c
+            select count(*) from users c
             where c.active = true
               and (
                    cast(:search as text) is null
                    or lower(c.name) like lower(concat('%', cast(:search as text), '%'))
-                   or c.phone like concat('%', cast(:search as text), '%')
+                   or lower(c.username) like lower(concat('%', cast(:search as text), '%'))
+                   or lower(c.email) like lower(concat('%', cast(:search as text), '%'))
               )
             """,
         nativeQuery = true
     )
-    Page<Customer> search(@Param("search") String search, Pageable pageable);
+    Page<User> search(@Param("search") String search, Pageable pageable);
 
     @Query(
         value =
             """
             SELECT c.id AS id, c.name AS name, CAST(SUM(t.points) AS integer) AS total_points
             FROM point_transactions t
-            JOIN customers c ON c.id = t.customer_id
+            JOIN users c ON c.id = t.user_id
             LEFT JOIN employees e ON e.id = t.employee_id
             LEFT JOIN point_transactions rt ON rt.id = t.refunded_transaction_id
             LEFT JOIN rewards rtr ON rtr.id = rt.reward_id

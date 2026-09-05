@@ -10,12 +10,12 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsAwardResponse;
-import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.Customer;
+import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.Employee;
 import studio.gnosticdeveloper.bonusbissen.entity.EmployeeRole;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
@@ -27,38 +27,38 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
-    private CustomerPointsResponse getBalance(String token, UUID customerId) {
+    private UserPointsResponse getBalance(String token, UUID userId) {
         return restTemplate
-            .exchange(baseUrl() + "/customers/" + customerId, HttpMethod.GET, authed(token), CustomerPointsResponse.class)
+            .exchange(baseUrl() + "/users/" + userId, HttpMethod.GET, authed(token), UserPointsResponse.class)
             .getBody();
     }
 
-    private UUID grant(String cashierToken, UUID customerId, int points) {
-        ResponseEntity<CustomerPointsAwardResponse> response = restTemplate.exchange(
-            baseUrl() + "/customers/grant",
+    private UUID grant(String cashierToken, UUID userId, int points) {
+        ResponseEntity<UserPointsAwardResponse> response = restTemplate.exchange(
+            baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(cashierToken, new GrantPointsRequest(customerId, points, null)),
-            CustomerPointsAwardResponse.class
+            authed(cashierToken, new GrantPointsRequest(userId, points, null)),
+            UserPointsAwardResponse.class
         );
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        return customerId;
+        return userId;
     }
 
-    private UUID claimReward(String customerToken, UUID customerId, UUID rewardId) {
+    private UUID claimReward(String userToken, UUID userId, UUID rewardId) {
         ResponseEntity<String> response = restTemplate.exchange(
-            baseUrl() + "/customers/claim-reward",
+            baseUrl() + "/users/claim-reward",
             HttpMethod.POST,
-            authed(customerToken, new ClaimRewardRequest(customerId, rewardId)),
+            authed(userToken, new ClaimRewardRequest(userId, rewardId)),
             String.class
         );
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotBlank();
-        return customerId;
+        return userId;
     }
 
-    private PendingExchangeResponse getSolePendingExchange(String employeeToken, UUID customerId) {
+    private PendingExchangeResponse getSolePendingExchange(String employeeToken, UUID userId) {
         ResponseEntity<List<PendingExchangeResponse>> pending = restTemplate.exchange(
-            baseUrl() + "/exchanges/pending/" + customerId,
+            baseUrl() + "/exchanges/pending/" + userId,
             HttpMethod.GET,
             authed(employeeToken),
             new ParameterizedTypeReference<>() {}
@@ -68,26 +68,26 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void grantPointsIncreasesCustomerBalance() {
+    void grantPointsIncreasesUserBalance() {
         Employee cashier = createEmployee("cashier-grant", "password123", EmployeeRole.CASHIER);
         String token = loginEmployee("cashier-grant", "password123");
-        Customer customer = createCustomer("+5493462001001");
+        User user = createUser("+5493462001001");
 
-        grant(token, customer.getId(), 100);
+        grant(token, user.getId(), 100);
 
-        assertThat(getBalance(token, customer.getId()).points()).isEqualTo(100);
+        assertThat(getBalance(token, user.getId()).points()).isEqualTo(100);
     }
 
     @Test
-    void grantPointsToInactiveCustomerReturnsNotFound() {
+    void grantPointsToInactiveUserReturnsNotFound() {
         Employee cashier = createEmployee("cashier-grant-inactive", "password123", EmployeeRole.CASHIER);
         String token = loginEmployee("cashier-grant-inactive", "password123");
-        Customer customer = createInactiveCustomer("+5493462002001");
+        User user = createInactiveUser("+5493462002001");
 
         ResponseEntity<String> response = restTemplate.exchange(
-            baseUrl() + "/customers/grant",
+            baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(token, new GrantPointsRequest(customer.getId(), 50, null)),
+            authed(token, new GrantPointsRequest(user.getId(), 50, null)),
             String.class
         );
 
@@ -95,19 +95,20 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void getCustomerByPhoneForInactiveCustomerReturnsNotFound() {
+    void searchExcludesInactiveUsers() {
         Employee cashier = createEmployee("cashier-lookup-inactive", "password123", EmployeeRole.CASHIER);
         String token = loginEmployee("cashier-lookup-inactive", "password123");
-        createInactiveCustomer("+5493462002002");
+        createInactiveUser("+5493462002002");
 
         ResponseEntity<String> response = restTemplate.exchange(
-            baseUrl() + "/customers/phone/+5493462002002",
+            baseUrl() + "/users?search=" + "%2B5493462002002",
             HttpMethod.GET,
             authed(token),
             String.class
         );
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).doesNotContain("5493462002002");
     }
 
     @Test
@@ -115,30 +116,30 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         // JwtAuthFilter re-resolves the token's principal against the DB on every
         // request (see PrincipalResolver); once active=false the principal no longer
         // resolves, so the request falls through as anonymous and Spring Security
-        // rejects it here, before CustomerService.claimReward's own active check
+        // rejects it here, before UserService.claimReward's own active check
         // would ever run.
         Employee admin = createEmployee("admin-deactivate", "password123", EmployeeRole.ADMIN);
         String adminToken = loginEmployee("admin-deactivate", "password123");
         Employee cashier = createEmployee("cashier-deactivate", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-deactivate", "password123");
 
-        Customer customer = createCustomer("+5493462002003");
-        grant(cashierToken, customer.getId(), 100);
-        String customerToken = loginCustomer("+5493462002003");
+        User user = createUser("+5493462002003");
+        grant(cashierToken, user.getId(), 100);
+        String userToken = loginUser("+5493462002003");
 
         Reward reward = createReward("Free Croissant", 30);
 
         restTemplate.exchange(
-            baseUrl() + "/customers/" + customer.getId(),
+            baseUrl() + "/users/" + user.getId(),
             HttpMethod.DELETE,
             authed(adminToken),
             Void.class
         );
 
         ResponseEntity<String> response = restTemplate.exchange(
-            baseUrl() + "/customers/claim-reward",
+            baseUrl() + "/users/claim-reward",
             HttpMethod.POST,
-            authed(customerToken, new ClaimRewardRequest(customer.getId(), reward.getId())),
+            authed(userToken, new ClaimRewardRequest(user.getId(), reward.getId())),
             String.class
         );
 
@@ -146,22 +147,22 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void claimRewardOnBehalfOfAnotherCustomerIsRejectedRegardlessOfTheirActiveStatus() {
+    void claimRewardOnBehalfOfAnotherUserIsRejectedRegardlessOfTheirActiveStatus() {
         // claim-reward now requires the caller's own id to match the target
-        // customerId (see AdversarialIntegrationTest), so that check fires
-        // before CustomerService.claimReward's own active-customer check ever
+        // userId (see AdversarialIntegrationTest), so that check fires
+        // before UserService.claimReward's own active-user check ever
         // gets a chance to run — 403, not 404.
         Employee cashier = createEmployee("cashier-claim-inactive", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-claim-inactive", "password123");
-        Customer requester = createCustomer("+5493462002004");
-        String requesterToken = loginCustomer("+5493462002004");
-        Customer inactiveCustomer = createInactiveCustomer("+5493462002005");
+        User requester = createUser("+5493462002004");
+        String requesterToken = loginUser("+5493462002004");
+        User inactiveUser = createInactiveUser("+5493462002005");
         Reward reward = createReward("Free Scone", 30);
 
         ResponseEntity<String> response = restTemplate.exchange(
-            baseUrl() + "/customers/claim-reward",
+            baseUrl() + "/users/claim-reward",
             HttpMethod.POST,
-            authed(requesterToken, new ClaimRewardRequest(inactiveCustomer.getId(), reward.getId())),
+            authed(requesterToken, new ClaimRewardRequest(inactiveUser.getId(), reward.getId())),
             String.class
         );
 
@@ -170,13 +171,13 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void grantPointsRequiresCashierOrAdminRole() {
-        Customer customer = createCustomer("+5493462001002");
-        String customerToken = loginCustomer("+5493462001002");
+        User user = createUser("+5493462001002");
+        String userToken = loginUser("+5493462001002");
 
         ResponseEntity<String> response = restTemplate.exchange(
-            baseUrl() + "/customers/grant",
+            baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(customerToken, new GrantPointsRequest(customer.getId(), 50, null)),
+            authed(userToken, new GrantPointsRequest(user.getId(), 50, null)),
             String.class
         );
 
@@ -187,16 +188,16 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
     void claimRewardCreatesPendingExchangeAndDecrementsBalance() {
         Employee cashier = createEmployee("cashier-claim", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-claim", "password123");
-        Customer customer = createCustomer("+5493462001003");
-        grant(cashierToken, customer.getId(), 100);
+        User user = createUser("+5493462001003");
+        grant(cashierToken, user.getId(), 100);
 
         Reward reward = createReward("Free Coffee", 30);
-        String customerToken = loginCustomer("+5493462001003");
-        claimReward(customerToken, customer.getId(), reward.getId());
+        String userToken = loginUser("+5493462001003");
+        claimReward(userToken, user.getId(), reward.getId());
 
-        assertThat(getBalance(customerToken, customer.getId()).points()).isEqualTo(70);
+        assertThat(getBalance(userToken, user.getId()).points()).isEqualTo(70);
 
-        PendingExchangeResponse pending = getSolePendingExchange(cashierToken, customer.getId());
+        PendingExchangeResponse pending = getSolePendingExchange(cashierToken, user.getId());
         assertThat(pending.rewardTitle()).isEqualTo("Free Coffee");
         assertThat(pending.points()).isEqualTo(-30);
         assertThat(pending.exchangeCode()).hasSize(6);
@@ -206,14 +207,14 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
     void employeeApproveExchangeMarksItDelivered() {
         Employee cashier = createEmployee("cashier-approve", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-approve", "password123");
-        Customer customer = createCustomer("+5493462001004");
-        grant(cashierToken, customer.getId(), 50);
+        User user = createUser("+5493462001004");
+        grant(cashierToken, user.getId(), 50);
 
         Reward reward = createReward("Free Muffin", 20);
-        String customerToken = loginCustomer("+5493462001004");
-        claimReward(customerToken, customer.getId(), reward.getId());
+        String userToken = loginUser("+5493462001004");
+        claimReward(userToken, user.getId(), reward.getId());
 
-        UUID exchangeId = getSolePendingExchange(cashierToken, customer.getId()).id();
+        UUID exchangeId = getSolePendingExchange(cashierToken, user.getId()).id();
 
         ResponseEntity<Void> approve = restTemplate.exchange(
             baseUrl() + "/exchanges/approve",
@@ -237,14 +238,14 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
     void employeeCancelExchangeWithRefundRestoresBalance() {
         Employee cashier = createEmployee("cashier-cancel", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-cancel", "password123");
-        Customer customer = createCustomer("+5493462001005");
-        grant(cashierToken, customer.getId(), 40);
+        User user = createUser("+5493462001005");
+        grant(cashierToken, user.getId(), 40);
 
         Reward reward = createReward("Free Tea", 25);
-        String customerToken = loginCustomer("+5493462001005");
-        claimReward(customerToken, customer.getId(), reward.getId());
+        String userToken = loginUser("+5493462001005");
+        claimReward(userToken, user.getId(), reward.getId());
 
-        UUID exchangeId = getSolePendingExchange(cashierToken, customer.getId()).id();
+        UUID exchangeId = getSolePendingExchange(cashierToken, user.getId()).id();
 
         ResponseEntity<Void> cancel = restTemplate.exchange(
             baseUrl() + "/exchanges/cancel",
@@ -254,21 +255,21 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         );
         assertThat(cancel.getStatusCode()).isEqualTo(HttpStatus.OK);
 
-        assertThat(getBalance(cashierToken, customer.getId()).points()).isEqualTo(40);
+        assertThat(getBalance(cashierToken, user.getId()).points()).isEqualTo(40);
     }
 
     @Test
     void employeeCancelExchangeWithoutRefundLeavesBalanceReduced() {
         Employee cashier = createEmployee("cashier-cancel-norefund", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-cancel-norefund", "password123");
-        Customer customer = createCustomer("+5493462001006");
-        grant(cashierToken, customer.getId(), 40);
+        User user = createUser("+5493462001006");
+        grant(cashierToken, user.getId(), 40);
 
         Reward reward = createReward("Free Juice", 25);
-        String customerToken = loginCustomer("+5493462001006");
-        claimReward(customerToken, customer.getId(), reward.getId());
+        String userToken = loginUser("+5493462001006");
+        claimReward(userToken, user.getId(), reward.getId());
 
-        UUID exchangeId = getSolePendingExchange(cashierToken, customer.getId()).id();
+        UUID exchangeId = getSolePendingExchange(cashierToken, user.getId()).id();
 
         restTemplate.exchange(
             baseUrl() + "/exchanges/cancel",
@@ -277,45 +278,45 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
             Void.class
         );
 
-        assertThat(getBalance(cashierToken, customer.getId()).points()).isEqualTo(15);
+        assertThat(getBalance(cashierToken, user.getId()).points()).isEqualTo(15);
     }
 
     @Test
-    void customerCancelExchangeAlwaysRefundsPoints() {
-        Employee cashier = createEmployee("cashier-customer-cancel", "password123", EmployeeRole.CASHIER);
-        String cashierToken = loginEmployee("cashier-customer-cancel", "password123");
-        Customer customer = createCustomer("+5493462001007");
-        grant(cashierToken, customer.getId(), 60);
+    void userCancelExchangeAlwaysRefundsPoints() {
+        Employee cashier = createEmployee("cashier-user-cancel", "password123", EmployeeRole.CASHIER);
+        String cashierToken = loginEmployee("cashier-user-cancel", "password123");
+        User user = createUser("+5493462001007");
+        grant(cashierToken, user.getId(), 60);
 
         Reward reward = createReward("Free Sandwich", 45);
-        String customerToken = loginCustomer("+5493462001007");
-        claimReward(customerToken, customer.getId(), reward.getId());
+        String userToken = loginUser("+5493462001007");
+        claimReward(userToken, user.getId(), reward.getId());
 
-        UUID exchangeId = getSolePendingExchange(cashierToken, customer.getId()).id();
+        UUID exchangeId = getSolePendingExchange(cashierToken, user.getId()).id();
 
         ResponseEntity<Void> response = restTemplate.exchange(
-            baseUrl() + "/exchanges/customer-cancel",
+            baseUrl() + "/exchanges/user-cancel",
             HttpMethod.POST,
-            authed(customerToken, new studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCancelExchangeRequest(exchangeId)),
+            authed(userToken, new studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest(exchangeId)),
             Void.class
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(getBalance(customerToken, customer.getId()).points()).isEqualTo(60);
+        assertThat(getBalance(userToken, user.getId()).points()).isEqualTo(60);
     }
 
     @Test
     void verifyExchangeWithValidCodeReturnsTheTransaction() {
         Employee cashier = createEmployee("cashier-verify-ok", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-verify-ok", "password123");
-        Customer customer = createCustomer("+5493462001008");
-        grant(cashierToken, customer.getId(), 30);
+        User user = createUser("+5493462001008");
+        grant(cashierToken, user.getId(), 30);
 
         Reward reward = createReward("Free Bagel", 15);
-        String customerToken = loginCustomer("+5493462001008");
-        claimReward(customerToken, customer.getId(), reward.getId());
+        String userToken = loginUser("+5493462001008");
+        claimReward(userToken, user.getId(), reward.getId());
 
-        String code = getSolePendingExchange(cashierToken, customer.getId()).exchangeCode();
+        String code = getSolePendingExchange(cashierToken, user.getId()).exchangeCode();
 
         ResponseEntity<ExchangeResponse> response = restTemplate.exchange(
             baseUrl() + "/exchanges/verify",
@@ -346,19 +347,19 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void topRewardsAndTopClientsRequireCashierOrAdminRole() {
-        Customer customer = createCustomer("+5493462001009");
-        String customerToken = loginCustomer("+5493462001009");
+        User user = createUser("+5493462001009");
+        String userToken = loginUser("+5493462001009");
 
         ResponseEntity<String> topRewards = restTemplate.exchange(
             baseUrl() + "/rewards/top",
             HttpMethod.GET,
-            authed(customerToken),
+            authed(userToken),
             String.class
         );
         ResponseEntity<String> topClients = restTemplate.exchange(
-            baseUrl() + "/customers/top",
+            baseUrl() + "/users/top",
             HttpMethod.GET,
-            authed(customerToken),
+            authed(userToken),
             String.class
         );
 
@@ -370,14 +371,14 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
     void topClientsRanksByPointsEarnedDescending() {
         Employee cashier = createEmployee("cashier-top-clients", "password123", EmployeeRole.CASHIER);
         String token = loginEmployee("cashier-top-clients", "password123");
-        Customer bigSpender = createCustomer("+5493462001010");
-        Customer smallSpender = createCustomer("+5493462001011");
+        User bigSpender = createUser("+5493462001010");
+        User smallSpender = createUser("+5493462001011");
 
         grant(token, bigSpender.getId(), 100_000);
         grant(token, smallSpender.getId(), 1);
 
         ResponseEntity<List<TopClientResponse>> response = restTemplate.exchange(
-            baseUrl() + "/customers/top",
+            baseUrl() + "/users/top",
             HttpMethod.GET,
             authed(token),
             new ParameterizedTypeReference<>() {}
@@ -393,16 +394,16 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
     void topRewardsRanksByClaimCountDescending() {
         Employee cashier = createEmployee("cashier-top-rewards", "password123", EmployeeRole.CASHIER);
         String cashierToken = loginEmployee("cashier-top-rewards", "password123");
-        Customer customer = createCustomer("+5493462001012");
-        grant(cashierToken, customer.getId(), 1000);
-        String customerToken = loginCustomer("+5493462001012");
+        User user = createUser("+5493462001012");
+        grant(cashierToken, user.getId(), 1000);
+        String userToken = loginUser("+5493462001012");
 
         Reward popular = createReward("Popular Reward", 10);
         Reward rare = createReward("Rare Reward", 10);
 
-        claimReward(customerToken, customer.getId(), popular.getId());
-        claimReward(customerToken, customer.getId(), popular.getId());
-        claimReward(customerToken, customer.getId(), rare.getId());
+        claimReward(userToken, user.getId(), popular.getId());
+        claimReward(userToken, user.getId(), popular.getId());
+        claimReward(userToken, user.getId(), rare.getId());
 
         ResponseEntity<List<studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse>> response = restTemplate.exchange(
             baseUrl() + "/rewards/top",
