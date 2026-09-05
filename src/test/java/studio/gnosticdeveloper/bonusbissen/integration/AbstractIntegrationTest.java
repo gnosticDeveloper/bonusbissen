@@ -6,27 +6,33 @@ import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRe
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.postgresql.PostgreSQLContainer;
-import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.LoginRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.UserLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.LoginResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.Customer;
 import studio.gnosticdeveloper.bonusbissen.entity.Employee;
 import studio.gnosticdeveloper.bonusbissen.entity.EmployeeRole;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
-import studio.gnosticdeveloper.bonusbissen.repository.CustomerRepository;
+import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
+@TestPropertySource(properties = "app.mail.enabled=false")
+@Import(TestMailConfig.class)
 public abstract class AbstractIntegrationTest {
+
+    protected static final String TEST_USER_PASSWORD = "test-password-123";
 
     // Started once and shared for the whole JVM (not JUnit-managed) so it survives
     // across test classes; Spring's test context cache would otherwise reuse a
@@ -49,7 +55,7 @@ public abstract class AbstractIntegrationTest {
     protected EmployeeRepository employeeRepository;
 
     @Autowired
-    protected CustomerRepository customerRepository;
+    protected UserRepository userRepository;
 
     @Autowired
     protected RewardRepository rewardRepository;
@@ -59,6 +65,9 @@ public abstract class AbstractIntegrationTest {
 
     @Autowired
     protected PasswordEncoder passwordEncoder;
+
+    @Autowired
+    protected RecordingEmailSender recordingEmailSender;
 
     // Shared across every test in the suite: existing scenarios assume every
     // employee/reward belongs to "the" business, so all of them are attached
@@ -92,17 +101,24 @@ public abstract class AbstractIntegrationTest {
         return employeeRepository.save(employee);
     }
 
-    protected Customer createCustomer(String phone) {
-        Customer customer = new Customer();
-        customer.setPhone(phone);
-        customer.setName("Test Customer " + phone);
-        return customerRepository.save(customer);
+    /**
+     * Creates an active user whose username is {@code usernameKey} (lower-cased)
+     * and whose password is {@link #TEST_USER_PASSWORD}. Callers pass the same
+     * key to {@link #loginUser(String)}.
+     */
+    protected User createUser(String usernameKey) {
+        User user = new User();
+        user.setUsername(usernameKey.toLowerCase());
+        user.setName("Test User " + usernameKey);
+        user.setPasswordHash(passwordEncoder.encode(TEST_USER_PASSWORD));
+        user.setEmailVerified(false);
+        return userRepository.save(user);
     }
 
-    protected Customer createInactiveCustomer(String phone) {
-        Customer customer = createCustomer(phone);
-        customer.setActive(false);
-        return customerRepository.save(customer);
+    protected User createInactiveUser(String usernameKey) {
+        User user = createUser(usernameKey);
+        user.setActive(false);
+        return userRepository.save(user);
     }
 
     protected Reward createReward(String title, int costPoints) {
@@ -120,9 +136,13 @@ public abstract class AbstractIntegrationTest {
         return response.token();
     }
 
-    protected String loginCustomer(String phone) {
+    protected String loginUser(String usernameKey) {
         LoginResponse response = restTemplate
-            .postForEntity(baseUrl() + "/auth/customer-login", new CustomerLoginRequest(phone), LoginResponse.class)
+            .postForEntity(
+                baseUrl() + "/auth/user-login",
+                new UserLoginRequest(usernameKey.toLowerCase(), TEST_USER_PASSWORD),
+                LoginResponse.class
+            )
             .getBody();
         return response.token();
     }

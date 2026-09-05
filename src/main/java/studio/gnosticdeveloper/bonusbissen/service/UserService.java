@@ -1,6 +1,7 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.data.domain.Page;
@@ -10,203 +11,181 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCreateRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsAwardResponse;
-import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerPointsResponse;
-import studio.gnosticdeveloper.bonusbissen.dto.response.CustomerResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.Customer;
+import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.Employee;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
-import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
-import studio.gnosticdeveloper.bonusbissen.exception.InactiveCustomerConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
-import studio.gnosticdeveloper.bonusbissen.repository.CustomerRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 
 @Service
-public class CustomerService {
+public class UserService {
 
-    private final CustomerRepository customerRepository;
+    private final UserRepository userRepository;
     private final PointTransactionRepository pointTransactionRepository;
     private final RewardRepository rewardRepository;
     private final ExchangeCodeRepository exchangeCodeRepository;
     private final EmployeeRepository employeeRepository;
+    private final EmailVerificationService emailVerificationService;
 
-    public CustomerService(
-        CustomerRepository customerRepository,
+    public UserService(
+        UserRepository userRepository,
         PointTransactionRepository pointTransactionRepository,
         RewardRepository rewardRepository,
         ExchangeCodeRepository exchangeCodeRepository,
-        EmployeeRepository employeeRepository
+        EmployeeRepository employeeRepository,
+        EmailVerificationService emailVerificationService
     ) {
-        this.customerRepository = customerRepository;
+        this.userRepository = userRepository;
         this.pointTransactionRepository = pointTransactionRepository;
         this.rewardRepository = rewardRepository;
         this.exchangeCodeRepository = exchangeCodeRepository;
         this.employeeRepository = employeeRepository;
+        this.emailVerificationService = emailVerificationService;
     }
 
+    /**
+     * A user edits their own profile: display name plus an optional email.
+     * Changing the email (or clearing it) drops the verified flag; when a new
+     * address is set, a fresh verification message goes out.
+     */
     @Transactional
-    public Customer create(CustomerCreateRequest request, UUID employeeId) {
-        customerRepository
-            .findByPhone(request.phone())
-            .ifPresent(existing -> {
-                if (existing.isActive()) {
-                    throw new ConflictException("Ese número ya está registrado. Por favor, intenta con otro número.");
-                }
-                throw new InactiveCustomerConflictException(
-                    "Ese número pertenece a un cliente que fue borrado. Podés reactivarlo en vez de crear uno nuevo.",
-                    existing.getId()
-                );
-            });
-        Customer customer = new Customer();
-        customer.setName(request.name());
-        customer.setPhone(request.phone());
-        customer = customerRepository.save(customer);
-
-        if (request.points() != null && request.points() > 0) {
-            grantPoints(new GrantPointsRequest(customer.getId(), request.points(), null), employeeId);
-        }
-
-        return customer;
-    }
-
-    @Transactional
-    public Customer update(UUID id, CustomerUpdateRequest request) {
-        Customer customer = customerRepository
+    public User update(UUID id, UserUpdateRequest request) {
+        User user = userRepository
             .findById(id)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
 
-        if (!customer.getPhone().equals(request.phone())) {
-            customerRepository
-                .findByPhone(request.phone())
-                .filter(other -> !other.getId().equals(id))
-                .ifPresent(other -> {
-                    throw new ConflictException("Ese número ya está registrado. Por favor, intenta con otro número.");
-                });
+        user.setName(request.name().trim());
+
+        String newEmail = EmailVerificationService.normalizeEmail(request.email());
+        String currentEmail = EmailVerificationService.normalizeEmail(user.getEmail());
+        boolean emailChanged = !Objects.equals(newEmail, currentEmail);
+
+        if (emailChanged) {
+            if (newEmail != null) {
+                userRepository
+                    .findByEmail(newEmail)
+                    .filter(other -> !other.getId().equals(id))
+                    .ifPresent(other -> {
+                        throw new ConflictException("Ese email ya está registrado.");
+                    });
+            }
+            user.setEmail(newEmail);
+            user.setEmailVerified(false);
         }
 
-        customer.setName(request.name());
-        customer.setPhone(request.phone());
-        return customerRepository.save(customer);
+        user = userRepository.save(user);
+
+        if (emailChanged && newEmail != null) {
+            emailVerificationService.sendVerification(user);
+        }
+        return user;
     }
 
     @Transactional
-    public Customer reactivate(UUID id) {
-        Customer customer = customerRepository
+    public User reactivate(UUID id) {
+        User user = userRepository
             .findById(id)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
 
-        customer.setActive(true);
-        return customerRepository.save(customer);
+        user.setActive(true);
+        return userRepository.save(user);
     }
 
     @Transactional
     public void deleteById(UUID id) {
-        Customer customer = customerRepository
+        User user = userRepository
             .findById(id)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
 
-        customer.setActive(false);
-        customerRepository.save(customer);
+        user.setActive(false);
+        userRepository.save(user);
     }
 
     @Transactional(readOnly = true)
-    public Customer getByPhone(String phone) {
-        return customerRepository
-            .findByPhone(phone)
-            .filter(Customer::isActive)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el número de teléfono " + phone + "."));
+    public int getBalance(UUID userId) {
+        return pointTransactionRepository.calculatePointsByUserId(userId);
     }
 
     @Transactional(readOnly = true)
-    public int getBalance(UUID customerId) {
-        return pointTransactionRepository.calculatePointsByCustomerId(customerId);
-    }
-
-    @Transactional(readOnly = true)
-    public CustomerPointsResponse getCustomerPointsById(UUID id) {
-        Customer customer = customerRepository
+    public UserPointsResponse getUserPointsById(UUID id) {
+        User user = userRepository
             .findById(id)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
-        return CustomerPointsResponse.from(customer, getBalance(id));
+        return UserPointsResponse.from(user, getBalance(id));
     }
 
     @Transactional(readOnly = true)
-    public CustomerPointsResponse getCustomerPointsByPhone(String phone) {
-        Customer customer = getByPhone(phone);
-        return CustomerPointsResponse.from(customer, getBalance(customer.getId()));
-    }
-
-    @Transactional(readOnly = true)
-    public List<HistoricalExchangeResponse> getHistoricalExchangesByCustomerId(UUID customerId) {
-        List<PointTransaction> allExchangesByCustomerId = pointTransactionRepository.findAllByCustomerIdAndTypeOrderByCreatedAtDesc(
-            customerId,
+    public List<HistoricalExchangeResponse> getHistoricalExchangesByUserId(UUID userId) {
+        List<PointTransaction> allExchangesByUserId = pointTransactionRepository.findAllByUserIdAndTypeOrderByCreatedAtDesc(
+            userId,
             TransactionType.REDEEM
         );
-        return allExchangesByCustomerId.stream().map(HistoricalExchangeResponse::from).toList();
+        return allExchangesByUserId.stream().map(HistoricalExchangeResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<MovementResponse> getMovementsByCustomerId(UUID customerId) {
-        List<PointTransaction> movements = pointTransactionRepository.findAllByCustomerIdOrderByCreatedAtDesc(customerId);
+    public List<MovementResponse> getMovementsByUserId(UUID userId) {
+        List<PointTransaction> movements = pointTransactionRepository.findAllByUserIdOrderByCreatedAtDesc(userId);
         return movements.stream().map(MovementResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
-    public Page<CustomerPointsResponse> search(String search, Pageable pageable) {
+    public Page<UserPointsResponse> search(String search, Pageable pageable) {
         String term = search == null || search.isBlank() ? null : search.trim();
-        return customerRepository.search(term, pageable).map(customer -> CustomerPointsResponse.from(customer, getBalance(customer.getId())));
+        return userRepository.search(term, pageable).map(user -> UserPointsResponse.from(user, getBalance(user.getId())));
     }
 
     @Transactional(readOnly = true)
     public List<TopClientResponse> getTopClients(UUID organizationId) {
         Pageable topTen = PageRequest.of(0, 10);
-        return customerRepository.getTopClients(organizationId, topTen);
+        return userRepository.getTopClients(organizationId, topTen);
     }
 
     @Transactional(readOnly = true)
-    public List<PointActionResponse> getGrantHistory(UUID organizationId, UUID customerId, int size) {
+    public List<PointActionResponse> getGrantHistory(UUID organizationId, UUID userId, int size) {
         Pageable pageable = PageRequest.of(0, size);
-        return pointTransactionRepository.findGrantHistory(organizationId, customerId, pageable).stream().map(PointActionResponse::from).toList();
+        return pointTransactionRepository.findGrantHistory(organizationId, userId, pageable).stream().map(PointActionResponse::from).toList();
     }
 
     @Transactional
-    public CustomerPointsAwardResponse grantPoints(GrantPointsRequest request, UUID employeeId) {
+    public UserPointsAwardResponse grantPoints(GrantPointsRequest request, UUID employeeId) {
         Employee employee = employeeRepository
             .findById(employeeId)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + employeeId + "."));
 
         PointTransaction tx = new PointTransaction();
         tx.setEmployee(employee);
-        tx.setCustomer(
-            customerRepository
-                .findById(request.customerId())
-                .filter(Customer::isActive)
-                .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.customerId() + "."))
+        tx.setUser(
+            userRepository
+                .findById(request.userId())
+                .filter(User::isActive)
+                .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.userId() + "."))
         );
         tx.setPoints(request.points());
         tx.setNote(request.note());
         tx.setTransactionType(TransactionType.EARN);
         tx.setState(TransactionState.DELIVERED);
         tx = pointTransactionRepository.save(tx);
-        return new CustomerPointsAwardResponse(tx.getCustomer().getName(), request.points());
+        return new UserPointsAwardResponse(tx.getUser().getName(), request.points());
     }
 
     @Transactional
@@ -239,18 +218,18 @@ public class CustomerService {
     @Transactional
     public String claimReward(ClaimRewardRequest request) {
         PointTransaction tx = new PointTransaction();
-        Customer customer = customerRepository
-            .findById(request.customerId())
-            .filter(Customer::isActive)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.customerId() + "."));
-        tx.setCustomer(customer);
+        User user = userRepository
+            .findById(request.userId())
+            .filter(User::isActive)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.userId() + "."));
+        tx.setUser(user);
         Reward reward = rewardRepository
             .findById(request.rewardId())
             .filter(Reward::isActive)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar una recompensa con el ID " + request.rewardId() + "."));
         tx.setReward(reward);
 
-        if (getBalance(customer.getId()) < reward.getCostPoints()) {
+        if (getBalance(user.getId()) < reward.getCostPoints()) {
             throw new InsufficientPointsException("El cliente no tiene puntos suficientes para canjear \"" + reward.getTitle() + "\".");
         }
 
@@ -264,7 +243,7 @@ public class CustomerService {
         ExchangeCode exchangeCode = new ExchangeCode();
         exchangeCode.setOrganization(reward.getOrganization());
         exchangeCode.setPointTransaction(tx);
-        exchangeCode.setCustomer(customer);
+        exchangeCode.setUser(user);
         exchangeCode.setCode(generateExchangeCode());
         exchangeCodeRepository.save(exchangeCode);
         return exchangeCode.getCode();

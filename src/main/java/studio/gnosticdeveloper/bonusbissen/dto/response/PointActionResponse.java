@@ -5,8 +5,8 @@ import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 
 public record PointActionResponse(
     UUID id,
-    UUID customerId,
-    String customerName,
+    UUID userId,
+    String userName,
     String type,
     int amount,
     String note,
@@ -17,8 +17,8 @@ public record PointActionResponse(
     public static PointActionResponse from(PointTransaction tx) {
         return new PointActionResponse(
             tx.getId(),
-            tx.getCustomer().getId(),
-            tx.getCustomer().getName(),
+            tx.getUser().getId(),
+            tx.getUser().getName(),
             "add",
             tx.getPoints(),
             tx.getNote() != null ? tx.getNote() : "",

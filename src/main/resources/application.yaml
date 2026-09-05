@@ -12,6 +12,17 @@ spring:
   sql:
     init:
       mode: always
+  mail:
+    host: ${MAIL_HOST:smtp.mailgun.org}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
 app:
   jwt:
@@ -21,3 +32,11 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   uploads:
     dir: /var/lib/bonusbissen/uploads/rewards
+  mail:
+    # false -> LoggingEmailSender (no SMTP, links are logged). Set MAIL_ENABLED=true
+    # plus the spring.mail.* settings above to actually send via Mailgun.
+    enabled: ${MAIL_ENABLED:false}
+    from: ${MAIL_FROM:bonusbissen <no-reply@bonusbissen.local>}
+    # Frontend page that reads ?token= and POSTs it to /auth/verify-email
+    verification-url: ${MAIL_VERIFICATION_URL:http://localhost:3000/verify-email}
+    token-ttl-hours: ${MAIL_TOKEN_TTL_HOURS:48}

@@ -2,7 +2,7 @@ package studio.gnosticdeveloper.bonusbissen.controller;
 
 import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCancelExchangeRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
@@ -50,8 +50,8 @@ public class PointTransactionController {
     }
 
     @GetMapping("/pending/{id}")
-    public List<PendingExchangeResponse> getAllPendingExchangesByCustomerId(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        if ("CUSTOMER".equals(principal.role()) && !principal.id().equals(id)) {
+    public List<PendingExchangeResponse> getAllPendingExchangesByUserId(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        if ("USER".equals(principal.role()) && !principal.id().equals(id)) {
             throw new AccessDeniedException("No podés acceder a los canjes de otro cliente.");
         }
         return pointTransactionService.getAllPendingExchangesById(id);
@@ -89,10 +89,10 @@ public class PointTransactionController {
         pointTransactionService.approveExchange(request, principal.organizationId());
     }
 
-    @PostMapping("/customer-cancel")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PostMapping("/user-cancel")
+    @PreAuthorize("hasRole('USER')")
     @ResponseStatus(code = HttpStatus.OK)
-    public void customerCancelExchange(@RequestBody CustomerCancelExchangeRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        pointTransactionService.customerCancelExchange(request, principal.id());
+    public void userCancelExchange(@RequestBody UserCancelExchangeRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        pointTransactionService.userCancelExchange(request, principal.id());
     }
 }

@@ -36,51 +36,51 @@ class PointTransactionControllerTest {
     private PointTransactionController controller;
 
     @Test
-    void customerRequestingTheirOwnPendingExchangesSucceeds() {
-        UUID customerId = UUID.randomUUID();
-        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(customerId, "Someone", "CUSTOMER", UUID.randomUUID());
+    void userRequestingTheirOwnPendingExchangesSucceeds() {
+        UUID userId = UUID.randomUUID();
+        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(userId, "Someone", "USER", UUID.randomUUID());
         List<PendingExchangeResponse> expected = List.of();
-        when(pointTransactionService.getAllPendingExchangesById(customerId)).thenReturn(expected);
+        when(pointTransactionService.getAllPendingExchangesById(userId)).thenReturn(expected);
 
-        List<PendingExchangeResponse> result = controller.getAllPendingExchangesByCustomerId(customerId, principal);
+        List<PendingExchangeResponse> result = controller.getAllPendingExchangesByUserId(userId, principal);
 
         assertThat(result).isSameAs(expected);
     }
 
     @Test
-    void customerRequestingAnotherCustomersPendingExchangesIsRejected() {
+    void userRequestingAnotherUsersPendingExchangesIsRejected() {
         UUID ownId = UUID.randomUUID();
         UUID victimId = UUID.randomUUID();
-        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(ownId, "Attacker", "CUSTOMER", UUID.randomUUID());
+        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(ownId, "Attacker", "USER", UUID.randomUUID());
 
-        assertThatThrownBy(() -> controller.getAllPendingExchangesByCustomerId(victimId, principal))
+        assertThatThrownBy(() -> controller.getAllPendingExchangesByUserId(victimId, principal))
             .isInstanceOf(AccessDeniedException.class);
 
         verify(pointTransactionService, never()).getAllPendingExchangesById(any());
     }
 
     @Test
-    void cashierRequestingAnyCustomersPendingExchangesSucceeds() {
+    void cashierRequestingAnyUsersPendingExchangesSucceeds() {
         UUID cashierId = UUID.randomUUID();
-        UUID customerId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
         AuthenticatedPrincipal principal = new AuthenticatedPrincipal(cashierId, "Cashier", "CASHIER", UUID.randomUUID());
         List<PendingExchangeResponse> expected = List.of();
-        when(pointTransactionService.getAllPendingExchangesById(customerId)).thenReturn(expected);
+        when(pointTransactionService.getAllPendingExchangesById(userId)).thenReturn(expected);
 
-        List<PendingExchangeResponse> result = controller.getAllPendingExchangesByCustomerId(customerId, principal);
+        List<PendingExchangeResponse> result = controller.getAllPendingExchangesByUserId(userId, principal);
 
         assertThat(result).isSameAs(expected);
     }
 
     @Test
-    void adminRequestingAnyCustomersPendingExchangesSucceeds() {
+    void adminRequestingAnyUsersPendingExchangesSucceeds() {
         UUID adminId = UUID.randomUUID();
-        UUID customerId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
         AuthenticatedPrincipal principal = new AuthenticatedPrincipal(adminId, "Admin", "ADMIN", UUID.randomUUID());
         List<PendingExchangeResponse> expected = List.of();
-        when(pointTransactionService.getAllPendingExchangesById(customerId)).thenReturn(expected);
+        when(pointTransactionService.getAllPendingExchangesById(userId)).thenReturn(expected);
 
-        List<PendingExchangeResponse> result = controller.getAllPendingExchangesByCustomerId(customerId, principal);
+        List<PendingExchangeResponse> result = controller.getAllPendingExchangesByUserId(userId, principal);
 
         assertThat(result).isSameAs(expected);
     }

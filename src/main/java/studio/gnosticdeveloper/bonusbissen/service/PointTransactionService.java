@@ -8,7 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCancelExchangeRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeReviewResponse;
@@ -53,9 +53,9 @@ public class PointTransactionService {
     }
 
     @Transactional
-    public List<PendingExchangeResponse> getAllPendingExchangesById(UUID customerId) {
+    public List<PendingExchangeResponse> getAllPendingExchangesById(UUID userId) {
         return pointTransactionRepository
-            .findAllPendingByCustomerIdOrderByCreatedAtDesc(customerId, TransactionState.PENDING)
+            .findAllPendingByUserIdOrderByCreatedAtDesc(userId, TransactionState.PENDING)
             .stream()
             .map(PendingExchangeResponse::from)
             .toList();
@@ -132,17 +132,11 @@ public class PointTransactionService {
 
         pointTransactionRepository.save(pointTransaction);
 
-        // refund points to customer by creating a new point transaction
         if (request.shouldRefundPoints()) {
-            PointTransaction refundTransaction = new PointTransaction();
-            refundTransaction.setRefundedTransaction(pointTransaction);
-            refundTransaction.setCustomer(pointTransaction.getCustomer());
-            refundTransaction.setPoints(Math.abs(pointTransaction.getPoints()));
-            refundTransaction.setTransactionType(TransactionType.EARN);
-            refundTransaction.setState(TransactionState.DELIVERED);
-            pointTransactionRepository.save(refundTransaction);
+            refundTransaction(pointTransaction);
         }
     }
+
 
     private void requireOwnership(PointTransaction pointTransaction, UUID organizationId) {
         if (!pointTransaction.getOrganization().getId().equals(organizationId)) {
@@ -151,12 +145,12 @@ public class PointTransactionService {
     }
 
     @Transactional
-    public void customerCancelExchange(CustomerCancelExchangeRequest request, UUID callerId) {
+    public void userCancelExchange(UserCancelExchangeRequest request, UUID callerId) {
         PointTransaction pointTransaction = pointTransactionRepository
             .findById(request.exchangeId())
             .orElseThrow(() -> new NotFoundException("Point transaction not found: " + request.exchangeId()));
 
-        if (!pointTransaction.getCustomer().getId().equals(callerId)) {
+        if (!pointTransaction.getUser().getId().equals(callerId)) {
             throw new AccessDeniedException("No podés cancelar el canje de otro cliente.");
         }
 
@@ -172,10 +166,13 @@ public class PointTransactionService {
 
         pointTransactionRepository.save(pointTransaction);
 
-        // refund points to customer by creating a new point transaction
+        refundTransaction(pointTransaction);
+    }
+
+    private void refundTransaction(PointTransaction pointTransaction) {
         PointTransaction refundTransaction = new PointTransaction();
         refundTransaction.setRefundedTransaction(pointTransaction);
-        refundTransaction.setCustomer(pointTransaction.getCustomer());
+        refundTransaction.setUser(pointTransaction.getUser());
         refundTransaction.setPoints(Math.abs(pointTransaction.getPoints()));
         refundTransaction.setTransactionType(TransactionType.EARN);
         refundTransaction.setState(TransactionState.DELIVERED);

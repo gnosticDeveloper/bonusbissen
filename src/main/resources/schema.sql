@@ -4,7 +4,7 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- organizations: one row per business using bonusbissen. Employees, rewards
--- and point transactions all belong to exactly one organization. Customers
+-- and point transactions all belong to exactly one organization. Users
 -- do NOT belong to an organization yet -- that link will be introduced later
 -- through a subscription model.
 CREATE TABLE IF NOT EXISTS organizations (
@@ -29,14 +29,34 @@ CREATE TABLE IF NOT EXISTS employees (
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- customers: identified by PHONE, no actual login.
-CREATE TABLE IF NOT EXISTS customers (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    phone       VARCHAR(20) NOT NULL UNIQUE,
-    name        VARCHAR(255) NOT NULL,
-    active      BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+-- users: self-service loyalty accounts. A user signs up and authenticates
+-- with a username + password. Email is optional; once verified it can also
+-- be used as a login identifier. Both username and email are unique. The
+-- account belongs to bonusbissen, not to any single store.
+CREATE TABLE IF NOT EXISTS users (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username       VARCHAR(100) NOT NULL UNIQUE,
+    email          VARCHAR(255) UNIQUE,
+    password_hash  VARCHAR(255) NOT NULL,
+    email_verified BOOLEAN      NOT NULL DEFAULT FALSE,
+    name           VARCHAR(255) NOT NULL,
+    active         BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at     TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
+
+-- email_verification_tokens: one row per verification attempt. The address
+-- being verified is stored on the token, so a link stays bound to the email
+-- it was issued for even if the user edits their account afterwards.
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+    id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id      UUID         NOT NULL REFERENCES users(id),
+    token        VARCHAR(64)  NOT NULL UNIQUE,
+    email        VARCHAR(255) NOT NULL,
+    expires_at   TIMESTAMPTZ  NOT NULL,
+    consumed_at  TIMESTAMPTZ,
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id ON email_verification_tokens(user_id);
 
 -- rewards: what points can be redeemed for. Each business manages its own catalog.
 CREATE TABLE IF NOT EXISTS rewards (
@@ -56,7 +76,7 @@ CREATE TABLE IF NOT EXISTS rewards (
 -- refunded_transaction_id -> the original redeem's reward.
 CREATE TABLE IF NOT EXISTS point_transactions (
     id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    customer_id              UUID NOT NULL REFERENCES customers(id),
+    user_id              UUID NOT NULL REFERENCES users(id),
     reward_id                UUID REFERENCES rewards(id),
     employee_id              UUID REFERENCES employees(id), -- if null, it means the transaction is "pending". if not null, the transaction is either "completed" or "cancelled".
     refunded_transaction_id  UUID REFERENCES point_transactions(id), -- set only on the refund 'earn' row created when a redeem is cancelled
@@ -85,16 +105,16 @@ CREATE TABLE IF NOT EXISTS exchange_codes (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id        UUID        NOT NULL REFERENCES organizations(id),
     point_transaction_id   UUID        NOT NULL REFERENCES point_transactions(id),
-    customer_id   UUID        NOT NULL REFERENCES customers(id),
+    user_id   UUID        NOT NULL REFERENCES users(id),
     code          VARCHAR(6)  NOT NULL,
     active        BOOLEAN     NOT NULL DEFAULT TRUE,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Indexes for the lookups this app actually does
-CREATE INDEX IF NOT EXISTS idx_exchanges_customer_id ON point_transactions(customer_id) WHERE transaction_type = 'redeem';
+CREATE INDEX IF NOT EXISTS idx_exchanges_user_id ON point_transactions(user_id) WHERE transaction_type = 'redeem';
 CREATE INDEX IF NOT EXISTS idx_canjes_reward_id ON point_transactions(reward_id);
-CREATE INDEX IF NOT EXISTS idx_points_transactions_customer_id ON point_transactions(customer_id) WHERE state = 'delivered' AND transaction_type = 'earn';
+CREATE INDEX IF NOT EXISTS idx_points_transactions_user_id ON point_transactions(user_id) WHERE state = 'delivered' AND transaction_type = 'earn';
 CREATE INDEX IF NOT EXISTS idx_point_transactions_refunded_transaction_id ON point_transactions(refunded_transaction_id);
 CREATE INDEX IF NOT EXISTS idx_rewards_active ON rewards(active) WHERE active = TRUE;
 CREATE INDEX IF NOT EXISTS idx_rewards_organization_id ON rewards(organization_id);

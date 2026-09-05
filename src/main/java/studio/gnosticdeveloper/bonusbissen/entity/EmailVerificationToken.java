@@ -9,33 +9,31 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "exchange_codes")
+@Table(name = "email_verification_tokens")
 @Getter
 @Setter
 @NoArgsConstructor
-public class ExchangeCode {
+public class EmailVerificationToken {
 
     @Id
     @GeneratedValue
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "organization_id", nullable = false)
-    private Organization organization;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "point_transaction_id", nullable = false)
-    private PointTransaction pointTransaction;
+    @Column(nullable = false, unique = true, length = 64)
+    private String token;
 
-    @Column(nullable = false, length = 6)
-    private String code;
+    @Column(nullable = false, length = 255)
+    private String email;
 
-    @Column(nullable = false)
-    private boolean active = true;
+    @Column(name = "expires_at", nullable = false)
+    private OffsetDateTime expiresAt;
+
+    @Column(name = "consumed_at")
+    private OffsetDateTime consumedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -45,5 +43,13 @@ public class ExchangeCode {
         if (createdAt == null) {
             createdAt = OffsetDateTime.now();
         }
+    }
+
+    public boolean isConsumed() {
+        return consumedAt != null;
+    }
+
+    public boolean isExpired() {
+        return expiresAt.isBefore(OffsetDateTime.now());
     }
 }
