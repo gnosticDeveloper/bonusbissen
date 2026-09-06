@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Instrument_Sans } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/toast";
@@ -16,10 +16,18 @@ export const metadata: Metadata = {
   description: "Sistema de puntos y recompensas para clientes frecuentes",
 };
 
+export const viewport: Viewport = {
+  colorScheme: "light dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "white" },
+    { media: "(prefers-color-scheme: dark)", color: "black" },
+  ],
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={instrumentSans.variable}>
-      <body className="bg-background text-primary-foreground font-sans antialiased">
+      <body className="font-sans antialiased">
         <ModalProvider>
           <ToastProvider>{children}</ToastProvider>
         </ModalProvider>

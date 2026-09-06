@@ -1,47 +1,53 @@
 "use server";
 
-import { getRoleFromToken } from "@/lib/auth/session";
+import { ActionResult } from "@/lib/api";
+import { SignInUser } from "@/lib/definitions";
+import { userLoginSchema } from "@/schemas/user";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 
-export interface AuthState {
-  error: string | null;
-}
-
-export async function signIn(_: AuthState, formData: FormData): Promise<AuthState> {
-  const user = {
-    username: formData.get("username"),
-    password: formData.get("password"),
+export async function signIn(formData: FormData): Promise<ActionResult<SignInUser>> {
+  const raw = {
+    identifier: String(formData.get("identifier") ?? ""),
+    password: String(formData.get("password") ?? ""),
   };
 
-  if (!user.username || !user.password) return { error: "Usuario o contraseña requeridos" };
+  const parsed = userLoginSchema.safeParse(raw);
+  if (!parsed.success) {
+    const firstError = parsed.error.issues[0]?.message ?? "Revisá los datos ingresados.";
+    return { ok: false, error: firstError };
+  }
+
+  const { identifier, password } = parsed.data;
 
   const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
 
-  const res = await fetch(`${backendUrl}/auth/login`, {
-    method: "POST",
-    body: JSON.stringify(user),
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
+  try {
+    const response = await fetch(`${backendUrl}/auth/user-login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ identifier, password }),
+    });
 
-  if (!res.ok) return { error: "Credenciales incorrectas, por favor intente nuevamente." };
+    if (!response.ok) return { ok: false, error: "No pudimos completar la solicitud." };
 
-  const { token } = (await res.json()) as { token: string };
-
-  const role = getRoleFromToken(token);
-
-  // Note: this case should never happen, because it means the JWT returned by spring boot does not provide the "role" claim. But, we validate it for typescript checks.
-  if (!role) return { error: "Hubo un problema al inicial sesión, intentelo nuevamente." };
-
-  const cookieStore = await cookies();
-  cookieStore.set("access_token", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-  });
-
-  redirect("/");
+    const result = (await response.json()) as { token: string };
+    (await cookies()).set("access_token", result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+    return {
+      ok: true,
+      data: {
+        name: identifier,
+        avatarUrl: null,
+      },
+    };
+  } catch {
+    return { ok: false, error: "El servicio no está disponible en este momento." };
+  }
 }

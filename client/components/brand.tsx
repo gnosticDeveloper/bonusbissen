@@ -19,7 +19,7 @@ export function BrandLockup({ size = "md", subtitle }: { size?: "sm" | "md" | "l
     <div className="flex items-center gap-2.5">
       <BrandMark size={size} />
       <div className="flex flex-col leading-tight">
-        <span className={cn("font-bold tracking-tight", size === "lg" ? "text-xl" : "text-base")}>Bonus Bissen</span>
+        <span className={cn("font-bold tracking-tight text-primary-foreground", size === "lg" ? "text-xl" : "text-base")}>Bonus Bissen</span>
         {subtitle ? <span className="text-xs text-muted-foreground">{subtitle}</span> : null}
       </div>
     </div>

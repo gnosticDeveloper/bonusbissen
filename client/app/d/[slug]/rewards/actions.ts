@@ -1,6 +1,6 @@
 "use server";
 
-import { apiServer } from "@/lib/api";
+import { request } from "@/lib/api";
 import type { Reward } from "@/lib/types/reward";
 
 export async function getRewards(query?: string) {
@@ -8,7 +8,7 @@ export async function getRewards(query?: string) {
 
   if (query) params.append("search", query);
 
-  const res = await apiServer(`/rewards?${params.toString()}`);
+  const res = await request(`/rewards?${params.toString()}`);
 
   if (!res.ok) throw new Error("Error consiguiendo la lista de recompensas.");
 
@@ -16,7 +16,7 @@ export async function getRewards(query?: string) {
 }
 
 export async function createReward(formData: FormData) {
-  const res = await apiServer("/rewards", {
+  const res = await request("/rewards", {
     method: "POST",
     body: formData,
   });
@@ -27,7 +27,7 @@ export async function createReward(formData: FormData) {
 }
 
 export async function editReward(id: string, formData: FormData) {
-  const res = await apiServer(`/rewards/${id}`, {
+  const res = await request(`/rewards/${id}`, {
     method: "PUT",
     body: formData,
   });
@@ -37,7 +37,7 @@ export async function editReward(id: string, formData: FormData) {
   return (await res.json()) as Reward;
 }
 export async function deleteReward(id: string) {
-  const res = await apiServer(`/rewards/${id}`, {
+  const res = await request(`/rewards/${id}`, {
     method: "DELETE",
   });
 

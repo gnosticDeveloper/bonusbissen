@@ -1,6 +1,6 @@
 "use server";
 
-import { apiServer } from "@/lib/api";
+import { request } from "@/lib/api";
 
 
 export interface Redemption {
@@ -25,7 +25,7 @@ export interface Redemption {
 }
 
 export async function getResolvedExchanges() {
-  const res = await apiServer("/exchanges/resolved");
+  const res = await request("/exchanges/resolved");
 
   if (!res.ok) return null;
 
@@ -33,7 +33,7 @@ export async function getResolvedExchanges() {
 }
 
 export async function validateCode(code: string): Promise<Redemption | null> {
-  const res = await apiServer("/exchanges/verify", {
+  const res = await request("/exchanges/verify", {
     body: JSON.stringify({ code }),
     headers: {
       "Content-Type": "application/json",
@@ -46,7 +46,7 @@ export async function validateCode(code: string): Promise<Redemption | null> {
 }
 
 export async function confirmRedemption(id: string) {
-  const res = await apiServer("/exchanges/approve", {
+  const res = await request("/exchanges/approve", {
     method: "POST",
     body: JSON.stringify({ id }),
     headers: {
@@ -58,7 +58,7 @@ export async function confirmRedemption(id: string) {
 }
 
 export async function annulateExchange(id: string, shouldRefundPoints: boolean = true) {
-  const res = await apiServer("/exchanges/cancel", {
+  const res = await request("/exchanges/cancel", {
     method: "POST",
     body: JSON.stringify({ id, shouldRefundPoints }),
     headers: {

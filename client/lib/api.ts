@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 export class ApiError extends Error {
   code?: string;
@@ -12,30 +13,28 @@ export class ApiError extends Error {
   }
 }
 
-class AuthError extends Error {
-  constructor(message: string) {
-    super(message);
-  }
-}
+export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
-export const apiServer = async (path: string, reqArgs?: RequestInit) => {
+export const request = async <T>(path: string, init?: RequestInit): Promise<ActionResult<T>> => {
   const cookiesStore = await cookies();
   const token = cookiesStore.get("access_token")?.value;
 
-  if (!token) throw new AuthError("Sesión no valida, por favor vuelva a iniciar sesión");
+  if (!token) redirect("/sign-in");
 
   const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
-
-  const res = await fetch(`${backendUrl}${path}`, {
-    ...reqArgs,
-    headers: {
-      ...reqArgs?.headers,
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  // TODO: show proper, user-fliendly error messages.
-  if (!res.ok) throw new ApiError("Algo salió mal, por favor intente nuevamente.", { code: res.statusText });
-
-  return res;
+  try {
+    const response = await fetch(`${backendUrl}${path}`, {
+      ...init,
+      headers: {
+        ...init?.headers,
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
+    console.log({ ok: response.ok });
+    if (!response.ok) return { ok: false, error: "No pudimos completar la solicitud." };
+    return { ok: true, data: (await response.json()) as T };
+  } catch {
+    return { ok: false, error: "El servicio no está disponible en este momento." };
+  }
 };

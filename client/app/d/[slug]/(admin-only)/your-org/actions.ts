@@ -1,6 +1,6 @@
 "use server";
 
-import { apiServer } from "@/lib/api";
+import { request } from "@/lib/api";
 import { FormState } from "../../types";
 
 export const updateOrganization = async (_: FormState, formData: FormData): Promise<FormState> => {
@@ -12,7 +12,7 @@ export const updateOrganization = async (_: FormState, formData: FormData): Prom
     description: formData.get("org-desc"),
   };
 
-  const res = await apiServer("/organization", {
+  const res = await request("/organization", {
     body: JSON.stringify({ ...newValues }),
     headers: { "Content-Type": "application/json" },
     method: "POST",

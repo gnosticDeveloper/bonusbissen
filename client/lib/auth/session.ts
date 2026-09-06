@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+
 export enum UserRole {
   ADMIN = "ADMIN",
   CASHIER = "CASHIER",
@@ -22,4 +24,8 @@ export function decodeJwt(token: string): Payload {
   const payloadB64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
   const payload = JSON.parse(Buffer.from(payloadB64, "base64").toString("utf-8"));
   return payload;
+}
+
+export async function getSessionToken() {
+  return (await cookies()).get('bonusbissen_token')?.value
 }

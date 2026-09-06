@@ -1,41 +1,56 @@
 "use server";
 
+import { ActionResult } from "@/lib/api";
+import { SignInUser } from "@/lib/definitions";
+import { userRegisterSchema } from "@/schemas/user";
 import { cookies } from "next/headers";
-import { AuthState } from "../sign-in/actions";
-import { redirect } from "next/navigation";
 
-export async function signUp(_: AuthState, formData: FormData): Promise<AuthState> {
-  const user = {
-    username: formData.get("username"),
-    accountName: formData.get("account_name"),
-    password: formData.get("password"),
+export async function signUp(formData: FormData): Promise<ActionResult<SignInUser>> {
+  const raw = {
+    name: String(formData.get("name") ?? ""),
+    username: String(formData.get("username") ?? ""),
+    password: String(formData.get("password") ?? ""),
+    email: String(formData.get("email") ?? ""),
   };
 
-  if (!user.username || !user.password || !user.accountName) return { error: "Por favor ingrese los datos requeridos en todos los campos." };
+  const parsed = userRegisterSchema.safeParse(raw);
+  if (!parsed.success) {
+    const firstError = parsed.error.issues[0]?.message ?? "Revisá los datos ingresados.";
+    return { ok: false, error: firstError };
+  }
+
+  const { name, username, password, email } = parsed.data;
 
   const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
 
-  const res = await fetch(`${backendUrl}/auth/register`, {
-    method: "POST",
-    body: JSON.stringify(user),
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
+  try {
+    const response = await fetch(`${backendUrl}/auth/user-register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username, name, password, email }),
+    });
 
-  if (!res.ok) return { error: "Hubo un problema al registrarse." };
+    if (!response.ok) return { ok: false, error: "No pudimos completar la solicitud." };
 
-  const { token } = (await res.json()) as { token: string };
+    const result = (await response.json()) as { token: string };
 
-  const cookieStore = await cookies();
-  cookieStore.set("access_token", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-  });
-
-  // Note: unlike in signIn where we redirect based on the user's role, here we will always assume only customers are creating an account on the system,
-  // since the employees/admin accounts are created only by us.
-  redirect("/");
+    (await cookies()).set("access_token", result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/b/",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+    return {
+      ok: true,
+      data: {
+        name: "bro",
+        avatarUrl: null,
+      },
+    };
+  } catch {
+    return { ok: false, error: "El servicio no está disponible en este momento." };
+  }
 }
