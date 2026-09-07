@@ -50,7 +50,7 @@ export default function NotFound() {
               <ArrowLeft className="size-4" aria-hidden="true" />
               Volver al inicio
             </Link>
-            <Link href="/mis-puntos/login" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }))}>
+            <Link href="/sign-in" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }))}>
               Ir al acceso de clientes
             </Link>
           </div>

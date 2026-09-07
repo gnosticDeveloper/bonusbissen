@@ -4,10 +4,7 @@ import AppSectionTitle from "@/components/app-section-title";
 import { MobileDrawer } from "@/components/mobile-drawer";
 import Sidebar from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
-import { MobileDrawerProvider, useMobileDrawer } from "@/providers/mobile-drawer-provider";
 import { Coins, LogOut, Menu } from "lucide-react";
-import { UserBadge } from "./user-badge";
-import { getProfileInfo } from "@/app/[orgId]/(employee)/dashboard/actions";
 
 type AdminShellProps = {
   children: React.ReactNode;

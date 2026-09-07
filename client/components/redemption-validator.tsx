@@ -126,7 +126,7 @@ export default function RedemptionValidator() {
             ) : (
               <div className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input type="checkbox" checked={refund} onChange={(e) => setRefund(e.target.checked)} className="size-4 accent-(--primary)" />
+                  <input type="checkbox" checked={refund} onChange={(e) => setRefund(e.target.checked)} className="size-4 accent-primary" />
                   Devolver los {found.reward.pointsRequired} puntos al cliente
                 </label>
                 <div className="flex gap-2">

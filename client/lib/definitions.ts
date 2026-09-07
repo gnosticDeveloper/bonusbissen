@@ -1,5 +1,6 @@
 import { Coins } from "lucide-react";
 import { UserRole } from "./auth/session";
+import { Reward } from "@/lib/types/reward";
 
 type AdminPage = "home" | "points" | "redemptions" | "rewards" | "customers" | "organization";
 

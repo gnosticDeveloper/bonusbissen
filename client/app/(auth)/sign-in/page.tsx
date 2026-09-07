@@ -7,12 +7,14 @@ import { signIn } from "@/app/(auth)/sign-in/actions";
 import { ArrowRight, LockKeyhole, UserRound } from "lucide-react";
 import Link from "next/link";
 import { BrandLockup } from "@/components/brand";
+import { Spinner } from "@/components/spinner";
 
 export default function SignInPage() {
   const router = useRouter();
   const setUser = useUserStore((state) => state.setUser);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
   async function handleSubmit(formData: FormData) {
     setLoading(true);
     setError("");
@@ -25,30 +27,53 @@ export default function SignInPage() {
     setUser(result.data);
     router.push("/b");
   }
+
   return (
-    <main className="auth-page">
+    <main className="mx-auto flex min-h-screen w-full max-w-107.5 flex-col bg-background px-6.5 pt-13.5 pb-8 text-foreground">
       <BrandLockup />
-      <h1>
+
+      <h1 className="mt-4.25 mb-3 text-[38px] leading-none text-foreground">
         Volvé a tus
         <br />
-        <em>lugares favoritos.</em>
+        <em className="text-primary not-italic">lugares favoritos.</em>
       </h1>
-      <p className="auth-lead">Sumá puntos, descubrí recompensas y disfrutá más cada visita.</p>
-      <form action={handleSubmit} className="auth-form">
-        <label>
+
+      <p className="mb-8.5 max-w-72.5 text-[13px] leading-[1.55] text-muted">Sumá puntos, descubrí recompensas y disfrutá más cada visita.</p>
+
+      <form action={handleSubmit} className="grid gap-3">
+        <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-muted">
           <UserRound size={17} />
-          <input name="identifier" placeholder="Usuario o email" autoComplete="username" required />
+          <input
+            name="identifier"
+            placeholder="Usuario o email"
+            autoComplete="username"
+            required
+            className="h-13 w-full border-0 bg-transparent text-[13px] text-foreground outline-none"
+          />
         </label>
-        <label>
+        <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-muted">
           <LockKeyhole size={17} />
-          <input name="password" type="password" placeholder="Contraseña" autoComplete="current-password" required />
+          <input
+            name="password"
+            type="password"
+            placeholder="Contraseña"
+            autoComplete="current-password"
+            required
+            className="h-13 w-full border-0 bg-transparent text-[13px] text-foreground outline-none"
+          />
         </label>
-        {error && <p className="auth-error">{error}</p>}
-        <button type="submit" disabled={loading}>
+
+        {error && <p className="text-[11px] text-[#d75877]">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="mt-1.5 flex h-13 items-center justify-between rounded-[15px] bg-primary px-4.5 text-[13px] font-bold text-white disabled:opacity-65"
+        >
           {loading ? (
             <>
               <span>Ingresando...</span>
-              <span className="loading-spinner" aria-label="Iniciando sesión" />
+              <Spinner />
             </>
           ) : (
             <>
@@ -58,10 +83,14 @@ export default function SignInPage() {
           )}
         </button>
       </form>
-      <p className="auth-switch">
-        ¿Aún no eres parte de BonusBissen? <Link href="/sign-up">Registrate</Link>
+
+      <p className="mt-6.25 mb-2 text-center text-[11px] leading-normal text-muted">
+        ¿Aún no eres parte de BonusBissen?{" "}
+        <Link href="/sign-up" className="font-bold text-primary no-underline">
+          Registrate
+        </Link>
       </p>
-      <Link className="admin-link" href="/admin/sign-in">
+      <Link href="/admin/sign-in" className="mt-auto text-center text-[11px] leading-normal font-bold text-primary no-underline">
         Ingresar al panel administrativo
       </Link>
     </main>

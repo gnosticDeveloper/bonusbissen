@@ -17,7 +17,7 @@ export default function RewardsList({ rewards, isAdmin }: { rewards: Reward[]; i
               <h3 className="text-sm font-semibold leading-tight">{r.title}</h3>
               <Badge tone="primary">{r.discountValue}</Badge>
             </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">{truncate(r.description, 96)}</p>
+            <p className="text-xs text-foreground leading-relaxed">{truncate(r.description, 96)}</p>
             <div className="mt-auto flex items-center justify-between pt-2">
               <span className="text-sm font-bold text-primary">{formatPoints(r.costPoints)} pts</span>
               {isAdmin ? (
@@ -32,8 +32,8 @@ export default function RewardsList({ rewards, isAdmin }: { rewards: Reward[]; i
       ))}
       {rewards.length === 0 ? (
         <Card className="col-span-full flex flex-col items-center gap-2 p-10 text-center">
-          <Gift className="size-6 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Todavía no cargaste recompensas.</p>
+          <Gift className="size-6 text-foreground" />
+          <p className="text-sm text-foreground">Todavía no cargaste recompensas.</p>
         </Card>
       ) : null}
     </div>

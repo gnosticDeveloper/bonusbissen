@@ -1,28 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, ChevronRight, Compass, Home, Menu, Moon, QrCode, Sun, UserRound, X } from "lucide-react";
-import { useUserStore } from "@/lib/user-store";
-import type { NearbyBusiness, PointsResponse } from "@/lib/definitions";
+import { Bell, Menu, ChevronRight, UserRound } from "lucide-react";
 import { PointsCard } from "@/components/points-card";
 import { BusinessList } from "@/components/business-list";
+import { useUserStore } from "@/lib/user-store";
+import { useUIStore } from "@/lib/ui-store";
+import { NearbyBusiness, PointsResponse } from "@/lib/definitions";
 import { getNearbyBusinesses, getPoints } from "@/app/b/actions";
-import { usePathname } from "next/navigation";
-import Link from "next/link";
-import { BrandLockup } from "@/components/brand";
 
 export default function MainHomePage() {
-  const pathname = usePathname();
+  const user = useUserStore((state) => state.user);
+  const openMenu = useUIStore((state) => state.openMenu);
 
   const [points, setPoints] = useState<PointsResponse | null>(null);
   const [pointsError, setPointsError] = useState(false);
   const [businesses, setBusinesses] = useState<NearbyBusiness[]>([]);
   const [businessesLoading, setBusinessesLoading] = useState(true);
   const [businessesError, setBusinessesError] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
-
-  const user = useUserStore((state) => state.user);
 
   useEffect(() => {
     let active = true;
@@ -38,75 +33,54 @@ export default function MainHomePage() {
       active = false;
     };
   }, []);
+
   return (
-    <main className={`app-frame ${darkMode ? "dark" : "light"}`}>
-      <header className="topbar">
-        <div className="profile">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <div className="profile-avatar">{user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : <UserRound size={17} />}</div>
+    <main className="relative mx-auto min-h-screen w-full max-w-107.5 overflow-hidden bg-background px-5 pt-6 pb-26 transition-colors duration-240 sm:border-x sm:border-border">
+      <header className="relative z-1 mb-6.5 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="grid h-10 w-10 place-items-center rounded-full border-2 border-background bg-primary text-white shadow-[0_0_0_1px_var(--primary)]">
+            {user?.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={user.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
+            ) : (
+              <UserRound size={17} />
+            )}
+          </div>
           <div>
-            <span className="eyebrow">Buen día</span>
-            <strong className="text-primary-foreground">{user?.name ?? "Tu cuenta"}</strong>
+            <span className="mb-1 block text-[10px] font-bold tracking-[0.08em] text-muted uppercase">Buen día</span>
+            <strong className="block text-sm tracking-[-0.2px] text-foreground">{user?.name ?? "Tu cuenta"}</strong>
           </div>
         </div>
-        <div className="top-actions">
+        <div className="relative z-1 flex items-center gap-1.5">
           <button
-            className="circle-action"
-            aria-label={darkMode ? "Activar modo claro" : "Activar modo oscuro"}
-            onClick={() => setDarkMode(!darkMode)}
+            aria-label="Notificaciones"
+            className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-foreground transition-colors duration-240"
           >
-            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-          <button className="circle-action" aria-label="Notificaciones">
             <Bell size={19} />
           </button>
-          <button className="circle-action" aria-label="Abrir menú" onClick={() => setMenuOpen(true)}>
+          <button
+            aria-label="Abrir menú"
+            onClick={openMenu}
+            className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-foreground transition-colors duration-240"
+          >
             <Menu size={20} />
           </button>
         </div>
       </header>
+
       <PointsCard points={pointsError ? null : points} />
-      <section className="section-heading">
+
+      <section className="relative z-1 mb-3.75 flex items-center justify-between">
         <div>
-          <span className="eyebrow">Explorá cerca tuyo</span>
-          <h2 className="text-primary-foreground">Ahora en Palermo</h2>
+          <span className="mb-1 block text-[10px] font-bold tracking-[0.08em] text-muted uppercase">Explorá cerca tuyo</span>
+          <h2 className="m-0 text-[21px] tracking-[-0.8px] text-foreground">Ahora en Palermo</h2>
         </div>
-        <button className="text-button">
+        <button className="flex items-center gap-0.5 border-0 bg-transparent text-[11px] font-bold text-primary">
           Ver todo <ChevronRight size={15} />
         </button>
       </section>
-      <BusinessList businesses={businesses} loading={businessesLoading} error={businessesError} />
-      <nav className="bottom-nav">
-        <Link href="/b" className={`nav-item ${pathname === "/b" ? "text-primary" : "text-muted"}`}>
-          <Home size={20} />
-          <span>Inicio</span>
-        </Link>
-        {/* TODO: Implement actual QR scanning. */}
-        <button className="scan-button" aria-label="Escanear QR">
-          <QrCode size={24} />
-        </button>
-        <Link href="/descubrir" className={`nav-item ${pathname === "/b/descubrir" ? "text-primary" : "text-muted"}`}>
-          <Compass size={20} />
-          <span>Descubrir</span>
-        </Link>
-      </nav>
-      {menuOpen && (
-        <div className="menu-overlay" onClick={() => setMenuOpen(false)}>
-          <aside className="side-menu" onClick={(event) => event.stopPropagation()}>
-            <button className="close-menu" aria-label="Cerrar menú" onClick={() => setMenuOpen(false)}>
-              <X size={20} />
-            </button>
-            <BrandLockup />
-            <div className="menu-links">
-              <Link href="/b/perfil">Mi perfil</Link>
 
-              {/* TODO: implement these two pages. */}
-              <Link href="/b/resumen">Mis recompensas</Link>
-              <Link href="/b/configuracion">Configuración</Link>
-            </div>
-          </aside>
-        </div>
-      )}
+      <BusinessList businesses={businesses} loading={businessesLoading} error={businessesError} />
     </main>
   );
 }
