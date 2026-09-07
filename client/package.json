@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "bun --bun next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -12,19 +12,19 @@
     "@base-ui/react": "^1.8.0",
     "class-variance-authority": "^0.7.1",
     "lucide-react": "^1.41.0",
-    "next": "16.2.10",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "zod": "^4.5.4",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^20.19.43",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
-    "eslint": "^9.39.5",
-    "eslint-config-next": "16.2.10",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "eslint": "10.10.0",
+    "eslint-config-next": "16.3.4",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3"
   },
