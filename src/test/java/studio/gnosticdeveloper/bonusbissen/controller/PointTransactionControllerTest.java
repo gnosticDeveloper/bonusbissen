@@ -38,7 +38,7 @@ class PointTransactionControllerTest {
     @Test
     void userRequestingTheirOwnPendingExchangesSucceeds() {
         UUID userId = UUID.randomUUID();
-        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(userId, "Someone", "USER", UUID.randomUUID());
+        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(userId, "Someone", "USER", UUID.randomUUID(), null);
         List<PendingExchangeResponse> expected = List.of();
         when(pointTransactionService.getAllPendingExchangesById(userId)).thenReturn(expected);
 
@@ -51,7 +51,7 @@ class PointTransactionControllerTest {
     void userRequestingAnotherUsersPendingExchangesIsRejected() {
         UUID ownId = UUID.randomUUID();
         UUID victimId = UUID.randomUUID();
-        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(ownId, "Attacker", "USER", UUID.randomUUID());
+        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(ownId, "Attacker", "USER", UUID.randomUUID(), null);
 
         assertThatThrownBy(() -> controller.getAllPendingExchangesByUserId(victimId, principal))
             .isInstanceOf(AccessDeniedException.class);
@@ -63,7 +63,7 @@ class PointTransactionControllerTest {
     void cashierRequestingAnyUsersPendingExchangesSucceeds() {
         UUID cashierId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(cashierId, "Cashier", "CASHIER", UUID.randomUUID());
+        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(cashierId, "Cashier", "CASHIER", UUID.randomUUID(), UUID.randomUUID());
         List<PendingExchangeResponse> expected = List.of();
         when(pointTransactionService.getAllPendingExchangesById(userId)).thenReturn(expected);
 
@@ -76,7 +76,7 @@ class PointTransactionControllerTest {
     void adminRequestingAnyUsersPendingExchangesSucceeds() {
         UUID adminId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(adminId, "Admin", "ADMIN", UUID.randomUUID());
+        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(adminId, "Admin", "ADMIN", UUID.randomUUID(), UUID.randomUUID());
         List<PendingExchangeResponse> expected = List.of();
         when(pointTransactionService.getAllPendingExchangesById(userId)).thenReturn(expected);
 

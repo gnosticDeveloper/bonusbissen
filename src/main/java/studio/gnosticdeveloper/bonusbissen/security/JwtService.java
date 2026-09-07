@@ -1,6 +1,7 @@
 package studio.gnosticdeveloper.bonusbissen.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
@@ -23,15 +24,21 @@ public class JwtService {
     }
 
     public String generateToken(UUID id, String username, String role) {
+        return generateToken(id, username, role, null);
+    }
+
+    public String generateToken(UUID id, String username, String role, UUID storefrontId) {
         Instant now = Instant.now();
-        return Jwts.builder()
+        JwtBuilder builder = Jwts.builder()
             .subject(id.toString())
             .claim("username", username)
             .claim("role", role)
             .issuedAt(java.util.Date.from(now))
-            .expiration(java.util.Date.from(now.plus(expirationMinutes, ChronoUnit.MINUTES)))
-            .signWith(key)
-            .compact();
+            .expiration(java.util.Date.from(now.plus(expirationMinutes, ChronoUnit.MINUTES)));
+        if (storefrontId != null) {
+            builder.claim("sf", storefrontId.toString());
+        }
+        return builder.signWith(key).compact();
     }
 
     public Claims parseClaims(String token) {

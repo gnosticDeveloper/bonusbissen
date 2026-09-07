@@ -10,9 +10,10 @@ import org.springframework.data.domain.Pageable;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RewardCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
+import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
-import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 
 import java.util.List;
@@ -33,43 +34,52 @@ class RewardServiceTest {
     @Mock
     private RewardRepository rewardRepository;
     @Mock
-    private OrganizationRepository organizationRepository;
+    private PointProgramRepository pointProgramRepository;
 
     @InjectMocks
     private RewardService rewardService;
 
+    private static PointProgram programOwnedBy(UUID organizationId) {
+        Organization organization = new Organization();
+        organization.setId(organizationId);
+        PointProgram program = new PointProgram();
+        program.setId(UUID.randomUUID());
+        program.setOrganization(organization);
+        return program;
+    }
+
     @Test
     void createWithoutImageSavesRewardWithNullImagePath() {
-        Organization organization = new Organization();
-        organization.setId(UUID.randomUUID());
+        UUID organizationId = UUID.randomUUID();
+        PointProgram program = programOwnedBy(organizationId);
 
-        RewardCreateRequest request = new RewardCreateRequest("Free Coffee", "A hot coffee", null, 10, null);
-        when(organizationRepository.findById(organization.getId())).thenReturn(Optional.of(organization));
+        RewardCreateRequest request = new RewardCreateRequest("Free Coffee", "A hot coffee", null, 10, null, program.getId());
+        when(pointProgramRepository.findByIdAndOrganizationId(program.getId(), organizationId)).thenReturn(Optional.of(program));
         when(rewardRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Reward reward = rewardService.create(request, organization.getId());
+        Reward reward = rewardService.create(request, organizationId);
 
         assertThat(reward.getTitle()).isEqualTo("Free Coffee");
         assertThat(reward.getDescription()).isEqualTo("A hot coffee");
         assertThat(reward.getCostPoints()).isEqualTo(10);
         assertThat(reward.getImagePath()).isNull();
+        assertThat(reward.getPointProgram()).isSameAs(program);
     }
 
     @Test
     void deleteMarksRewardAsInactiveInsteadOfRemovingIt() {
         UUID id = UUID.randomUUID();
-        Organization organization = new Organization();
-        organization.setId(UUID.randomUUID());
+        UUID organizationId = UUID.randomUUID();
 
         Reward reward = new Reward();
         reward.setId(id);
         reward.setActive(true);
-        reward.setOrganization(organization);
+        reward.setPointProgram(programOwnedBy(organizationId));
 
         when(rewardRepository.findById(id)).thenReturn(Optional.of(reward));
         when(rewardRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        rewardService.delete(id, organization.getId());
+        rewardService.delete(id, organizationId);
 
         assertThat(reward.isActive()).isFalse();
         verify(rewardRepository).save(reward);
@@ -94,17 +104,18 @@ class RewardServiceTest {
     @Test
     void listActiveNormalizesBlankSearchToNull() {
         UUID organizationId = UUID.randomUUID();
-        rewardService.listActive("   ", organizationId);
+        rewardService.listActive("   ", organizationId, null);
 
-        verify(rewardRepository).findByActiveTrue(isNull(), eq(organizationId));
+        verify(rewardRepository).findByActiveTrue(isNull(), eq(organizationId), isNull());
     }
 
     @Test
     void listActiveTrimsSearchTerm() {
         UUID organizationId = UUID.randomUUID();
-        rewardService.listActive("  coffee  ", organizationId);
+        UUID programId = UUID.randomUUID();
+        rewardService.listActive("  coffee  ", organizationId, programId);
 
-        verify(rewardRepository).findByActiveTrue(eq("coffee"), eq(organizationId));
+        verify(rewardRepository).findByActiveTrue(eq("coffee"), eq(organizationId), eq(programId));
     }
 
     @Test

@@ -23,6 +23,14 @@ public class PointTransaction {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "point_program_id", nullable = false)
+    private PointProgram pointProgram;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "storefront_id", nullable = true)
+    private Storefront storefront;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reward_id", nullable = true)
     private Reward reward;
@@ -64,9 +72,6 @@ public class PointTransaction {
 
 
     public Organization getOrganization() {
-        if (reward != null) return reward.getOrganization();
-        if (employee != null) return employee.getOrganization();
-        if (refundedTransaction != null) return refundedTransaction.getOrganization();
-        return null;
+        return pointProgram != null ? pointProgram.getOrganization() : null;
     }
 }

@@ -26,9 +26,13 @@ public class RewardController {
     }
 
     @GetMapping
-    public List<RewardResponse> list(@RequestParam(required = false) String search, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+    public List<RewardResponse> list(
+        @RequestParam(required = false) String search,
+        @RequestParam(required = false) UUID programId,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
         UUID organizationId = principal != null ? principal.organizationId() : null;
-        return rewardService.listActive(search, organizationId).stream()
+        return rewardService.listActive(search, organizationId, programId).stream()
                 .map(RewardResponse::from)
                 .toList();
     }

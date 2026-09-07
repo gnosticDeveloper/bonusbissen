@@ -26,10 +26,6 @@ public class OrganizationService {
     public Organization update(UUID id, OrganizationUpdateRequest request) {
         Organization organization = getById(id);
         organization.setName(request.name());
-        organization.setIconPath(request.icon());
-        organization.setHours(request.hours());
-        organization.setAddress(request.address());
-        organization.setDescription(request.description());
         return organizationRepository.save(organization);
     }
 }

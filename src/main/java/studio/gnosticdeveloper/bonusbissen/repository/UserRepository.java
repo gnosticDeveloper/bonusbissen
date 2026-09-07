@@ -52,12 +52,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             SELECT c.id AS id, c.name AS name, CAST(SUM(t.points) AS integer) AS total_points
             FROM point_transactions t
             JOIN users c ON c.id = t.user_id
-            LEFT JOIN employees e ON e.id = t.employee_id
-            LEFT JOIN point_transactions rt ON rt.id = t.refunded_transaction_id
-            LEFT JOIN rewards rtr ON rtr.id = rt.reward_id
+            JOIN point_programs pp ON pp.id = t.point_program_id
             WHERE t.transaction_type = 'earn'
               AND t.state = 'delivered'
-              AND (e.organization_id = :organizationId OR rtr.organization_id = :organizationId)
+              AND pp.organization_id = :organizationId
             GROUP BY c.id, c.name
             ORDER BY SUM(t.points) DESC
             """,

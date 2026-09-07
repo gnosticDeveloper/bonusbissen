@@ -22,18 +22,6 @@ public class Organization {
     @Column(nullable = false, length = 255)
     private String name;
 
-    @Column(name = "icon_path", length = 255)
-    private String iconPath;
-
-    @Column(length = 255)
-    private String hours;
-
-    @Column(length = 255)
-    private String address;
-
-    @Column(columnDefinition = "text")
-    private String description;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 

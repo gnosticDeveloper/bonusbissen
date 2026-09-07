@@ -16,18 +16,18 @@ import org.springframework.web.multipart.MultipartFile;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RewardCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RewardUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.Organization;
+import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import org.springframework.security.access.AccessDeniedException;
-import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 
 @Service
 public class RewardService {
 
     private final RewardRepository rewardRepository;
-    private final OrganizationRepository organizationRepository;
+    private final PointProgramRepository pointProgramRepository;
 
     private static final long MAX_BYTES = 2 * 1024 * 1024; // 2MB
     // private static final int MAX_WIDTH = 1000;
@@ -36,15 +36,15 @@ public class RewardService {
     @Value("${app.uploads.dir}")
     private String uploadsDir;
 
-    public RewardService(RewardRepository rewardRepository, OrganizationRepository organizationRepository) {
+    public RewardService(RewardRepository rewardRepository, PointProgramRepository pointProgramRepository) {
         this.rewardRepository = rewardRepository;
-        this.organizationRepository = organizationRepository;
+        this.pointProgramRepository = pointProgramRepository;
     }
 
     @Transactional(readOnly = true)
-    public List<Reward> listActive(String search, UUID organizationId) {
+    public List<Reward> listActive(String search, UUID organizationId, UUID programId) {
         String term = search == null || search.isBlank() ? null : search.trim();
-        return rewardRepository.findByActiveTrue(term, organizationId);
+        return rewardRepository.findByActiveTrue(term, organizationId, programId);
     }
 
     @Transactional(readOnly = true)
@@ -72,12 +72,12 @@ public class RewardService {
             }
         }
 
-        Organization organization = organizationRepository
-            .findById(organizationId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la organización con ID " + organizationId + "."));
+        PointProgram program = pointProgramRepository
+            .findByIdAndOrganizationId(request.pointProgramId(), organizationId)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar el programa de puntos con ID " + request.pointProgramId() + "."));
 
         Reward reward = new Reward();
-        reward.setOrganization(organization);
+        reward.setPointProgram(program);
         reward.setTitle(request.title());
         reward.setDescription(request.description());
         reward.setCostPoints(request.costPoints());
@@ -95,7 +95,7 @@ public class RewardService {
     }
 
     private void requireOwnership(Reward reward, UUID organizationId) {
-        if (!reward.getOrganization().getId().equals(organizationId)) {
+        if (!reward.getPointProgram().getOrganization().getId().equals(organizationId)) {
             throw new AccessDeniedException("No podés modificar recompensas de otra organización.");
         }
     }

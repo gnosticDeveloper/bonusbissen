@@ -37,8 +37,12 @@ public class UserController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
-    public PagedResponse<UserPointsResponse> search(@RequestParam(required = false) String search, Pageable pageable) {
-        return PagedResponse.from(userService.search(search, pageable));
+    public PagedResponse<UserPointsResponse> search(
+        @RequestParam(required = false) String search,
+        @RequestParam(required = false) UUID programId,
+        Pageable pageable
+    ) {
+        return PagedResponse.from(userService.search(search, programId, pageable));
     }
 
     @PatchMapping("/{id}")
@@ -62,15 +66,19 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    public UserPointsResponse getById(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+    public UserPointsResponse getById(
+        @PathVariable UUID id,
+        @RequestParam(required = false) UUID programId,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
         requireSelfIfUser(id, principal);
-        return userService.getUserPointsById(id);
+        return userService.getUserPointsById(id, programId);
     }
 
     @PostMapping("/grant")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     public UserPointsAwardResponse grantPoints(@Valid @RequestBody GrantPointsRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return userService.grantPoints(request, principal.id());
+        return userService.grantPoints(request, principal.id(), principal.storefrontId());
     }
 
     @GetMapping("/grant/history")

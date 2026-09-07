@@ -22,18 +22,23 @@ import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.Employee;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
+import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
+import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
+import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 
 import java.util.List;
 import java.util.Optional;
@@ -62,12 +67,18 @@ class UserServiceTest {
     @Mock
     private EmployeeRepository employeeRepository;
     @Mock
+    private PointProgramRepository pointProgramRepository;
+    @Mock
+    private StorefrontRepository storefrontRepository;
+    @Mock
     private EmailVerificationService emailVerificationService;
 
     @InjectMocks
     private UserService userService;
 
     private static final UUID EMPLOYEE_ID = UUID.randomUUID();
+    private static final UUID PROGRAM_ID = UUID.randomUUID();
+    private static final UUID STOREFRONT_ID = UUID.randomUUID();
 
     private Employee employeeWithOrganization() {
         Organization organization = new Organization();
@@ -77,6 +88,21 @@ class UserServiceTest {
         employee.setId(EMPLOYEE_ID);
         employee.setOrganization(organization);
         return employee;
+    }
+
+    private GrantPointsRequest grantRequest(UUID userId, int points) {
+        return new GrantPointsRequest(userId, points, null, PROGRAM_ID);
+    }
+
+    /** Stubs the program/storefront lookups a successful grant makes. */
+    private void stubGrantProgramAndStorefront() {
+        PointProgram program = new PointProgram();
+        program.setId(PROGRAM_ID);
+        Storefront storefront = new Storefront();
+        storefront.setId(STOREFRONT_ID);
+        when(pointProgramRepository.existsByIdAndStorefronts_Id(PROGRAM_ID, STOREFRONT_ID)).thenReturn(true);
+        when(pointProgramRepository.findById(PROGRAM_ID)).thenReturn(Optional.of(program));
+        when(storefrontRepository.findById(STOREFRONT_ID)).thenReturn(Optional.of(storefront));
     }
 
     @Test
@@ -99,13 +125,13 @@ class UserServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         when(userRepository.search(isNull(), eq(pageable))).thenReturn(Page.empty());
 
-        userService.search("   ", pageable);
+        userService.search("   ", null, pageable);
 
         verify(userRepository).search(isNull(), eq(pageable));
     }
 
     @Test
-    void searchTrimsTermAndMapsResultsToResponses() {
+    void searchTrimsTermAndScopesPointsToProgram() {
         Pageable pageable = PageRequest.of(0, 10);
         User user = new User();
         user.setId(UUID.randomUUID());
@@ -114,11 +140,27 @@ class UserServiceTest {
         user.setCreatedAt(java.time.OffsetDateTime.now());
 
         when(userRepository.search(eq("abc"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
-        when(pointTransactionRepository.calculatePointsByUserId(user.getId())).thenReturn(50);
+        when(pointTransactionRepository.calculateBalance(user.getId(), PROGRAM_ID)).thenReturn(50);
 
-        Page<UserPointsResponse> result = userService.search("  abc  ", pageable);
+        Page<UserPointsResponse> result = userService.search("  abc  ", PROGRAM_ID, pageable);
 
         assertThat(result.getContent()).containsExactly(UserPointsResponse.from(user, 50));
+    }
+
+    @Test
+    void searchWithoutProgramReturnsNullPoints() {
+        Pageable pageable = PageRequest.of(0, 10);
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setName("Someone");
+        user.setUsername("someone");
+        user.setCreatedAt(java.time.OffsetDateTime.now());
+
+        when(userRepository.search(isNull(), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
+
+        Page<UserPointsResponse> result = userService.search(null, null, pageable);
+
+        assertThat(result.getContent()).containsExactly(UserPointsResponse.from(user, null));
     }
 
     @Test
@@ -139,8 +181,32 @@ class UserServiceTest {
         when(employeeRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
-        assertThatThrownBy(() -> userService.grantPoints(new GrantPointsRequest(userId, 50, null), EMPLOYEE_ID))
+        assertThatThrownBy(() -> userService.grantPoints(grantRequest(userId, 50), EMPLOYEE_ID, STOREFRONT_ID))
             .isInstanceOf(NotFoundException.class);
+
+        verify(pointTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void grantPointsWithoutAnActiveStorefrontThrowsBadRequest() {
+        assertThatThrownBy(() -> userService.grantPoints(grantRequest(UUID.randomUUID(), 50), EMPLOYEE_ID, null))
+            .isInstanceOf(BadRequestException.class);
+
+        verify(pointTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void grantPointsIntoAProgramNotHonouredAtTheStorefrontThrowsBadRequest() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+
+        when(employeeRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(pointProgramRepository.existsByIdAndStorefronts_Id(PROGRAM_ID, STOREFRONT_ID)).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.grantPoints(grantRequest(userId, 50), EMPLOYEE_ID, STOREFRONT_ID))
+            .isInstanceOf(BadRequestException.class);
 
         verify(pointTransactionRepository, never()).save(any());
     }
@@ -172,9 +238,10 @@ class UserServiceTest {
 
         when(employeeRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        stubGrantProgramAndStorefront();
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        UserPointsAwardResponse response = userService.grantPoints(new GrantPointsRequest(userId, 50, null), EMPLOYEE_ID);
+        UserPointsAwardResponse response = userService.grantPoints(grantRequest(userId, 50), EMPLOYEE_ID, STOREFRONT_ID);
 
         assertThat(response.pointsGranted()).isEqualTo(50);
         assertThat(response.userName()).isEqualTo("Someone");
@@ -184,6 +251,8 @@ class UserServiceTest {
         assertThat(captor.getValue().getTransactionType()).isEqualTo(TransactionType.EARN);
         assertThat(captor.getValue().getState()).isEqualTo(TransactionState.DELIVERED);
         assertThat(captor.getValue().getPoints()).isEqualTo(50);
+        assertThat(captor.getValue().getPointProgram().getId()).isEqualTo(PROGRAM_ID);
+        assertThat(captor.getValue().getStorefront().getId()).isEqualTo(STOREFRONT_ID);
     }
 
     @Test
@@ -192,7 +261,7 @@ class UserServiceTest {
         when(employeeRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.grantPoints(new GrantPointsRequest(userId, 50, null), EMPLOYEE_ID))
+        assertThatThrownBy(() -> userService.grantPoints(grantRequest(userId, 50), EMPLOYEE_ID, STOREFRONT_ID))
             .isInstanceOf(NotFoundException.class);
     }
 
@@ -203,13 +272,11 @@ class UserServiceTest {
         user.setId(userId);
 
         UUID rewardId = UUID.randomUUID();
-        Reward reward = new Reward();
-        reward.setId(rewardId);
-        reward.setCostPoints(30);
+        Reward reward = rewardWithProgram(rewardId, 30);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(rewardRepository.findById(rewardId)).thenReturn(Optional.of(reward));
-        when(pointTransactionRepository.calculatePointsByUserId(userId)).thenReturn(30);
+        when(pointTransactionRepository.calculateBalance(userId, PROGRAM_ID)).thenReturn(30);
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         String code = userService.claimReward(new ClaimRewardRequest(userId, rewardId));
@@ -232,13 +299,11 @@ class UserServiceTest {
         user.setId(userId);
 
         UUID rewardId = UUID.randomUUID();
-        Reward reward = new Reward();
-        reward.setId(rewardId);
-        reward.setCostPoints(30);
+        Reward reward = rewardWithProgram(rewardId, 30);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(rewardRepository.findById(rewardId)).thenReturn(Optional.of(reward));
-        when(pointTransactionRepository.calculatePointsByUserId(userId)).thenReturn(29);
+        when(pointTransactionRepository.calculateBalance(userId, PROGRAM_ID)).thenReturn(29);
 
         assertThatThrownBy(() -> userService.claimReward(new ClaimRewardRequest(userId, rewardId)))
             .isInstanceOf(InsufficientPointsException.class);
@@ -280,6 +345,16 @@ class UserServiceTest {
 
         assertThatThrownBy(() -> userService.claimReward(new ClaimRewardRequest(userId, rewardId)))
             .isInstanceOf(NotFoundException.class);
+    }
+
+    private Reward rewardWithProgram(UUID rewardId, int costPoints) {
+        PointProgram program = new PointProgram();
+        program.setId(PROGRAM_ID);
+        Reward reward = new Reward();
+        reward.setId(rewardId);
+        reward.setCostPoints(costPoints);
+        reward.setPointProgram(program);
+        return reward;
     }
 
     private PointTransaction grantTransaction(UUID organizationId) {

@@ -13,6 +13,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.Employee;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
+import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
@@ -21,6 +22,7 @@ import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 
 import java.util.Optional;
@@ -42,6 +44,8 @@ class PointTransactionServiceTest {
     private ExchangeCodeRepository exchangeCodeRepository;
     @Mock
     private EmployeeRepository employeeRepository;
+    @Mock
+    private PointProgramRepository pointProgramRepository;
 
     @InjectMocks
     private PointTransactionService pointTransactionService;
@@ -52,23 +56,39 @@ class PointTransactionServiceTest {
         return organization;
     }
 
-    // These transactions are all REDEEMs, so their organization is derived
-    // via the reward (see PointTransaction.getOrganization()).
-    private static Reward rewardFor(Organization organization) {
+    private static PointProgram programFor(Organization organization) {
+        PointProgram program = new PointProgram();
+        program.setId(UUID.randomUUID());
+        program.setOrganization(organization);
+        return program;
+    }
+
+    private static Reward rewardFor(PointProgram program) {
         Reward reward = new Reward();
         reward.setId(UUID.randomUUID());
-        reward.setOrganization(organization);
+        reward.setPointProgram(program);
         return reward;
+    }
+
+    /**
+     * A pending REDEEM whose organization resolves (via point_program) to the
+     * given org.
+     */
+    private static PointTransaction pendingRedeem(Organization organization) {
+        PointProgram program = programFor(organization);
+        PointTransaction tx = new PointTransaction();
+        tx.setId(UUID.randomUUID());
+        tx.setState(TransactionState.PENDING);
+        tx.setPointProgram(program);
+        tx.setReward(rewardFor(program));
+        return tx;
     }
 
     @Test
     void approveExchangeMarksTransactionAsDeliveredAndAssignsEmployee() {
         Organization organization = organization();
 
-        PointTransaction tx = new PointTransaction();
-        tx.setId(UUID.randomUUID());
-        tx.setState(TransactionState.PENDING);
-        tx.setReward(rewardFor(organization));
+        PointTransaction tx = pendingRedeem(organization);
 
         Employee employee = new Employee();
         employee.setId(UUID.randomUUID());
@@ -96,10 +116,8 @@ class PointTransactionServiceTest {
     void approveExchangeThatIsNotPendingThrowsConflict() {
         Organization organization = organization();
 
-        PointTransaction tx = new PointTransaction();
-        tx.setId(UUID.randomUUID());
+        PointTransaction tx = pendingRedeem(organization);
         tx.setState(TransactionState.DELIVERED);
-        tx.setReward(rewardFor(organization));
 
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
 
@@ -113,11 +131,8 @@ class PointTransactionServiceTest {
     void cancelExchangeWithoutRefundOnlySavesTheOriginalTransaction() {
         Organization organization = organization();
 
-        PointTransaction tx = new PointTransaction();
-        tx.setId(UUID.randomUUID());
-        tx.setState(TransactionState.PENDING);
+        PointTransaction tx = pendingRedeem(organization);
         tx.setPoints(-20);
-        tx.setReward(rewardFor(organization));
 
         Employee employee = new Employee();
         employee.setId(UUID.randomUUID());
@@ -135,10 +150,8 @@ class PointTransactionServiceTest {
     void cancelExchangeThatIsNotPendingThrowsConflict() {
         Organization organization = organization();
 
-        PointTransaction tx = new PointTransaction();
-        tx.setId(UUID.randomUUID());
+        PointTransaction tx = pendingRedeem(organization);
         tx.setState(TransactionState.CANCELLED);
-        tx.setReward(rewardFor(organization));
 
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
 
@@ -155,12 +168,9 @@ class PointTransactionServiceTest {
         User user = new User();
         user.setId(UUID.randomUUID());
 
-        PointTransaction tx = new PointTransaction();
-        tx.setId(UUID.randomUUID());
-        tx.setState(TransactionState.PENDING);
+        PointTransaction tx = pendingRedeem(organization);
         tx.setPoints(-20);
         tx.setUser(user);
-        tx.setReward(rewardFor(organization));
 
         Employee employee = new Employee();
         employee.setId(UUID.randomUUID());
@@ -179,6 +189,7 @@ class PointTransactionServiceTest {
         assertThat(refund.getTransactionType()).isEqualTo(TransactionType.EARN);
         assertThat(refund.getState()).isEqualTo(TransactionState.DELIVERED);
         assertThat(refund.getUser()).isEqualTo(user);
+        assertThat(refund.getPointProgram()).isSameAs(tx.getPointProgram());
     }
 
     @Test
@@ -251,6 +262,46 @@ class PointTransactionServiceTest {
         UUID organizationId = UUID.randomUUID();
         when(exchangeCodeRepository.findActiveByCodeAndOrganizationId("000000", organizationId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> pointTransactionService.verifyExchange("000000", organizationId)).isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> pointTransactionService.verifyExchange("000000", organizationId, UUID.randomUUID()))
+            .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void verifyExchangeAtAStorefrontThatDoesNotHonourTheProgramThrowsConflict() {
+        Organization organization = organization();
+        UUID organizationId = organization.getId();
+        UUID storefrontId = UUID.randomUUID();
+
+        PointTransaction tx = pendingRedeem(organization);
+        studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode code = new studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode();
+        code.setPointTransaction(tx);
+
+        when(exchangeCodeRepository.findActiveByCodeAndOrganizationId("1234a5", organizationId)).thenReturn(Optional.of(code));
+        when(pointProgramRepository.existsByIdAndStorefronts_Id(tx.getPointProgram().getId(), storefrontId)).thenReturn(false);
+
+        assertThatThrownBy(() -> pointTransactionService.verifyExchange("1234a5", organizationId, storefrontId))
+            .isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void verifyExchangeAtAParticipatingStorefrontReturnsTheExchange() {
+        Organization organization = organization();
+        UUID organizationId = organization.getId();
+        UUID storefrontId = UUID.randomUUID();
+
+        PointTransaction tx = pendingRedeem(organization);
+        tx.setPoints(-10);
+        tx.setCreatedAt(java.time.OffsetDateTime.now());
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setName("Someone");
+        tx.setUser(user);
+        studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode code = new studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode();
+        code.setPointTransaction(tx);
+
+        when(exchangeCodeRepository.findActiveByCodeAndOrganizationId("1234a5", organizationId)).thenReturn(Optional.of(code));
+        when(pointProgramRepository.existsByIdAndStorefronts_Id(tx.getPointProgram().getId(), storefrontId)).thenReturn(true);
+
+        assertThat(pointTransactionService.verifyExchange("1234a5", organizationId, storefrontId)).isNotNull();
     }
 }
