@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 export enum UserRole {
   ADMIN = "ADMIN",
   CASHIER = "CASHIER",
-  CUSTOMER = "CUSTOMER",
+  USER = "USER",
 }
 
 export interface Payload {
@@ -12,6 +12,23 @@ export interface Payload {
   role: UserRole;
   iat: number;
   exp: number;
+}
+
+export function isSessionValid(token?: string): boolean {
+  if (!token) return false;
+
+  const payload = decodeJwt(token);
+  if (!payload) return false;
+
+  const isValidRole = [UserRole.ADMIN, UserRole.CASHIER, UserRole.USER].some((v) => v === payload.role);
+  const isExpired = !payload.exp || payload.exp * 1000 < Date.now();
+
+  if (isExpired || !isValidRole) {
+    console.info("\n[API] | proxy.ts | The user session is not valid. The token or the role are invalid.\n");
+    return false;
+  }
+
+  return true;
 }
 
 export function getRoleFromToken(token: string): UserRole | null {
@@ -27,5 +44,5 @@ export function decodeJwt(token: string): Payload {
 }
 
 export async function getSessionToken() {
-  return (await cookies()).get('bonusbissen_token')?.value
+  return (await cookies()).get("bonusbissen_token")?.value;
 }
