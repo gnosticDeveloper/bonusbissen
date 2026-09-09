@@ -3,7 +3,7 @@
 import { ActionResult } from "@/lib/action-result";
 import { request } from "@/lib/api";
 import { getSessionToken } from "@/lib/auth/session";
-import { NearbyBusiness, PointsResponse } from "@/lib/definitions";
+import { Location, Business, PointsResponse } from "@/lib/definitions";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -22,11 +22,23 @@ export async function getPoints(): Promise<ActionResult<PointsResponse>> {
  *
  * @returns An object containing all local business nearby the logged-in user.
  */
-export async function getNearbyBusinesses(): Promise<ActionResult<NearbyBusiness[]>> {
+export async function getBusinesses(size: number = 10, city?: string): Promise<ActionResult<Business[]>> {
   const token = await getSessionToken();
   if (!token) return { ok: false, error: "Necesitás iniciar sesión." };
-  const result = await request<{ businesses: NearbyBusiness[] }>("/organizations");
+
+  const params = new URLSearchParams();
+  params.append("size", size.toString());
+  if (city) params.append("location", city);
+
+  const result = await request<{ businesses: Business[] }>(`/organizations?${params.toString()}`);
   return result.ok ? { ok: true, data: result.data.businesses } : result;
+}
+
+export async function getLocations(): Promise<ActionResult<Location[]>> {
+  const token = await getSessionToken();
+  if (!token) return { ok: false, error: "Necesitás iniciar sesión." };
+  const result = await request<Location[]>("/organizations/locations");
+  return result.ok ? { ok: true, data: result.data } : result;
 }
 
 export async function signOut() {

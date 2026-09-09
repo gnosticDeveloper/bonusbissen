@@ -4,7 +4,7 @@ import { useUserStore } from "@/lib/user-store";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signIn } from "@/app/(auth)/sign-in/actions";
-import { ArrowRight, LockKeyhole, UserRound } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
 import Link from "next/link";
 import { BrandLockup } from "@/components/brand";
 import { Spinner } from "@/components/spinner";
@@ -14,6 +14,7 @@ export default function SignInPage() {
   const setUser = useUserStore((state) => state.setUser);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(formData: FormData) {
     setLoading(true);
@@ -51,16 +52,25 @@ export default function SignInPage() {
             className="h-13 w-full border-0 bg-transparent text-[13px] text-foreground outline-none"
           />
         </label>
+
         <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-muted">
           <LockKeyhole size={17} />
           <input
             name="password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             placeholder="Contraseña"
             autoComplete="current-password"
             required
             className="h-13 w-full border-0 bg-transparent text-[13px] text-foreground outline-none"
           />
+          <button
+            type="button"
+            onClick={() => setShowPassword((prev) => !prev)}
+            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+            className="shrink-0 text-muted transition-colors hover:text-foreground"
+          >
+            {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+          </button>
         </label>
 
         {error && <p className="text-[11px] text-[#d75877]">{error}</p>}
@@ -84,7 +94,7 @@ export default function SignInPage() {
         </button>
       </form>
 
-      <p className="mt-6.25 mb-2 text-center text-[11px] leading-normal text-muted">
+      <p className="mt-6.25 mb-2 text-center text-sm leading-normal text-muted">
         ¿Aún no eres parte de BonusBissen?{" "}
         <Link href="/sign-up" className="font-bold text-primary no-underline">
           Registrate

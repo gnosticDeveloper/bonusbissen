@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signUp } from "@/app/(auth)/sign-up/actions";
 import { BrandLockup } from "@/components/brand";
-import { ArrowRight, CircleUserRound, LockKeyhole, UserRound } from "lucide-react";
+import { ArrowRight, CircleUserRound, Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
 import { Spinner } from "@/components/spinner";
 
 export default function SignUpPage() {
@@ -14,6 +14,7 @@ export default function SignUpPage() {
   const setUser = useUserStore((state) => state.setUser);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(formData: FormData) {
     setLoading(true);
@@ -75,12 +76,20 @@ export default function SignUpPage() {
           <LockKeyhole size={17} />
           <input
             name="password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             placeholder="Contraseña"
-            autoComplete="off"
+            autoComplete="current-password"
             required
             className="h-13 w-full border-0 bg-transparent text-[13px] text-foreground outline-none"
           />
+          <button
+            type="button"
+            onClick={() => setShowPassword((prev) => !prev)}
+            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+            className="shrink-0 text-muted transition-colors hover:text-foreground"
+          >
+            {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+          </button>
         </label>
 
         {error && <p className="text-[11px] text-[#d75877]">{error}</p>}
@@ -104,7 +113,7 @@ export default function SignUpPage() {
         </button>
       </form>
 
-      <p className="mt-6.25 mb-2 text-center text-[11px] leading-normal text-muted">
+      <p className="mt-6.25 mb-2 text-center text-sm leading-normal text-muted">
         ¿Ya tenés una cuenta?{" "}
         <Link href="/sign-in" className="font-bold text-primary no-underline">
           Inicia sesión

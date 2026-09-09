@@ -2,16 +2,22 @@
 
 import { create } from "zustand";
 
-type UserState = {
-  user: {
-    name: string;
-    avatarUrl: string | null;
-  } | null;
-  setUser: (user: { name: string; avatarUrl: string | null }) => void;
+type UserInfo = {
+  name: string;
+  username: string;
+  avatarUrl: string | null;
+  city: string | null;
+  emailVerified: boolean;
+  email: string | null;
+};
+
+type UserStoreState = {
+  user: UserInfo | null;
+  setUser: (user: UserInfo) => void;
   reset: VoidFunction;
 };
 
-export const useUserStore = create<UserState>((set) => ({
+export const useUserStore = create<UserStoreState>()((set) => ({
   user: null,
   setUser: (user) => set({ user }),
   reset: () => set({ user: null }),

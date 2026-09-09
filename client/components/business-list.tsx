@@ -1,14 +1,36 @@
 "use client";
 
 import { Spinner } from "@/components/spinner";
-import { NearbyBusiness } from "@/lib/definitions";
+import { Business } from "@/lib/definitions";
 import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RewardCard } from "./reward-card";
 import { formatPoints } from "@/lib/helpers/format";
+import { getBusinesses } from "@/app/b/actions";
 
-export function BusinessList({ businesses, loading, error }: { businesses: NearbyBusiness[]; loading: boolean; error: boolean }) {
+export function BusinessList({ city }: { city: string | null }) {
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [rewardIndexes, setRewardIndexes] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(false);
+
+    // gets only the first three cities based on popularity (how many users are afiliated to).
+    getBusinesses(3, city ?? undefined).then((result) => {
+      if (!active) return;
+      if (result.ok) setBusinesses(result.data);
+      else setError(true);
+      setLoading(false);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [city]);
 
   if (loading)
     return (

@@ -6,8 +6,9 @@ import { PointsCard } from "@/components/points-card";
 import { BusinessList } from "@/components/business-list";
 import { useUserStore } from "@/lib/user-store";
 import { useUIStore } from "@/lib/ui-store";
-import { NearbyBusiness, PointsResponse } from "@/lib/definitions";
-import { getNearbyBusinesses, getPoints } from "@/app/b/actions";
+import { PointsResponse } from "@/lib/definitions";
+import { getPoints } from "@/app/b/actions";
+import { CitySelect } from "@/components/city-select";
 
 export default function MainHomePage() {
   const user = useUserStore((state) => state.user);
@@ -15,19 +16,14 @@ export default function MainHomePage() {
 
   const [points, setPoints] = useState<PointsResponse | null>(null);
   const [pointsError, setPointsError] = useState(false);
-  const [businesses, setBusinesses] = useState<NearbyBusiness[]>([]);
-  const [businessesLoading, setBusinessesLoading] = useState(true);
-  const [businessesError, setBusinessesError] = useState(false);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    Promise.all([getPoints(), getNearbyBusinesses()]).then(([pointsResult, businessesResult]) => {
+    getPoints().then((result) => {
       if (!active) return;
-      if (pointsResult.ok) setPoints(pointsResult.data);
+      if (result.ok) setPoints(result.data);
       else setPointsError(true);
-      if (businessesResult.ok) setBusinesses(businessesResult.data);
-      else setBusinessesError(true);
-      setBusinessesLoading(false);
     });
     return () => {
       active = false;
@@ -52,12 +48,13 @@ export default function MainHomePage() {
           </div>
         </div>
         <div className="relative z-1 flex items-center gap-1.5">
-          <button
+          {/* Note: commented since we are not implementing notifications in the first release. */}
+          {/*<button
             aria-label="Notificaciones"
             className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-foreground transition-colors duration-240"
           >
             <Bell size={19} />
-          </button>
+          </button>*/}
           <button
             aria-label="Abrir menú"
             onClick={openMenu}
@@ -70,17 +67,17 @@ export default function MainHomePage() {
 
       <PointsCard points={pointsError ? null : points} />
 
-      <section className="relative z-1 mb-3.75 flex items-center justify-between">
+      <div className="relative z-1 mb-3 flex justify-end"></div>
+
+      <section className="relative mb-3.75 flex items-center justify-between">
         <div>
           <span className="mb-1 block text-[10px] font-bold tracking-[0.08em] text-muted uppercase">Explorá cerca tuyo</span>
-          <h2 className="m-0 text-[21px] tracking-[-0.8px] text-foreground">Ahora en Palermo</h2>
+          <h2 className="m-0 text-[21px] tracking-[-0.8px] text-foreground">{selectedCity ? `Ahora en ${selectedCity}` : "Descubrí negocios"}</h2>
         </div>
-        <button className="flex items-center gap-0.5 border-0 bg-transparent text-[11px] font-bold text-primary">
-          Ver todo <ChevronRight size={15} />
-        </button>
+        <CitySelect value={selectedCity} onChange={setSelectedCity} />
       </section>
 
-      <BusinessList businesses={businesses} loading={businessesLoading} error={businessesError} />
+      <BusinessList city={selectedCity} />
     </main>
   );
 }

@@ -28,7 +28,7 @@ export type PointsResponse = {
   memberships: Membership[];
 };
 
-export type NearbyBusiness = {
+export type Business = {
   id: string;
   name: string;
   category: string;
@@ -39,4 +39,9 @@ export type NearbyBusiness = {
   points: number;
   rewards: Reward[];
   address: { street: string };
+};
+
+export type Location = {
+  id: string;
+  name: string;
 };
