@@ -4,6 +4,7 @@ import { ActionResult, runAction } from "@/lib/action-result";
 import { request } from "@/lib/api";
 import { Customer } from "@/lib/types/customer";
 import { PointAction } from "../../types";
+import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
 
 interface CustomerPointsAward {
   customerName: string;
@@ -17,30 +18,23 @@ export const grantPointsTo = async (id: string, points: number): Promise<ActionR
       body: JSON.stringify({ customerId: id, points }),
       headers: { "Content-Type": "application/json" },
     });
+
     return await response.json();
   });
 };
 
-interface PagedResponse<T> {
-  items: T[];
-  page: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
-}
-
-export const getAllCustomers = async (search: string, page: number, size: number): Promise<PagedResponse<Customer>> => {
+export const getAllCustomers: PagedRequestFunction<Customer> = async ({ search, page, size }) => {
   const params = new URLSearchParams();
   params.append("page", page.toString());
   params.append("size", size.toString());
 
   if (search) params.append("search", search);
 
-  const res = await request(`/customers?${params.toString()}`);
+  const result = await request<PagedResponse<Customer>>(`/customers?${params.toString()}`);
 
-  if (!res.ok) throw new Error("Hubo un error buscando los clientes.");
+  if (!result.ok) throw new Error(result.error);
 
-  return await res.json();
+  return result.data;
 };
 
 export const getAllPointActions = async (id?: string): Promise<PointAction[]> => {

@@ -1,6 +1,5 @@
 "use client";
 
-import { CustomerAutocomplete } from "@/components/customer-autocomplete";
 import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,8 +8,9 @@ import { formatPoints, parsePositiveInt } from "@/lib/helpers/format";
 import { Coins, HandCoins, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
 import PointActionList from "@/components/point-action-list";
-import { grantPointsTo } from "./actions";
+import { getAllCustomers, grantPointsTo } from "./actions";
 import { Customer } from "@/lib/types/customer";
+import { Autocomplete } from "@/components/autocomplete-input";
 
 const POINTS_PER_CURRENCY = 1000; // 1 punto por cada $1000 gastados
 const MAX_SPEND = 10_000_000;
@@ -106,7 +106,16 @@ export default function PointsManagerPage() {
           <CardContent className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label>Cliente</Label>
-              <CustomerAutocomplete selected={selected} onSelect={setSelected} onClear={clearSelection} />
+              <Autocomplete<Customer>
+                selected={selected}
+                onSelect={setSelected}
+                onClear={clearSelection}
+                fetchFn={getAllCustomers}
+                getId={(c) => c.id}
+                displayKeys={["name", "phone"]}
+                badge={(c) => `${formatPoints(c.points)} pts`}
+                placeholder="Buscar cliente por nombre o teléfono…"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
