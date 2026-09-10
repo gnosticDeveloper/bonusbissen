@@ -33,7 +33,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
 
     private UserPointsResponse getBalance(String token, UUID userId) {
         return restTemplate
-            .exchange(baseUrl() + "/users/" + userId, HttpMethod.GET, authed(token), UserPointsResponse.class)
+            .exchange(baseUrl() + "/users/" + userId + "?programId=" + defaultProgram().getId(), HttpMethod.GET, authed(token), UserPointsResponse.class)
             .getBody();
     }
 
@@ -41,7 +41,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         ResponseEntity<UserPointsAwardResponse> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(cashierToken, new GrantPointsRequest(userId, points, null)),
+            authed(cashierToken, new GrantPointsRequest(userId, points, null, defaultProgram().getId())),
             UserPointsAwardResponse.class
         );
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -374,7 +374,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         ResponseEntity<String> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(cashierToken, new GrantPointsRequest(user.getId(), -50, null)),
+            authed(cashierToken, new GrantPointsRequest(user.getId(), -50, null, defaultProgram().getId())),
             String.class
         );
 

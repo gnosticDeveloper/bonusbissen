@@ -6,16 +6,20 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 
+/**
+ * A single point of contact with customers: a physical branch or an online
+ * shop. When {@code online} is true there is no street address; a physical
+ * storefront must carry one (enforced by a DB CHECK and re-checked in the
+ * service layer).
+ */
 @Entity
-@Table(name = "employees")
+@Table(name = "storefronts")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Employee {
+public class Storefront {
 
     @Id
     @GeneratedValue
@@ -25,28 +29,26 @@ public class Employee {
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
 
-    @Column(nullable = false, unique = true, length = 100)
-    private String username;
-
-    @Column(name = "password_hash", nullable = false, length = 255)
-    private String passwordHash;
-
     @Column(nullable = false, length = 255)
     private String name;
 
-    @Column(nullable = false, length = 20)
-    private EmployeeRole role;
+    @Column(nullable = false)
+    private boolean online = false;
+
+    @Column(length = 255)
+    private String address;
+
+    @Column(length = 255)
+    private String hours;
+
+    @Column(name = "icon_path", length = 255)
+    private String iconPath;
+
+    @Column(columnDefinition = "text")
+    private String description;
 
     @Column(nullable = false)
     private boolean active = true;
-
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-        name = "employee_storefronts",
-        joinColumns = @JoinColumn(name = "employee_id"),
-        inverseJoinColumns = @JoinColumn(name = "storefront_id")
-    )
-    private Set<Storefront> storefronts = new HashSet<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;

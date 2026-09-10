@@ -21,15 +21,23 @@ public class PrincipalResolver {
         this.userRepository = userRepository;
     }
 
-    public Optional<AuthenticatedPrincipal> resolve(UUID id, String role) {
+    public Optional<AuthenticatedPrincipal> resolve(UUID id, String role, UUID storefrontId) {
         return switch (role) {
-            case "ADMIN", "CASHIER" -> employeeRepository.findById(id)
+            case "ADMIN", "CASHIER" -> employeeRepository.findWithStorefrontsById(id)
                     .filter(Employee::isActive)
-                    .map(e -> new AuthenticatedPrincipal(e.getId(), e.getUsername(), e.getRole().name(), e.getOrganization().getId()));
+                    .map(e -> new AuthenticatedPrincipal(
+                        e.getId(),
+                        e.getUsername(),
+                        e.getRole().name(),
+                        e.getOrganization().getId(),
+                        storefrontId != null && e.getStorefronts().stream().anyMatch(s -> s.getId().equals(storefrontId))
+                            ? storefrontId
+                            : null
+                    ));
 
             case "USER" -> userRepository.findById(id)
                     .filter(User::isActive)
-                    .map(c -> new AuthenticatedPrincipal(c.getId(), c.getName(), "USER", null));
+                    .map(c -> new AuthenticatedPrincipal(c.getId(), c.getName(), "USER", null, null));
 
             default -> Optional.empty();
         };

@@ -8,7 +8,16 @@ import java.util.UUID;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 
-public record MovementResponse(UUID id, String type, int points, String imagePath, String title, String formattedCreatedAt) {
+public record MovementResponse(
+    UUID id,
+    String type,
+    int points,
+    String imagePath,
+    String title,
+    String programName,
+    String programUnitLabel,
+    String formattedCreatedAt
+) {
     private static final ZoneId ZONE_ARGENTINA = ZoneId.of("America/Argentina/Buenos_Aires");
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.of("es", "AR"));
 
@@ -23,6 +32,8 @@ public record MovementResponse(UUID id, String type, int points, String imagePat
             mv.getPoints(),
             mv.getReward() != null ? mv.getReward().getImagePath() : null,
             title,
+            mv.getPointProgram() != null ? mv.getPointProgram().getName() : null,
+            mv.getPointProgram() != null ? mv.getPointProgram().getUnitLabel() : null,
             formattedDate);
     }
 }

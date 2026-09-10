@@ -1,8 +1,11 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.UUID;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -12,9 +15,12 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.LoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserRegisterRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.LoginResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.StorefrontSummary;
 import studio.gnosticdeveloper.bonusbissen.entity.Employee;
+import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
+import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 import studio.gnosticdeveloper.bonusbissen.security.JwtService;
@@ -42,6 +48,7 @@ public class AuthService {
         this.jwtService = jwtService;
     }
 
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         Employee employee = employeeRepository
             .findByUsername(request.username().toLowerCase())
@@ -52,8 +59,29 @@ public class AuthService {
             throw new BadCredentialsException("Invalid username or password");
         }
 
-        String token = jwtService.generateToken(employee.getId(), employee.getUsername(), employee.getRole().name());
-        return new LoginResponse(token);
+        List<Storefront> storefronts = employee.getStorefronts().stream().toList();
+        List<StorefrontSummary> summaries = storefronts.stream().map(StorefrontSummary::from).toList();
+        UUID storefrontId = storefronts.size() == 1 ? storefronts.get(0).getId() : null;
+
+        String token = jwtService.generateToken(employee.getId(), employee.getUsername(), employee.getRole().name(), storefrontId);
+        return new LoginResponse(token, summaries);
+    }
+
+    @Transactional
+    public LoginResponse selectStorefront(UUID employeeId, UUID storefrontId) {
+        Employee employee = employeeRepository
+            .findById(employeeId)
+            .filter(Employee::isActive)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + employeeId + "."));
+
+        boolean assigned = employee.getStorefronts().stream().anyMatch(s -> s.getId().equals(storefrontId));
+        if (!assigned) {
+            throw new AccessDeniedException("No estás asignado a ese local.");
+        }
+
+        List<StorefrontSummary> summaries = employee.getStorefronts().stream().map(StorefrontSummary::from).toList();
+        String token = jwtService.generateToken(employee.getId(), employee.getUsername(), employee.getRole().name(), storefrontId);
+        return new LoginResponse(token, summaries);
     }
 
 
@@ -82,7 +110,7 @@ public class AuthService {
         }
 
         String token = jwtService.generateToken(user.getId(), user.getUsername(), "USER");
-        return new LoginResponse(token);
+        return LoginResponse.of(token);
     }
 
     public LoginResponse loginUser(UserLoginRequest request) {
@@ -97,7 +125,7 @@ public class AuthService {
         }
 
         String token = jwtService.generateToken(user.getId(), user.getUsername(), "USER");
-        return new LoginResponse(token);
+        return LoginResponse.of(token);
     }
 
     private Optional<User> resolveLoginIdentifier(String identifier) {

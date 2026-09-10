@@ -19,11 +19,15 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.LoginResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Employee;
 import studio.gnosticdeveloper.bonusbissen.entity.EmployeeRole;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
+import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
+import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -64,6 +68,12 @@ public abstract class AbstractIntegrationTest {
     protected OrganizationRepository organizationRepository;
 
     @Autowired
+    protected StorefrontRepository storefrontRepository;
+
+    @Autowired
+    protected PointProgramRepository pointProgramRepository;
+
+    @Autowired
     protected PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -73,18 +83,50 @@ public abstract class AbstractIntegrationTest {
     // employee/reward belongs to "the" business, so all of them are attached
     // to this single organization rather than one each.
     private static volatile Organization sharedOrganization;
+    private static volatile Storefront sharedStorefront;
+    private static volatile PointProgram sharedProgram;
 
     protected Organization defaultOrganization() {
+        ensureDefaults();
+        return sharedOrganization;
+    }
+
+    protected Storefront defaultStorefront() {
+        ensureDefaults();
+        return sharedStorefront;
+    }
+
+    protected PointProgram defaultProgram() {
+        ensureDefaults();
+        return sharedProgram;
+    }
+
+    private void ensureDefaults() {
         if (sharedOrganization == null) {
             synchronized (AbstractIntegrationTest.class) {
                 if (sharedOrganization == null) {
                     Organization organization = new Organization();
                     organization.setName("Test Org");
-                    sharedOrganization = organizationRepository.save(organization);
+                    organization = organizationRepository.save(organization);
+
+                    Storefront storefront = new Storefront();
+                    storefront.setOrganization(organization);
+                    storefront.setName("Test Storefront");
+                    storefront.setAddress("123 Test St");
+                    storefront = storefrontRepository.save(storefront);
+
+                    PointProgram program = new PointProgram();
+                    program.setOrganization(organization);
+                    program.setName("Puntos");
+                    program.getStorefronts().add(storefront);
+                    program = pointProgramRepository.save(program);
+
+                    sharedStorefront = storefront;
+                    sharedProgram = program;
+                    sharedOrganization = organization;
                 }
             }
         }
-        return sharedOrganization;
     }
 
     protected String baseUrl() {
@@ -98,6 +140,7 @@ public abstract class AbstractIntegrationTest {
         employee.setPasswordHash(passwordEncoder.encode(password));
         employee.setName(username);
         employee.setRole(role);
+        employee.getStorefronts().add(defaultStorefront());
         return employeeRepository.save(employee);
     }
 
@@ -123,7 +166,7 @@ public abstract class AbstractIntegrationTest {
 
     protected Reward createReward(String title, int costPoints) {
         Reward reward = new Reward();
-        reward.setOrganization(defaultOrganization());
+        reward.setPointProgram(defaultProgram());
         reward.setTitle(title);
         reward.setCostPoints(costPoints);
         return rewardRepository.save(reward);

@@ -30,11 +30,16 @@ import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
+import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
+import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
+import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 
 @Service
 public class UserService {
@@ -44,6 +49,8 @@ public class UserService {
     private final RewardRepository rewardRepository;
     private final ExchangeCodeRepository exchangeCodeRepository;
     private final EmployeeRepository employeeRepository;
+    private final PointProgramRepository pointProgramRepository;
+    private final StorefrontRepository storefrontRepository;
     private final EmailVerificationService emailVerificationService;
 
     public UserService(
@@ -52,6 +59,8 @@ public class UserService {
         RewardRepository rewardRepository,
         ExchangeCodeRepository exchangeCodeRepository,
         EmployeeRepository employeeRepository,
+        PointProgramRepository pointProgramRepository,
+        StorefrontRepository storefrontRepository,
         EmailVerificationService emailVerificationService
     ) {
         this.userRepository = userRepository;
@@ -59,6 +68,8 @@ public class UserService {
         this.rewardRepository = rewardRepository;
         this.exchangeCodeRepository = exchangeCodeRepository;
         this.employeeRepository = employeeRepository;
+        this.pointProgramRepository = pointProgramRepository;
+        this.storefrontRepository = storefrontRepository;
         this.emailVerificationService = emailVerificationService;
     }
 
@@ -121,16 +132,17 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public int getBalance(UUID userId) {
-        return pointTransactionRepository.calculatePointsByUserId(userId);
+    public int getBalance(UUID userId, UUID programId) {
+        return pointTransactionRepository.calculateBalance(userId, programId);
     }
 
     @Transactional(readOnly = true)
-    public UserPointsResponse getUserPointsById(UUID id) {
+    public UserPointsResponse getUserPointsById(UUID id, UUID programId) {
         User user = userRepository
             .findById(id)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
-        return UserPointsResponse.from(user, getBalance(id));
+        Integer points = programId != null ? getBalance(id, programId) : null;
+        return UserPointsResponse.from(user, points);
     }
 
     @Transactional(readOnly = true)
@@ -149,9 +161,11 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public Page<UserPointsResponse> search(String search, Pageable pageable) {
+    public Page<UserPointsResponse> search(String search, UUID programId, Pageable pageable) {
         String term = search == null || search.isBlank() ? null : search.trim();
-        return userRepository.search(term, pageable).map(user -> UserPointsResponse.from(user, getBalance(user.getId())));
+        return userRepository
+            .search(term, pageable)
+            .map(user -> UserPointsResponse.from(user, programId != null ? getBalance(user.getId(), programId) : null));
     }
 
     @Transactional(readOnly = true)
@@ -167,19 +181,35 @@ public class UserService {
     }
 
     @Transactional
-    public UserPointsAwardResponse grantPoints(GrantPointsRequest request, UUID employeeId) {
+    public UserPointsAwardResponse grantPoints(GrantPointsRequest request, UUID employeeId, UUID storefrontId) {
+        if (storefrontId == null) {
+            throw new BadRequestException("Elegí un local antes de sumar puntos.");
+        }
+
         Employee employee = employeeRepository
             .findById(employeeId)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + employeeId + "."));
 
+        User user = userRepository
+            .findById(request.userId())
+            .filter(User::isActive)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.userId() + "."));
+
+        if (!pointProgramRepository.existsByIdAndStorefronts_Id(request.pointProgramId(), storefrontId)) {
+            throw new BadRequestException("Ese programa de puntos no está activo en este local.");
+        }
+        PointProgram program = pointProgramRepository
+            .findById(request.pointProgramId())
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar el programa de puntos con el ID " + request.pointProgramId() + "."));
+        Storefront storefront = storefrontRepository
+            .findById(storefrontId)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar el local con el ID " + storefrontId + "."));
+
         PointTransaction tx = new PointTransaction();
         tx.setEmployee(employee);
-        tx.setUser(
-            userRepository
-                .findById(request.userId())
-                .filter(User::isActive)
-                .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.userId() + "."))
-        );
+        tx.setPointProgram(program);
+        tx.setStorefront(storefront);
+        tx.setUser(user);
         tx.setPoints(request.points());
         tx.setNote(request.note());
         tx.setTransactionType(TransactionType.EARN);
@@ -228,8 +258,9 @@ public class UserService {
             .filter(Reward::isActive)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar una recompensa con el ID " + request.rewardId() + "."));
         tx.setReward(reward);
+        tx.setPointProgram(reward.getPointProgram());
 
-        if (getBalance(user.getId()) < reward.getCostPoints()) {
+        if (getBalance(user.getId(), reward.getPointProgram().getId()) < reward.getCostPoints()) {
             throw new InsufficientPointsException("El cliente no tiene puntos suficientes para canjear \"" + reward.getTitle() + "\".");
         }
 
@@ -241,7 +272,7 @@ public class UserService {
         tx = pointTransactionRepository.save(tx);
 
         ExchangeCode exchangeCode = new ExchangeCode();
-        exchangeCode.setOrganization(reward.getOrganization());
+        exchangeCode.setOrganization(reward.getPointProgram().getOrganization());
         exchangeCode.setPointTransaction(tx);
         exchangeCode.setUser(user);
         exchangeCode.setCode(generateExchangeCode());

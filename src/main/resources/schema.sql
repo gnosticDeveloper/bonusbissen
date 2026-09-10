@@ -3,21 +3,60 @@
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- organizations: one row per business using bonusbissen. Employees, rewards
--- and point transactions all belong to exactly one organization. Users
--- do NOT belong to an organization yet -- that link will be introduced later
+-- organizations: one row per business (tenant/account) using bonusbissen.
+-- Customer-facing details (address, hours, icon, description) live on
+-- storefronts, not here -- a business can have several. Employees, point
+-- programs and storefronts all belong to exactly one organization. Users do
+-- NOT belong to an organization yet -- that link will be introduced later
 -- through a subscription model.
 CREATE TABLE IF NOT EXISTS organizations (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name          VARCHAR(255) NOT NULL,
-    icon_path     VARCHAR(255),
-    hours         VARCHAR(255),
-    address       VARCHAR(255),
-    description   TEXT,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- employees: the only users who authenticate (cashiers/admins)
+-- storefronts: a single point of contact with customers -- a physical branch
+-- or an online shop. `online = true` means there is no street address; a
+-- physical storefront must carry one (the CHECK below).
+CREATE TABLE IF NOT EXISTS storefronts (
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id  UUID NOT NULL REFERENCES organizations(id),
+    name             VARCHAR(255) NOT NULL,
+    online           BOOLEAN      NOT NULL DEFAULT FALSE,
+    address          VARCHAR(255),
+    hours            VARCHAR(255),
+    icon_path        VARCHAR(255),
+    description      TEXT,
+    active           BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CHECK (online OR address IS NOT NULL)
+);
+
+-- point_programs: a named pool of points ("Puntos Café", "Club Online").
+-- A program belongs to one organization and is honoured at one or more of
+-- its storefronts (point_program_storefronts). A user's balance is computed
+-- per (user, program): SUM(points) WHERE user_id = ? AND point_program_id = ?.
+CREATE TABLE IF NOT EXISTS point_programs (
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id  UUID NOT NULL REFERENCES organizations(id),
+    name             VARCHAR(255) NOT NULL,
+    unit_label       VARCHAR(50), -- what one point is called, e.g. "granos"; null -> client default ("puntos")
+    active           BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    UNIQUE (organization_id, name)
+);
+
+-- Which storefronts honour which program. Two storefronts on one program
+-- share a single pool; a storefront on no program does not run points at all.
+CREATE TABLE IF NOT EXISTS point_program_storefronts (
+    point_program_id  UUID NOT NULL REFERENCES point_programs(id),
+    storefront_id     UUID NOT NULL REFERENCES storefronts(id),
+    PRIMARY KEY (point_program_id, storefront_id)
+);
+
+-- employees: the only accounts that authenticate into the dashboard
+-- (cashiers/admins). An employee is assigned to zero or more storefronts;
+-- admins are typically org-wide (no rows) or assigned to all of them.
 CREATE TABLE IF NOT EXISTS employees (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id  UUID NOT NULL REFERENCES organizations(id),
@@ -27,6 +66,12 @@ CREATE TABLE IF NOT EXISTS employees (
     role             VARCHAR(20)  NOT NULL CHECK (role IN ('admin', 'cashier')),
     active           BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS employee_storefronts (
+    employee_id    UUID NOT NULL REFERENCES employees(id),
+    storefront_id  UUID NOT NULL REFERENCES storefronts(id),
+    PRIMARY KEY (employee_id, storefront_id)
 );
 
 -- users: self-service loyalty accounts. A user signs up and authenticates
@@ -58,10 +103,11 @@ CREATE TABLE IF NOT EXISTS email_verification_tokens (
 );
 CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id ON email_verification_tokens(user_id);
 
--- rewards: what points can be redeemed for. Each business manages its own catalog.
+-- rewards: what points can be redeemed for. Each reward belongs to one point
+-- program; the owning organization is reachable through that program.
 CREATE TABLE IF NOT EXISTS rewards (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id  UUID NOT NULL REFERENCES organizations(id),
+    point_program_id UUID NOT NULL REFERENCES point_programs(id),
     title            VARCHAR(255) NOT NULL,
     description      TEXT,
     cost_points      INT          NOT NULL CHECK (cost_points > 0),
@@ -71,12 +117,16 @@ CREATE TABLE IF NOT EXISTS rewards (
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- No organization_id here on purpose: it's derivable through reward_id
--- (redeem) or employee_id (earn/grant) or, for refunds, through
--- refunded_transaction_id -> the original redeem's reward.
+-- point_program_id is the pool this movement affects; the balance query keys
+-- on it. storefront_id records where it happened (the acting cashier's active
+-- storefront) for per-storefront analytics even when a pool is shared; it is
+-- null for user-initiated redeem claims until an employee resolves them.
+-- The owning organization is derivable through point_program_id.
 CREATE TABLE IF NOT EXISTS point_transactions (
     id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id              UUID NOT NULL REFERENCES users(id),
+    user_id                  UUID NOT NULL REFERENCES users(id),
+    point_program_id         UUID NOT NULL REFERENCES point_programs(id),
+    storefront_id            UUID REFERENCES storefronts(id),
     reward_id                UUID REFERENCES rewards(id),
     employee_id              UUID REFERENCES employees(id), -- if null, it means the transaction is "pending". if not null, the transaction is either "completed" or "cancelled".
     refunded_transaction_id  UUID REFERENCES point_transactions(id), -- set only on the refund 'earn' row created when a redeem is cancelled
@@ -116,9 +166,15 @@ CREATE INDEX IF NOT EXISTS idx_exchanges_user_id ON point_transactions(user_id) 
 CREATE INDEX IF NOT EXISTS idx_canjes_reward_id ON point_transactions(reward_id);
 CREATE INDEX IF NOT EXISTS idx_points_transactions_user_id ON point_transactions(user_id) WHERE state = 'delivered' AND transaction_type = 'earn';
 CREATE INDEX IF NOT EXISTS idx_point_transactions_refunded_transaction_id ON point_transactions(refunded_transaction_id);
+CREATE INDEX IF NOT EXISTS idx_point_transactions_point_program_id ON point_transactions(point_program_id);
+CREATE INDEX IF NOT EXISTS idx_point_transactions_storefront_id ON point_transactions(storefront_id);
 CREATE INDEX IF NOT EXISTS idx_rewards_active ON rewards(active) WHERE active = TRUE;
-CREATE INDEX IF NOT EXISTS idx_rewards_organization_id ON rewards(organization_id);
+CREATE INDEX IF NOT EXISTS idx_rewards_point_program_id ON rewards(point_program_id);
 CREATE INDEX IF NOT EXISTS idx_employees_organization_id ON employees(organization_id);
+CREATE INDEX IF NOT EXISTS idx_storefronts_organization_id ON storefronts(organization_id);
+CREATE INDEX IF NOT EXISTS idx_point_programs_organization_id ON point_programs(organization_id);
+CREATE INDEX IF NOT EXISTS idx_pps_storefront_id ON point_program_storefronts(storefront_id);
+CREATE INDEX IF NOT EXISTS idx_es_storefront_id ON employee_storefronts(storefront_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_exchange_codes_point_transaction_id ON exchange_codes(point_transaction_id);
 -- Codes only need to be unique within an organization: two different
 -- businesses independently generating the same 6-character code is fine,

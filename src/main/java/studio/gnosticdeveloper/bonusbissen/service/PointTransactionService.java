@@ -21,6 +21,7 @@ import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 
 import org.springframework.security.access.AccessDeniedException;
@@ -31,15 +32,18 @@ public class PointTransactionService {
     private final PointTransactionRepository pointTransactionRepository;
     private final ExchangeCodeRepository exchangeCodeRepository;
     private final EmployeeRepository employeeRepository;
+    private final PointProgramRepository pointProgramRepository;
 
     public PointTransactionService(
         PointTransactionRepository pointTransactionRepository,
         ExchangeCodeRepository exchangeCodeRepository,
-        EmployeeRepository employeeRepository
+        EmployeeRepository employeeRepository,
+        PointProgramRepository pointProgramRepository
     ) {
         this.pointTransactionRepository = pointTransactionRepository;
         this.exchangeCodeRepository = exchangeCodeRepository;
         this.employeeRepository = employeeRepository;
+        this.pointProgramRepository = pointProgramRepository;
     }
 
     @Transactional(readOnly = true)
@@ -76,7 +80,7 @@ public class PointTransactionService {
     }
 
     @Transactional
-    public ExchangeResponse verifyExchange(String code, UUID organizationId) {
+    public ExchangeResponse verifyExchange(String code, UUID organizationId, UUID storefrontId) {
         ExchangeCode exchangeCode = exchangeCodeRepository
             .findActiveByCodeAndOrganizationId(code, organizationId)
             .orElseThrow(() -> new NotFoundException("No pudimos encontrar el código de intercambio: " + code));
@@ -84,6 +88,14 @@ public class PointTransactionService {
         PointTransaction pointTransaction = exchangeCode.getPointTransaction();
         if (pointTransaction == null) {
             throw new NotFoundException("El código de intercambio no tiene una transacción de puntos hecha: " + code);
+        }
+
+        if (storefrontId == null) {
+            throw new ConflictException("Elegí un local antes de validar un canje.");
+        }
+        UUID programId = pointTransaction.getPointProgram().getId();
+        if (!pointProgramRepository.existsByIdAndStorefronts_Id(programId, storefrontId)) {
+            throw new ConflictException("Ese código no pertenece a un programa de puntos de este local.");
         }
         return ExchangeResponse.from(pointTransaction);
     }
@@ -173,6 +185,8 @@ public class PointTransactionService {
         PointTransaction refundTransaction = new PointTransaction();
         refundTransaction.setRefundedTransaction(pointTransaction);
         refundTransaction.setUser(pointTransaction.getUser());
+        refundTransaction.setPointProgram(pointTransaction.getPointProgram());
+        refundTransaction.setStorefront(pointTransaction.getStorefront());
         refundTransaction.setPoints(Math.abs(pointTransaction.getPoints()));
         refundTransaction.setTransactionType(TransactionType.EARN);
         refundTransaction.setState(TransactionState.DELIVERED);
