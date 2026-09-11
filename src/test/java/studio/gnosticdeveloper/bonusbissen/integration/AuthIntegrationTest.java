@@ -1,8 +1,10 @@
 package studio.gnosticdeveloper.bonusbissen.integration;
 
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import studio.gnosticdeveloper.bonusbissen.dto.request.DashboardLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.LoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ResendVerificationRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserLoginRequest;
@@ -29,6 +31,34 @@ class AuthIntegrationTest extends AbstractIntegrationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().token()).isNotBlank();
+    }
+
+    @Test
+    void dashboardSignInWithMatchingOrganizationReturnsToken() {
+        createEmployee("cashier-dash-ok", "password123", EmployeeRole.CASHIER);
+
+        ResponseEntity<LoginResponse> response = restTemplate.postForEntity(
+            baseUrl() + "/auth/dashboard/sign-in",
+            new DashboardLoginRequest("cashier-dash-ok", "password123", defaultOrganization().getId()),
+            LoginResponse.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().token()).isNotBlank();
+    }
+
+    @Test
+    void dashboardSignInWithWrongOrganizationIsRejected() {
+        createEmployee("cashier-dash-wrong-org", "password123", EmployeeRole.CASHIER);
+
+        ResponseEntity<String> response = restTemplate.postForEntity(
+            baseUrl() + "/auth/dashboard/sign-in",
+            new DashboardLoginRequest("cashier-dash-wrong-org", "password123", UUID.randomUUID()),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     @Test

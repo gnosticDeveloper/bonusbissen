@@ -6,6 +6,8 @@ public record StorefrontCreateRequest(
     @NotBlank String name,
     boolean online,
     String address,
+    String category,
+    String color,
     String hours,
     String icon,
     String description

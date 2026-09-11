@@ -1,6 +1,8 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import studio.gnosticdeveloper.bonusbissen.dto.request.OrganizationUpdateRequest;
@@ -15,6 +17,12 @@ public class OrganizationService {
 
     public OrganizationService(OrganizationRepository organizationRepository) {
         this.organizationRepository = organizationRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Organization> search(String search, Pageable pageable) {
+        String term = search == null || search.isBlank() ? null : search.trim();
+        return organizationRepository.search(term, pageable);
     }
 
     @Transactional(readOnly = true)

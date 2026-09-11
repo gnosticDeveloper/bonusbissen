@@ -51,6 +51,40 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
     )
     int calculateBalance(@Param("userId") UUID userId, @Param("programId") UUID programId);
 
+    /** One row per point program the user has ever transacted in, for the points carousel. */
+    @Query(
+        value =
+            """
+            select
+              pp.id                                as program_id,
+              pp.unit_label                        as unit_label,
+              o.id                                 as org_id,
+              o.name                               as org_name,
+              sf.category                          as category,
+              sf.color                             as color,
+              sf.icon_path                         as logo_url,
+              to_char(min(t.created_at) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as member_since,
+              coalesce(sum(t.points), 0)           as points,
+              count(*) filter (where t.transaction_type = 'redeem' and t.state = 'delivered') as redemptions
+            from point_transactions t
+            join point_programs pp on pp.id = t.point_program_id
+            join organizations o on o.id = pp.organization_id
+            left join lateral (
+                select s.category, s.color, s.icon_path
+                from point_program_storefronts pps
+                join storefronts s on s.id = pps.storefront_id
+                where pps.point_program_id = pp.id and s.active
+                order by s.created_at asc
+                limit 1
+            ) sf on true
+            where t.user_id = :userId
+            group by pp.id, pp.unit_label, o.id, o.name, sf.category, sf.color, sf.icon_path
+            order by member_since asc
+            """,
+        nativeQuery = true
+    )
+    List<Object[]> findMembershipRowsRaw(@Param("userId") UUID userId);
+
     @Query(value = "select coalesce(count(t.id), 0) from point_transactions t " + ORG_JOIN + " where t.state = :state and " + ORG_MATCH, nativeQuery = true)
     Integer countByStateAndOrganizationIdRaw(@Param("state") String state, @Param("organizationId") UUID organizationId);
 

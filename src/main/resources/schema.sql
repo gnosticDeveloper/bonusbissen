@@ -17,13 +17,17 @@ CREATE TABLE IF NOT EXISTS organizations (
 
 -- storefronts: a single point of contact with customers -- a physical branch
 -- or an online shop. `online = true` means there is no street address; a
--- physical storefront must carry one (the CHECK below).
+-- physical storefront must carry one (the CHECK below). `city` is derived via
+-- georef-ar on create/update (no separate cities table).
 CREATE TABLE IF NOT EXISTS storefronts (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id  UUID NOT NULL REFERENCES organizations(id),
     name             VARCHAR(255) NOT NULL,
     online           BOOLEAN      NOT NULL DEFAULT FALSE,
     address          VARCHAR(255),
+    city             VARCHAR(120),
+    category         VARCHAR(80),
+    color            VARCHAR(9),
     hours            VARCHAR(255),
     icon_path        VARCHAR(255),
     description      TEXT,
@@ -31,6 +35,11 @@ CREATE TABLE IF NOT EXISTS storefronts (
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CHECK (online OR address IS NOT NULL)
 );
+
+-- Idempotent: an existing DB picks these up on next boot. Backfill `city` by hand.
+ALTER TABLE storefronts ADD COLUMN IF NOT EXISTS city     VARCHAR(120);
+ALTER TABLE storefronts ADD COLUMN IF NOT EXISTS category VARCHAR(80);
+ALTER TABLE storefronts ADD COLUMN IF NOT EXISTS color    VARCHAR(9);
 
 -- point_programs: a named pool of points ("Puntos Café", "Club Online").
 -- A program belongs to one organization and is honoured at one or more of
@@ -172,6 +181,7 @@ CREATE INDEX IF NOT EXISTS idx_rewards_active ON rewards(active) WHERE active = 
 CREATE INDEX IF NOT EXISTS idx_rewards_point_program_id ON rewards(point_program_id);
 CREATE INDEX IF NOT EXISTS idx_employees_organization_id ON employees(organization_id);
 CREATE INDEX IF NOT EXISTS idx_storefronts_organization_id ON storefronts(organization_id);
+CREATE INDEX IF NOT EXISTS idx_storefronts_city ON storefronts(city) WHERE city IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_point_programs_organization_id ON point_programs(organization_id);
 CREATE INDEX IF NOT EXISTS idx_pps_storefront_id ON point_program_storefronts(storefront_id);
 CREATE INDEX IF NOT EXISTS idx_es_storefront_id ON employee_storefronts(storefront_id);

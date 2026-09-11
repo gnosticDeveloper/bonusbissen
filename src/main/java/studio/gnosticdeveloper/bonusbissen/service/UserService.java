@@ -112,6 +112,20 @@ public class UserService {
     }
 
     @Transactional
+    public void resendOwnVerification(UUID userId) {
+        User user = userRepository
+            .findById(userId)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + userId + "."));
+        if (user.getEmail() == null) {
+            throw new BadRequestException("Tu cuenta no tiene un email asociado.");
+        }
+        if (user.isEmailVerified()) {
+            throw new BadRequestException("Tu email ya está verificado.");
+        }
+        emailVerificationService.sendVerification(user);
+    }
+
+    @Transactional
     public User reactivate(UUID id) {
         User user = userRepository
             .findById(id)

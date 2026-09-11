@@ -7,6 +7,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeReviewResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.PointsSummaryResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
 import studio.gnosticdeveloper.bonusbissen.service.PointTransactionService;
@@ -41,6 +42,13 @@ public class PointTransactionController {
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     public List<ExchangeResponse> getAllExchanges(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return pointTransactionService.getAll(principal.organizationId());
+    }
+
+    /** Points carousel for the logged-in customer: total + per-program balances. */
+    @GetMapping("/summary")
+    @PreAuthorize("hasRole('USER')")
+    public PointsSummaryResponse getSummary(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return pointTransactionService.getSummary(principal.id());
     }
 
     @GetMapping("/resolved")

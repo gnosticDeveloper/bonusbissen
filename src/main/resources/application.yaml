@@ -32,6 +32,10 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   uploads:
     dir: /var/lib/bonusbissen/uploads/rewards
+  georef:
+    # https://datos.gob.ar/georef. Disabled -> address stored as typed, city null.
+    enabled: ${GEOREF_ENABLED:true}
+    base-url: ${GEOREF_BASE_URL:https://apis.datos.gob.ar/georef/api}
   mail:
     # false -> LoggingEmailSender (no SMTP, links are logged). Set MAIL_ENABLED=true
     # plus the spring.mail.* settings above to actually send via Mailgun.

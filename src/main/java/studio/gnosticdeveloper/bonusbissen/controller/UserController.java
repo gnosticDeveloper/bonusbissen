@@ -51,6 +51,22 @@ public class UserController {
         return UserResponse.from(userService.update(id, request));
     }
 
+    @PatchMapping("/me")
+    @PreAuthorize("hasRole('USER')")
+    public UserResponse updateSelf(
+        @Valid @RequestBody UserUpdateRequest request,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
+        return UserResponse.from(userService.update(principal.id(), request));
+    }
+
+    @PostMapping("/me/resend-verification")
+    @PreAuthorize("hasRole('USER')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resendOwnVerification(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        userService.resendOwnVerification(principal.id());
+    }
+
     @PatchMapping("/{id}/reactivate")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     public UserResponse reactivate(@PathVariable UUID id) {
@@ -63,6 +79,13 @@ public class UserController {
     public void deleteById(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         requireSelfIfUser(id, principal);
         userService.deleteById(id);
+    }
+
+    @DeleteMapping("/me")
+    @PreAuthorize("hasRole('USER')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteSelf(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        userService.deleteById(principal.id());
     }
 
     @GetMapping("/{id}")

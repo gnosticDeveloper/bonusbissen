@@ -11,6 +11,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import studio.gnosticdeveloper.bonusbissen.dto.request.DashboardLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.LoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserRegisterRequest;
@@ -59,6 +60,28 @@ public class AuthService {
             throw new BadCredentialsException("Invalid username or password");
         }
 
+        return issueEmployeeToken(employee);
+    }
+
+    /** Same as {@link #login}, plus a check that the employee belongs to the given org. */
+    @Transactional
+    public LoginResponse dashboardLogin(DashboardLoginRequest request) {
+        Employee employee = employeeRepository
+            .findByUsername(request.identifier().trim().toLowerCase(Locale.ROOT))
+            .filter(Employee::isActive)
+            .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
+
+        if (!passwordEncoder.matches(request.password(), employee.getPasswordHash())) {
+            throw new BadCredentialsException("Invalid credentials");
+        }
+        if (!employee.getOrganization().getId().equals(request.organizationId())) {
+            throw new BadCredentialsException("Invalid credentials");
+        }
+
+        return issueEmployeeToken(employee);
+    }
+
+    private LoginResponse issueEmployeeToken(Employee employee) {
         List<Storefront> storefronts = employee.getStorefronts().stream().toList();
         List<StorefrontSummary> summaries = storefronts.stream().map(StorefrontSummary::from).toList();
         UUID storefrontId = storefronts.size() == 1 ? storefronts.get(0).getId() : null;

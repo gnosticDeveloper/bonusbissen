@@ -10,7 +10,7 @@ const LEFT_ITEMS = [
 ] as const;
 
 const RIGHT_ITEMS = [
-  { href: "/descubrir", label: "Descubrir", icon: Compass },
+  { href: "/b/descubrir", label: "Descubrir", icon: Compass },
   { href: "/b/configuracion", label: "Config", icon: Settings },
 ] as const;
 

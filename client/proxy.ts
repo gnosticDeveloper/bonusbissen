@@ -3,11 +3,15 @@ import { isSessionValid } from "@/lib/auth/session";
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const token = request.cookies.get("access_token")?.value;
-  const hasValidSession = isSessionValid(token);
 
   // El sign-in del dashboard siempre se deja pasar, tenga o no sesión válida
   if (pathname.startsWith("/d/sign-in")) return NextResponse.next();
+
+  // El dashboard (/d/*) usa su propia cookie; la app de clientes usa access_token.
+  const isDashboard = pathname.startsWith("/d");
+  const signInUrl = isDashboard ? "/d/sign-in" : "/sign-in";
+  const token = request.cookies.get(isDashboard ? "d_token" : "access_token")?.value;
+  const hasValidSession = isSessionValid(token);
 
   // Rutas de auth (sign-in, sign-up): si ya hay sesión válida, no tiene sentido mostrarlas
   if (pathname.startsWith("/sign-")) {
@@ -18,7 +22,7 @@ export function proxy(request: NextRequest) {
   // Cualquier otra ruta: requiere sesión válida
   if (!hasValidSession) {
     console.info("\n[API] | proxy.ts | The user session is not valid. The token or the role are invalid.\n");
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+    return NextResponse.redirect(new URL(signInUrl, request.url));
   }
 
   return NextResponse.next();

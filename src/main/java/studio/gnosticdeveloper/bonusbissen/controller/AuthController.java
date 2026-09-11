@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import studio.gnosticdeveloper.bonusbissen.dto.request.DashboardLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.LoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ResendVerificationRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.SelectStorefrontRequest;
@@ -37,6 +38,11 @@ public class AuthController {
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    @PostMapping("/dashboard/sign-in")
+    public LoginResponse dashboardSignIn(@Valid @RequestBody DashboardLoginRequest request) {
+        return authService.dashboardLogin(request);
     }
 
     @PostMapping("/user-register")

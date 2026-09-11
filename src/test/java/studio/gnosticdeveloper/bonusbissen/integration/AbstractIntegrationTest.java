@@ -32,7 +32,7 @@ import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
-@TestPropertySource(properties = "app.mail.enabled=false")
+@TestPropertySource(properties = { "app.mail.enabled=false", "app.georef.enabled=false" })
 @Import(TestMailConfig.class)
 public abstract class AbstractIntegrationTest {
 

@@ -100,7 +100,7 @@ export default function SignInPage() {
           Registrate
         </Link>
       </p>
-      <Link href="/admin/sign-in" className="mt-auto text-center text-[11px] leading-normal font-bold text-primary no-underline">
+      <Link href="/d/sign-in" className="mt-auto text-center text-[11px] leading-normal font-bold text-primary no-underline">
         Ingresar al panel administrativo
       </Link>
     </main>

@@ -12,6 +12,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest
 import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeReviewResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.PointsSummaryResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Employee;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
@@ -46,9 +47,37 @@ public class PointTransactionService {
         this.pointProgramRepository = pointProgramRepository;
     }
 
+    private static final String DEFAULT_COLOR = "#232027";
+    private static final String DEFAULT_POINT_LABEL = "puntos";
+
     @Transactional(readOnly = true)
     public List<ExchangeResponse> getAll(UUID organizationId) {
         return pointTransactionRepository.findAllWithRelations(organizationId).stream().map(ExchangeResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PointsSummaryResponse getSummary(UUID userId) {
+        List<PointsSummaryResponse.Membership> memberships = pointTransactionRepository
+            .findMembershipRowsRaw(userId)
+            .stream()
+            .map(PointTransactionService::toMembership)
+            .toList();
+        long totalPoints = memberships.stream().mapToLong(PointsSummaryResponse.Membership::points).sum();
+        return new PointsSummaryResponse(new PointsSummaryResponse.Summary(totalPoints), memberships);
+    }
+
+    private static PointsSummaryResponse.Membership toMembership(Object[] row) {
+        String unitLabel = (String) row[1];
+        String color = row[5] != null ? (String) row[5] : DEFAULT_COLOR;
+        String pointLabel = unitLabel != null && !unitLabel.isBlank() ? unitLabel : DEFAULT_POINT_LABEL;
+        return new PointsSummaryResponse.Membership(
+            String.valueOf(row[0]),
+            new PointsSummaryResponse.Org(String.valueOf(row[2]), (String) row[3], (String) row[4], color, (String) row[6]),
+            ((Number) row[8]).longValue(),
+            pointLabel,
+            ((Number) row[9]).longValue(),
+            (String) row[7]
+        );
     }
 
     @Transactional(readOnly = true)

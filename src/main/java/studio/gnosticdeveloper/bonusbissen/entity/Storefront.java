@@ -38,6 +38,16 @@ public class Storefront {
     @Column(length = 255)
     private String address;
 
+    /** Canonical "Localidad, Provincia", derived via georef-ar. */
+    @Column(length = 120)
+    private String city;
+
+    @Column(length = 80)
+    private String category;
+
+    @Column(length = 9)
+    private String color;
+
     @Column(length = 255)
     private String hours;
 

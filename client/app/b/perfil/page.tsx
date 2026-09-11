@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Dialog } from "@base-ui/react/dialog";
 import { useUserStore } from "@/lib/user-store";
+import { deleteAccount, resendVerificationEmail } from "./actions";
 
 type VerifyState = "idle" | "sending" | "sent" | "error";
 type DeleteState = "idle" | "deleting" | "error";
 
 export default function ProfilePage() {
+  const router = useRouter();
   const user = useUserStore((state) => state.user);
   const emailVerified = user?.emailVerified ?? false;
 
@@ -19,24 +22,18 @@ export default function ProfilePage() {
   async function handleVerifyEmail() {
     if (verifyState === "sending" || verifyState === "sent") return;
     setVerifyState("sending");
-    try {
-      // TODO: reemplazar por la server action real, ej: await requestEmailVerification();
-      await new Promise((resolve) => setTimeout(resolve, 900));
-      setVerifyState("sent");
-    } catch {
-      setVerifyState("error");
-    }
+    const result = await resendVerificationEmail();
+    setVerifyState(result.ok ? "sent" : "error");
   }
 
   async function handleDeleteAccount() {
     setDeleteState("deleting");
-    try {
-      // TODO: reemplazar por la server action real, ej: await deleteAccount();
-      await new Promise((resolve) => setTimeout(resolve, 900));
-      // TODO: limpiar sesión / cookies y redirigir a sign-in tras confirmar el borrado.
-    } catch {
-      setDeleteState("error");
+    const result = await deleteAccount();
+    if (result.ok) {
+      router.replace("/sign-in");
+      return;
     }
+    setDeleteState("error");
   }
 
   return (
