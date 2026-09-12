@@ -24,6 +24,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             """
             select * from users c
             where c.active = true
+              and not exists (select 1 from organization_staff os where os.user_id = c.id and os.active = true)
               and (
                    cast(:search as text) is null
                    or lower(c.name) like lower(concat('%', cast(:search as text), '%'))
@@ -35,6 +36,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             """
             select count(*) from users c
             where c.active = true
+              and not exists (select 1 from organization_staff os where os.user_id = c.id and os.active = true)
               and (
                    cast(:search as text) is null
                    or lower(c.name) like lower(concat('%', cast(:search as text), '%'))
@@ -46,6 +48,13 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     )
     Page<User> search(@Param("search") String search, Pageable pageable);
 
+    /** Loyalty members only -- excludes accounts currently staffing an organization. */
+    @Query(
+        value = "select count(*) from users c where c.active = true and not exists (select 1 from organization_staff os where os.user_id = c.id and os.active = true)",
+        nativeQuery = true
+    )
+    int countCustomers();
+
     @Query(
         value =
             """
@@ -56,6 +65,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             WHERE t.transaction_type = 'earn'
               AND t.state = 'delivered'
               AND pp.organization_id = :organizationId
+              AND NOT EXISTS (SELECT 1 FROM organization_staff os WHERE os.user_id = c.id AND os.active = true)
             GROUP BY c.id, c.name
             ORDER BY SUM(t.points) DESC
             """,

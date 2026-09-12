@@ -12,101 +12,91 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import studio.gnosticdeveloper.bonusbissen.dto.request.DashboardLoginRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.LoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserRegisterRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.LoginResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.StorefrontSummary;
-import studio.gnosticdeveloper.bonusbissen.entity.Employee;
+import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
-import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 import studio.gnosticdeveloper.bonusbissen.security.JwtService;
 
 @Service
 public class AuthService {
 
-    private final EmployeeRepository employeeRepository;
+    private final OrganizationStaffRepository organizationStaffRepository;
     private final UserRepository userRepository;
     private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
     public AuthService(
-        EmployeeRepository employeeRepository,
+        OrganizationStaffRepository organizationStaffRepository,
         UserRepository userRepository,
         EmailVerificationService emailVerificationService,
         PasswordEncoder passwordEncoder,
         JwtService jwtService
     ) {
-        this.employeeRepository = employeeRepository;
+        this.organizationStaffRepository = organizationStaffRepository;
         this.userRepository = userRepository;
         this.emailVerificationService = emailVerificationService;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
     }
 
-    @Transactional
-    public LoginResponse login(LoginRequest request) {
-        Employee employee = employeeRepository
-            .findByUsername(request.username().toLowerCase())
-            .filter(Employee::isActive)
-            .orElseThrow(() -> new BadCredentialsException("Invalid username or password"));
-
-        if (!passwordEncoder.matches(request.password(), employee.getPasswordHash())) {
-            throw new BadCredentialsException("Invalid username or password");
-        }
-
-        return issueEmployeeToken(employee);
-    }
-
-    /** Same as {@link #login}, plus a check that the employee belongs to the given org. */
+    /** A staff sign-in, guarded by the organization the dashboard is for. */
     @Transactional
     public LoginResponse dashboardLogin(DashboardLoginRequest request) {
-        Employee employee = employeeRepository
+        User user = userRepository
             .findByUsername(request.identifier().trim().toLowerCase(Locale.ROOT))
-            .filter(Employee::isActive)
+            .filter(User::isActive)
             .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
 
-        if (!passwordEncoder.matches(request.password(), employee.getPasswordHash())) {
-            throw new BadCredentialsException("Invalid credentials");
-        }
-        if (!employee.getOrganization().getId().equals(request.organizationId())) {
+        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new BadCredentialsException("Invalid credentials");
         }
 
-        return issueEmployeeToken(employee);
+        OrganizationStaff staff = organizationStaffRepository
+            .findByUserIdAndActiveTrue(user.getId())
+            .filter(s -> s.getOrganization().getId().equals(request.organizationId()))
+            .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
+
+        return issueStaffToken(user, staff);
     }
 
-    private LoginResponse issueEmployeeToken(Employee employee) {
-        List<Storefront> storefronts = employee.getStorefronts().stream().toList();
+    private LoginResponse issueStaffToken(User user, OrganizationStaff staff) {
+        List<Storefront> storefronts = staff.getStorefronts().stream().toList();
         List<StorefrontSummary> summaries = storefronts.stream().map(StorefrontSummary::from).toList();
         UUID storefrontId = storefronts.size() == 1 ? storefronts.get(0).getId() : null;
 
-        String token = jwtService.generateToken(employee.getId(), employee.getUsername(), employee.getRole().name(), storefrontId);
+        String token = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
         return new LoginResponse(token, summaries);
     }
 
     @Transactional
-    public LoginResponse selectStorefront(UUID employeeId, UUID storefrontId) {
-        Employee employee = employeeRepository
-            .findById(employeeId)
-            .filter(Employee::isActive)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + employeeId + "."));
+    public LoginResponse selectStorefront(UUID userId, UUID storefrontId) {
+        User user = userRepository
+            .findById(userId)
+            .filter(User::isActive)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un usuario con el ID " + userId + "."));
 
-        boolean assigned = employee.getStorefronts().stream().anyMatch(s -> s.getId().equals(storefrontId));
+        OrganizationStaff staff = organizationStaffRepository
+            .findByUserIdAndActiveTrue(userId)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + userId + "."));
+
+        boolean assigned = staff.getStorefronts().stream().anyMatch(s -> s.getId().equals(storefrontId));
         if (!assigned) {
             throw new AccessDeniedException("No estás asignado a ese local.");
         }
 
-        List<StorefrontSummary> summaries = employee.getStorefronts().stream().map(StorefrontSummary::from).toList();
-        String token = jwtService.generateToken(employee.getId(), employee.getUsername(), employee.getRole().name(), storefrontId);
+        List<StorefrontSummary> summaries = staff.getStorefronts().stream().map(StorefrontSummary::from).toList();
+        String token = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
         return new LoginResponse(token, summaries);
     }
-
 
     @Transactional
     public LoginResponse registerUser(UserRegisterRequest request) {

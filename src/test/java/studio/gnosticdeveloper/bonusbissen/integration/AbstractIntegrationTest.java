@@ -1,5 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.integration;
 
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
@@ -13,17 +14,17 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.postgresql.PostgreSQLContainer;
-import studio.gnosticdeveloper.bonusbissen.dto.request.LoginRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.DashboardLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.LoginResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.Employee;
-import studio.gnosticdeveloper.bonusbissen.entity.EmployeeRole;
+import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
+import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
-import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
@@ -56,7 +57,7 @@ public abstract class AbstractIntegrationTest {
     protected TestRestTemplate restTemplate;
 
     @Autowired
-    protected EmployeeRepository employeeRepository;
+    protected OrganizationStaffRepository organizationStaffRepository;
 
     @Autowired
     protected UserRepository userRepository;
@@ -133,15 +134,27 @@ public abstract class AbstractIntegrationTest {
         return "http://localhost:" + port;
     }
 
-    protected Employee createEmployee(String username, String password, EmployeeRole role) {
-        Employee employee = new Employee();
-        employee.setOrganization(defaultOrganization());
-        employee.setUsername(username);
-        employee.setPasswordHash(passwordEncoder.encode(password));
-        employee.setName(username);
-        employee.setRole(role);
-        employee.getStorefronts().add(defaultStorefront());
-        return employeeRepository.save(employee);
+    /** Creates a staff account (a User plus an active OrganizationStaff row) at the default org/storefront. */
+    protected User createEmployee(String username, String password, StaffRole role) {
+        return createEmployee(username, password, role, defaultOrganization(), defaultStorefront());
+    }
+
+    /** Same as above, but for an org/storefront other than the shared defaults. */
+    protected User createEmployee(String username, String password, StaffRole role, Organization organization, Storefront storefront) {
+        User user = new User();
+        user.setUsername(username);
+        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setName(username);
+        user = userRepository.save(user);
+
+        OrganizationStaff staff = new OrganizationStaff();
+        staff.setUser(user);
+        staff.setOrganization(organization);
+        staff.setRole(role);
+        staff.getStorefronts().add(storefront);
+        organizationStaffRepository.save(staff);
+
+        return user;
     }
 
     /**
@@ -173,8 +186,16 @@ public abstract class AbstractIntegrationTest {
     }
 
     protected String loginEmployee(String username, String password) {
+        return loginEmployee(username, password, defaultOrganization().getId());
+    }
+
+    protected String loginEmployee(String username, String password, UUID organizationId) {
         LoginResponse response = restTemplate
-            .postForEntity(baseUrl() + "/auth/login", new LoginRequest(username, password), LoginResponse.class)
+            .postForEntity(
+                baseUrl() + "/auth/dashboard/sign-in",
+                new DashboardLoginRequest(username, password, organizationId),
+                LoginResponse.class
+            )
             .getBody();
         return response.token();
     }

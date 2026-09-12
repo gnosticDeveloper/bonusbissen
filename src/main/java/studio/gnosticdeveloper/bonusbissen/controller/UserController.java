@@ -11,9 +11,11 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.PasswordUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserResponse;
@@ -49,6 +51,19 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public UserResponse update(@PathVariable UUID id, @Valid @RequestBody UserUpdateRequest request) {
         return UserResponse.from(userService.update(id, request));
+    }
+
+    @PatchMapping("/{id}/password")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetPassword(@PathVariable UUID id, @Valid @RequestBody PasswordUpdateRequest request) {
+        userService.resetPassword(id, request.newPassword());
+    }
+
+    @GetMapping("/home-stats")
+    @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
+    public HomeStatsResponse getHomeStats(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return userService.getHomeStats(principal.organizationId());
     }
 
     @PatchMapping("/me")

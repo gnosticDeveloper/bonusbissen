@@ -22,8 +22,8 @@ public record PointActionResponse(
             "add",
             tx.getPoints(),
             tx.getNote() != null ? tx.getNote() : "",
-            tx.getEmployee() != null ? tx.getEmployee().getId() : null,
-            tx.getEmployee() != null ? tx.getEmployee().getName() : null,
+            tx.getEmployee() != null ? tx.getEmployee().getUser().getId() : null,
+            tx.getEmployee() != null ? tx.getEmployee().getUser().getName() : null,
             tx.getCreatedAt().toString()
         );
     }

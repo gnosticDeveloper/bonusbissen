@@ -63,26 +63,6 @@ CREATE TABLE IF NOT EXISTS point_program_storefronts (
     PRIMARY KEY (point_program_id, storefront_id)
 );
 
--- employees: the only accounts that authenticate into the dashboard
--- (cashiers/admins). An employee is assigned to zero or more storefronts;
--- admins are typically org-wide (no rows) or assigned to all of them.
-CREATE TABLE IF NOT EXISTS employees (
-    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id  UUID NOT NULL REFERENCES organizations(id),
-    username         VARCHAR(100) NOT NULL UNIQUE,
-    password_hash    VARCHAR(255) NOT NULL,
-    name             VARCHAR(255) NOT NULL,
-    role             VARCHAR(20)  NOT NULL CHECK (role IN ('admin', 'cashier')),
-    active           BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_at       TIMESTAMPTZ  NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS employee_storefronts (
-    employee_id    UUID NOT NULL REFERENCES employees(id),
-    storefront_id  UUID NOT NULL REFERENCES storefronts(id),
-    PRIMARY KEY (employee_id, storefront_id)
-);
-
 -- users: self-service loyalty accounts. A user signs up and authenticates
 -- with a username + password. Email is optional; once verified it can also
 -- be used as a login identifier. Both username and email are unique. The
@@ -96,6 +76,27 @@ CREATE TABLE IF NOT EXISTS users (
     name           VARCHAR(255) NOT NULL,
     active         BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at     TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+-- organization_staff: is this user currently staff somewhere, and with what
+-- role. Not a second account -- credentials live on `users`. At most one row
+-- per user may be active at a time (enforced below).
+CREATE TABLE IF NOT EXISTS organization_staff (
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id          UUID NOT NULL REFERENCES users(id),
+    organization_id  UUID NOT NULL REFERENCES organizations(id),
+    role             VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'cashier')),
+    active           BOOLEAN     NOT NULL DEFAULT TRUE,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_organization_staff_active_user
+    ON organization_staff(user_id) WHERE active = true;
+
+CREATE TABLE IF NOT EXISTS staff_storefronts (
+    staff_id       UUID NOT NULL REFERENCES organization_staff(id),
+    storefront_id  UUID NOT NULL REFERENCES storefronts(id),
+    PRIMARY KEY (staff_id, storefront_id)
 );
 
 -- email_verification_tokens: one row per verification attempt. The address
@@ -137,7 +138,7 @@ CREATE TABLE IF NOT EXISTS point_transactions (
     point_program_id         UUID NOT NULL REFERENCES point_programs(id),
     storefront_id            UUID REFERENCES storefronts(id),
     reward_id                UUID REFERENCES rewards(id),
-    employee_id              UUID REFERENCES employees(id), -- if null, it means the transaction is "pending". if not null, the transaction is either "completed" or "cancelled".
+    employee_id              UUID REFERENCES organization_staff(id), -- the staff membership that acted; if null, the transaction is "pending". if not null, it's "completed" or "cancelled".
     refunded_transaction_id  UUID REFERENCES point_transactions(id), -- set only on the refund 'earn' row created when a redeem is cancelled
     transaction_type         VARCHAR(10) NOT NULL CHECK (transaction_type IN ('earn', 'redeem')),
     points                   INT NOT NULL,  -- positive when adding points, negative when claiming rewards
@@ -179,12 +180,13 @@ CREATE INDEX IF NOT EXISTS idx_point_transactions_point_program_id ON point_tran
 CREATE INDEX IF NOT EXISTS idx_point_transactions_storefront_id ON point_transactions(storefront_id);
 CREATE INDEX IF NOT EXISTS idx_rewards_active ON rewards(active) WHERE active = TRUE;
 CREATE INDEX IF NOT EXISTS idx_rewards_point_program_id ON rewards(point_program_id);
-CREATE INDEX IF NOT EXISTS idx_employees_organization_id ON employees(organization_id);
+CREATE INDEX IF NOT EXISTS idx_organization_staff_organization_id ON organization_staff(organization_id);
+CREATE INDEX IF NOT EXISTS idx_organization_staff_user_id ON organization_staff(user_id);
 CREATE INDEX IF NOT EXISTS idx_storefronts_organization_id ON storefronts(organization_id);
 CREATE INDEX IF NOT EXISTS idx_storefronts_city ON storefronts(city) WHERE city IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_point_programs_organization_id ON point_programs(organization_id);
 CREATE INDEX IF NOT EXISTS idx_pps_storefront_id ON point_program_storefronts(storefront_id);
-CREATE INDEX IF NOT EXISTS idx_es_storefront_id ON employee_storefronts(storefront_id);
+CREATE INDEX IF NOT EXISTS idx_staff_storefronts_storefront_id ON staff_storefronts(storefront_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_exchange_codes_point_transaction_id ON exchange_codes(point_transaction_id);
 -- Codes only need to be unique within an organization: two different
 -- businesses independently generating the same 6-character code is fine,

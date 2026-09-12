@@ -10,40 +10,36 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
+/** Whether a {@link User} is currently staff somewhere, and with what role. At most one row per user is active at a time. */
 @Entity
-@Table(name = "employees")
+@Table(name = "organization_staff")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Employee {
+public class OrganizationStaff {
 
     @Id
     @GeneratedValue
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
 
-    @Column(nullable = false, unique = true, length = 100)
-    private String username;
-
-    @Column(name = "password_hash", nullable = false, length = 255)
-    private String passwordHash;
-
-    @Column(nullable = false, length = 255)
-    private String name;
-
     @Column(nullable = false, length = 20)
-    private EmployeeRole role;
+    private StaffRole role;
 
     @Column(nullable = false)
     private boolean active = true;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-        name = "employee_storefronts",
-        joinColumns = @JoinColumn(name = "employee_id"),
+        name = "staff_storefronts",
+        joinColumns = @JoinColumn(name = "staff_id"),
         inverseJoinColumns = @JoinColumn(name = "storefront_id")
     )
     private Set<Storefront> storefronts = new HashSet<>();

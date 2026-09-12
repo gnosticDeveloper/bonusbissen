@@ -5,13 +5,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import studio.gnosticdeveloper.bonusbissen.dto.request.DashboardLoginRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.LoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ResendVerificationRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserRegisterRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.VerifyEmailRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.LoginResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.EmployeeRole;
+import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,23 +18,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AuthIntegrationTest extends AbstractIntegrationTest {
 
     @Test
-    void loginWithValidCredentialsReturnsToken() {
-        createEmployee("cashier-auth-ok", "correct-password", EmployeeRole.CASHIER);
-
-        ResponseEntity<LoginResponse> response = restTemplate.postForEntity(
-            baseUrl() + "/auth/login",
-            new LoginRequest("cashier-auth-ok", "correct-password"),
-            LoginResponse.class
-        );
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().token()).isNotBlank();
-    }
-
-    @Test
     void dashboardSignInWithMatchingOrganizationReturnsToken() {
-        createEmployee("cashier-dash-ok", "password123", EmployeeRole.CASHIER);
+        createEmployee("cashier-dash-ok", "password123", StaffRole.CASHIER);
 
         ResponseEntity<LoginResponse> response = restTemplate.postForEntity(
             baseUrl() + "/auth/dashboard/sign-in",
@@ -50,7 +34,7 @@ class AuthIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void dashboardSignInWithWrongOrganizationIsRejected() {
-        createEmployee("cashier-dash-wrong-org", "password123", EmployeeRole.CASHIER);
+        createEmployee("cashier-dash-wrong-org", "password123", StaffRole.CASHIER);
 
         ResponseEntity<String> response = restTemplate.postForEntity(
             baseUrl() + "/auth/dashboard/sign-in",
@@ -62,12 +46,12 @@ class AuthIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void loginWithWrongPasswordIsRejected() {
-        createEmployee("cashier-auth-wrong-pw", "correct-password", EmployeeRole.CASHIER);
+    void dashboardSignInWithWrongPasswordIsRejected() {
+        createEmployee("cashier-auth-wrong-pw", "correct-password", StaffRole.CASHIER);
 
         ResponseEntity<String> response = restTemplate.postForEntity(
-            baseUrl() + "/auth/login",
-            new LoginRequest("cashier-auth-wrong-pw", "wrong-password"),
+            baseUrl() + "/auth/dashboard/sign-in",
+            new DashboardLoginRequest("cashier-auth-wrong-pw", "wrong-password", defaultOrganization().getId()),
             String.class
         );
 
@@ -75,10 +59,10 @@ class AuthIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void loginWithUnknownUsernameIsRejected() {
+    void dashboardSignInWithUnknownUsernameIsRejected() {
         ResponseEntity<String> response = restTemplate.postForEntity(
-            baseUrl() + "/auth/login",
-            new LoginRequest("ghost-user", "whatever"),
+            baseUrl() + "/auth/dashboard/sign-in",
+            new DashboardLoginRequest("ghost-user", "whatever", defaultOrganization().getId()),
             String.class
         );
 

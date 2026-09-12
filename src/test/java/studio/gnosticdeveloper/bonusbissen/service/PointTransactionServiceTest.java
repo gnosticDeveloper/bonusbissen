@@ -11,7 +11,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
-import studio.gnosticdeveloper.bonusbissen.entity.Employee;
+import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
@@ -20,7 +20,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
-import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
@@ -43,7 +43,7 @@ class PointTransactionServiceTest {
     @Mock
     private ExchangeCodeRepository exchangeCodeRepository;
     @Mock
-    private EmployeeRepository employeeRepository;
+    private OrganizationStaffRepository organizationStaffRepository;
     @Mock
     private PointProgramRepository pointProgramRepository;
 
@@ -90,11 +90,11 @@ class PointTransactionServiceTest {
 
         PointTransaction tx = pendingRedeem(organization);
 
-        Employee employee = new Employee();
+        OrganizationStaff employee = new OrganizationStaff();
         employee.setId(UUID.randomUUID());
 
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
-        when(employeeRepository.findById(employee.getId())).thenReturn(Optional.of(employee));
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(employee.getId())).thenReturn(Optional.of(employee));
 
         pointTransactionService.approveExchange(new ApproveExchangeRequest(tx.getId(), employee.getId()), organization.getId());
 
@@ -134,11 +134,11 @@ class PointTransactionServiceTest {
         PointTransaction tx = pendingRedeem(organization);
         tx.setPoints(-20);
 
-        Employee employee = new Employee();
+        OrganizationStaff employee = new OrganizationStaff();
         employee.setId(UUID.randomUUID());
 
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
-        when(employeeRepository.findById(employee.getId())).thenReturn(Optional.of(employee));
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(employee.getId())).thenReturn(Optional.of(employee));
 
         pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), employee.getId(), false), organization.getId());
 
@@ -172,11 +172,11 @@ class PointTransactionServiceTest {
         tx.setPoints(-20);
         tx.setUser(user);
 
-        Employee employee = new Employee();
+        OrganizationStaff employee = new OrganizationStaff();
         employee.setId(UUID.randomUUID());
 
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
-        when(employeeRepository.findById(employee.getId())).thenReturn(Optional.of(employee));
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(employee.getId())).thenReturn(Optional.of(employee));
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), employee.getId(), true), organization.getId());

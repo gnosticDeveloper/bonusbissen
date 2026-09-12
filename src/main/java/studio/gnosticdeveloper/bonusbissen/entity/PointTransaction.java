@@ -37,7 +37,7 @@ public class PointTransaction {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id", nullable = true)
-    private Employee employee;
+    private OrganizationStaff employee;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "refunded_transaction_id", nullable = true)
