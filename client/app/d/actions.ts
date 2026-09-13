@@ -4,7 +4,7 @@ import { request } from "@/lib/api";
 import { HomeStats, PendingExchangeReview, TopClient, TopReward } from "./types";
 
 export async function getHomeStats(): Promise<HomeStats> {
-  const response = await request("/employees/home-stats");
+  const response = await request("/users/home-stats");
   const data = await response.json();
 
   return data;

@@ -14,8 +14,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
-import studio.gnosticdeveloper.bonusbissen.entity.Employee;
-import studio.gnosticdeveloper.bonusbissen.entity.EmployeeRole;
+import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 
 import java.util.List;
@@ -62,7 +61,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     // userId with no check that it matches the caller's own identity. ---
     @Test
     void userCannotClaimRewardOnBehalfOfAnotherUser() {
-        Employee cashier = createEmployee("cashier-idor-claim", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-idor-claim", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-idor-claim", "password123");
 
         User attacker = createUser("+5493462003001");
@@ -87,7 +86,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     // expensive reward, driving their balance negative for free. ---
     @Test
     void claimRewardWithInsufficientBalanceIsRejected() {
-        Employee cashier = createEmployee("cashier-insufficient", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-insufficient", "password123", StaffRole.CASHIER);
         loginEmployee("cashier-insufficient", "password123");
 
         User user = createUser("+5493462003003");
@@ -109,7 +108,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     // --- No active check on the reward being claimed. ---
     @Test
     void claimingADeactivatedRewardIsRejected() {
-        Employee cashier = createEmployee("cashier-inactive-reward", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-inactive-reward", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-inactive-reward", "password123");
 
         User user = createUser("+5493462003004");
@@ -135,7 +134,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     // employeeId, bypassing in-person handoff entirely. ---
     @Test
     void userCannotSelfApproveTheirOwnExchange() {
-        Employee cashier = createEmployee("cashier-self-approve", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-self-approve", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-self-approve", "password123");
 
         User user = createUser("+5493462003005");
@@ -167,7 +166,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     // already received. No state-transition guard prevents this. ---
     @Test
     void cancellingAnAlreadyDeliveredExchangeIsRejected() {
-        Employee cashier = createEmployee("cashier-double-refund", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-double-refund", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-double-refund", "password123");
 
         User user = createUser("+5493462003006");
@@ -206,7 +205,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     // pending exchange from being cancelled-with-refund twice. ---
     @Test
     void cancellingTheSameExchangeTwiceOnlyRefundsOnce() {
-        Employee cashier = createEmployee("cashier-double-cancel", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-double-cancel", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-double-cancel", "password123");
 
         User user = createUser("+5493462003007");
@@ -245,7 +244,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     // (and force-refund) a stranger's in-flight redemption. ---
     @Test
     void userCannotCancelAnotherUsersExchange() {
-        Employee cashier = createEmployee("cashier-cross-cancel", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-cross-cancel", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-cross-cancel", "password123");
 
         User victim = createUser("+5493462003008");
@@ -315,7 +314,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     // users, who are restricted to themselves above). ---
     @Test
     void employeeCanStillViewAnyUsersBalance() {
-        Employee cashier = createEmployee("cashier-view-any", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-view-any", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-view-any", "password123");
         User user = createUser("+5493462003015");
 
@@ -367,7 +366,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     // the DB. ---
     @Test
     void grantingNegativePointsDoesNotCorruptBalanceEvenThoughErrorHandlingIsUgly() {
-        Employee cashier = createEmployee("cashier-negative-grant", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-negative-grant", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-negative-grant", "password123");
         User user = createUser("+5493462003010");
 
@@ -404,7 +403,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     // other user's pending exchanges. ---
     @Test
     void userCannotViewAnotherUsersPendingExchanges() {
-        Employee cashier = createEmployee("cashier-pending-idor", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-pending-idor", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-pending-idor", "password123");
 
         User victim = createUser("+5493462003017");
@@ -435,7 +434,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     // (this endpoint is used by the user-facing "mis puntos" page). ---
     @Test
     void userCanViewTheirOwnPendingExchanges() {
-        Employee cashier = createEmployee("cashier-own-pending", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-own-pending", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-own-pending", "password123");
 
         User user = createUser("+5493462003019");
@@ -498,7 +497,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     // deactivate a reward must be rejected, not just discouraged by the UI. ---
     @Test
     void cashierCannotDeleteReward() {
-        Employee cashier = createEmployee("cashier-delete-reward", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-delete-reward", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-delete-reward", "password123");
         Reward reward = createReward("Cashier Cannot Delete Me", 30);
 

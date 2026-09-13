@@ -14,6 +14,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
@@ -21,7 +22,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
-import studio.gnosticdeveloper.bonusbissen.entity.Employee;
+import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
@@ -34,12 +35,13 @@ import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
-import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Service
 public class UserService {
@@ -48,29 +50,56 @@ public class UserService {
     private final PointTransactionRepository pointTransactionRepository;
     private final RewardRepository rewardRepository;
     private final ExchangeCodeRepository exchangeCodeRepository;
-    private final EmployeeRepository employeeRepository;
+    private final OrganizationStaffRepository organizationStaffRepository;
     private final PointProgramRepository pointProgramRepository;
     private final StorefrontRepository storefrontRepository;
     private final EmailVerificationService emailVerificationService;
+    private final PasswordEncoder passwordEncoder;
 
     public UserService(
         UserRepository userRepository,
         PointTransactionRepository pointTransactionRepository,
         RewardRepository rewardRepository,
         ExchangeCodeRepository exchangeCodeRepository,
-        EmployeeRepository employeeRepository,
+        OrganizationStaffRepository organizationStaffRepository,
         PointProgramRepository pointProgramRepository,
         StorefrontRepository storefrontRepository,
-        EmailVerificationService emailVerificationService
+        EmailVerificationService emailVerificationService,
+        PasswordEncoder passwordEncoder
     ) {
         this.userRepository = userRepository;
         this.pointTransactionRepository = pointTransactionRepository;
         this.rewardRepository = rewardRepository;
         this.exchangeCodeRepository = exchangeCodeRepository;
-        this.employeeRepository = employeeRepository;
+        this.organizationStaffRepository = organizationStaffRepository;
         this.pointProgramRepository = pointProgramRepository;
         this.storefrontRepository = storefrontRepository;
         this.emailVerificationService = emailVerificationService;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    /** Resets the password of a currently-active staff account. */
+    @Transactional
+    public void resetPassword(UUID userId, String newPassword) {
+        organizationStaffRepository
+            .findByUserIdAndActiveTrue(userId)
+            .orElseThrow(() -> new NotFoundException("Employee not found: " + userId));
+        User user = userRepository
+            .findById(userId)
+            .orElseThrow(() -> new NotFoundException("Employee not found: " + userId));
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public HomeStatsResponse getHomeStats(UUID organizationId) {
+        int totalExchanges = pointTransactionRepository.countByTransactionType(TransactionType.REDEEM, organizationId);
+        int pendingExchanges = pointTransactionRepository.countByTransactionTypeStatePending(TransactionType.REDEEM, organizationId);
+        //This should use a many to many once we add subscription mechanics to org's point stores
+        int totalUsers = userRepository.countCustomers();
+        int totalPointsAwarded = pointTransactionRepository.calculatePointsAwarded(TransactionType.EARN, organizationId);
+
+        return new HomeStatsResponse(totalExchanges, pendingExchanges, totalUsers, totalPointsAwarded);
     }
 
     /**
@@ -200,8 +229,8 @@ public class UserService {
             throw new BadRequestException("Elegí un local antes de sumar puntos.");
         }
 
-        Employee employee = employeeRepository
-            .findById(employeeId)
+        OrganizationStaff employee = organizationStaffRepository
+            .findByUserIdAndActiveTrue(employeeId)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + employeeId + "."));
 
         User user = userRepository

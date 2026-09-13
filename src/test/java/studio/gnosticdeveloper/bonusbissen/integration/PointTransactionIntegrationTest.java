@@ -16,8 +16,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
-import studio.gnosticdeveloper.bonusbissen.entity.Employee;
-import studio.gnosticdeveloper.bonusbissen.entity.EmployeeRole;
+import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 
 import java.util.List;
@@ -69,7 +68,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void grantPointsIncreasesUserBalance() {
-        Employee cashier = createEmployee("cashier-grant", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-grant", "password123", StaffRole.CASHIER);
         String token = loginEmployee("cashier-grant", "password123");
         User user = createUser("+5493462001001");
 
@@ -80,7 +79,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void grantPointsToInactiveUserReturnsNotFound() {
-        Employee cashier = createEmployee("cashier-grant-inactive", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-grant-inactive", "password123", StaffRole.CASHIER);
         String token = loginEmployee("cashier-grant-inactive", "password123");
         User user = createInactiveUser("+5493462002001");
 
@@ -96,7 +95,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void searchExcludesInactiveUsers() {
-        Employee cashier = createEmployee("cashier-lookup-inactive", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-lookup-inactive", "password123", StaffRole.CASHIER);
         String token = loginEmployee("cashier-lookup-inactive", "password123");
         createInactiveUser("+5493462002002");
 
@@ -112,15 +111,49 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void searchExcludesStaffAccounts() {
+        User cashier = createEmployee("cashier-search-self", "password123", StaffRole.CASHIER);
+        String token = loginEmployee("cashier-search-self", "password123");
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/users?search=cashier-search-self",
+            HttpMethod.GET,
+            authed(token),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).doesNotContain("cashier-search-self");
+    }
+
+    @Test
+    void topClientsExcludesStaffAccountsEvenIfTheyHoldPoints() {
+        User cashier = createEmployee("cashier-top-self-staff", "password123", StaffRole.CASHIER);
+        String token = loginEmployee("cashier-top-self-staff", "password123");
+
+        grant(token, cashier.getId(), 999_999);
+
+        ResponseEntity<List<TopClientResponse>> response = restTemplate.exchange(
+            baseUrl() + "/users/top",
+            HttpMethod.GET,
+            authed(token),
+            new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).extracting(TopClientResponse::id).doesNotContain(cashier.getId());
+    }
+
+    @Test
     void claimRewardWithStaleTokenAfterDeactivationIsRejected() {
         // JwtAuthFilter re-resolves the token's principal against the DB on every
         // request (see PrincipalResolver); once active=false the principal no longer
         // resolves, so the request falls through as anonymous and Spring Security
         // rejects it here, before UserService.claimReward's own active check
         // would ever run.
-        Employee admin = createEmployee("admin-deactivate", "password123", EmployeeRole.ADMIN);
+        User admin = createEmployee("admin-deactivate", "password123", StaffRole.ADMIN);
         String adminToken = loginEmployee("admin-deactivate", "password123");
-        Employee cashier = createEmployee("cashier-deactivate", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-deactivate", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-deactivate", "password123");
 
         User user = createUser("+5493462002003");
@@ -152,7 +185,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         // userId (see AdversarialIntegrationTest), so that check fires
         // before UserService.claimReward's own active-user check ever
         // gets a chance to run — 403, not 404.
-        Employee cashier = createEmployee("cashier-claim-inactive", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-claim-inactive", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-claim-inactive", "password123");
         User requester = createUser("+5493462002004");
         String requesterToken = loginUser("+5493462002004");
@@ -186,7 +219,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void claimRewardCreatesPendingExchangeAndDecrementsBalance() {
-        Employee cashier = createEmployee("cashier-claim", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-claim", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-claim", "password123");
         User user = createUser("+5493462001003");
         grant(cashierToken, user.getId(), 100);
@@ -205,7 +238,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void employeeApproveExchangeMarksItDelivered() {
-        Employee cashier = createEmployee("cashier-approve", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-approve", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-approve", "password123");
         User user = createUser("+5493462001004");
         grant(cashierToken, user.getId(), 50);
@@ -236,7 +269,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void employeeCancelExchangeWithRefundRestoresBalance() {
-        Employee cashier = createEmployee("cashier-cancel", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-cancel", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-cancel", "password123");
         User user = createUser("+5493462001005");
         grant(cashierToken, user.getId(), 40);
@@ -260,7 +293,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void employeeCancelExchangeWithoutRefundLeavesBalanceReduced() {
-        Employee cashier = createEmployee("cashier-cancel-norefund", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-cancel-norefund", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-cancel-norefund", "password123");
         User user = createUser("+5493462001006");
         grant(cashierToken, user.getId(), 40);
@@ -283,7 +316,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void userCancelExchangeAlwaysRefundsPoints() {
-        Employee cashier = createEmployee("cashier-user-cancel", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-user-cancel", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-user-cancel", "password123");
         User user = createUser("+5493462001007");
         grant(cashierToken, user.getId(), 60);
@@ -307,7 +340,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void verifyExchangeWithValidCodeReturnsTheTransaction() {
-        Employee cashier = createEmployee("cashier-verify-ok", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-verify-ok", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-verify-ok", "password123");
         User user = createUser("+5493462001008");
         grant(cashierToken, user.getId(), 30);
@@ -332,7 +365,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void verifyExchangeWithUnknownCodeReturnsNotFound() {
-        Employee cashier = createEmployee("cashier-verify-404", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-verify-404", "password123", StaffRole.CASHIER);
         String token = loginEmployee("cashier-verify-404", "password123");
 
         ResponseEntity<String> response = restTemplate.exchange(
@@ -369,7 +402,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void topClientsRanksByPointsEarnedDescending() {
-        Employee cashier = createEmployee("cashier-top-clients", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-top-clients", "password123", StaffRole.CASHIER);
         String token = loginEmployee("cashier-top-clients", "password123");
         User bigSpender = createUser("+5493462001010");
         User smallSpender = createUser("+5493462001011");
@@ -392,7 +425,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void topRewardsRanksByClaimCountDescending() {
-        Employee cashier = createEmployee("cashier-top-rewards", "password123", EmployeeRole.CASHIER);
+        User cashier = createEmployee("cashier-top-rewards", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-top-rewards", "password123");
         User user = createUser("+5493462001012");
         grant(cashierToken, user.getId(), 1000);

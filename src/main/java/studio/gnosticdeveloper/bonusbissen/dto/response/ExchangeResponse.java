@@ -24,7 +24,7 @@ public record ExchangeResponse(
         return new ExchangeResponse(
             ex.getId(),
             ex.getUser().getName(),
-            ex.getEmployee() != null ? ex.getEmployee().getName() : null,
+            ex.getEmployee() != null ? ex.getEmployee().getUser().getName() : null,
             ex.getReward() != null ? ex.getReward().getTitle() : null,
             ex.getState().getValue(),
             ex.getPoints(),

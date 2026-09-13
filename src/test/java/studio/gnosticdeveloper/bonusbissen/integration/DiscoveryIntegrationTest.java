@@ -13,11 +13,10 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.BusinessResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CityOption;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.Employee;
-import studio.gnosticdeveloper.bonusbissen.entity.EmployeeRole;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
+import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 
@@ -61,15 +60,8 @@ class DiscoveryIntegrationTest extends AbstractIntegrationTest {
         rewardRepository.save(reward);
     }
 
-    private Employee cashierFor(Storefront storefront, String username) {
-        Employee employee = new Employee();
-        employee.setOrganization(storefront.getOrganization());
-        employee.setUsername(username);
-        employee.setPasswordHash(passwordEncoder.encode("password123"));
-        employee.setName(username);
-        employee.setRole(EmployeeRole.CASHIER);
-        employee.getStorefronts().add(storefront);
-        return employeeRepository.save(employee);
+    private User cashierFor(Storefront storefront, String username) {
+        return createEmployee(username, "password123", StaffRole.CASHIER, storefront.getOrganization(), storefront);
     }
 
     @Test
@@ -128,7 +120,7 @@ class DiscoveryIntegrationTest extends AbstractIntegrationTest {
     void discoverPointsReflectTheViewersBalanceWhenTokenIsPresent() {
         Fixture fx = seedBusiness("gamma", "Pueblo Gamma, Córdoba");
         cashierFor(fx.storefront(), "cashier-discover-gamma");
-        String cashierToken = loginEmployee("cashier-discover-gamma", "password123");
+        String cashierToken = loginEmployee("cashier-discover-gamma", "password123", fx.storefront().getOrganization().getId());
         User user = createUser("discover-gamma-user");
         String userToken = loginUser("discover-gamma-user");
 

@@ -13,14 +13,14 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeReviewResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointsSummaryResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.Employee;
+import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
-import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
@@ -32,18 +32,18 @@ public class PointTransactionService {
 
     private final PointTransactionRepository pointTransactionRepository;
     private final ExchangeCodeRepository exchangeCodeRepository;
-    private final EmployeeRepository employeeRepository;
+    private final OrganizationStaffRepository organizationStaffRepository;
     private final PointProgramRepository pointProgramRepository;
 
     public PointTransactionService(
         PointTransactionRepository pointTransactionRepository,
         ExchangeCodeRepository exchangeCodeRepository,
-        EmployeeRepository employeeRepository,
+        OrganizationStaffRepository organizationStaffRepository,
         PointProgramRepository pointProgramRepository
     ) {
         this.pointTransactionRepository = pointTransactionRepository;
         this.exchangeCodeRepository = exchangeCodeRepository;
-        this.employeeRepository = employeeRepository;
+        this.organizationStaffRepository = organizationStaffRepository;
         this.pointProgramRepository = pointProgramRepository;
     }
 
@@ -140,8 +140,8 @@ public class PointTransactionService {
             throw new ConflictException("El canje " + request.id() + " ya fue procesado (" + pointTransaction.getState() + ").");
         }
 
-        Employee employee = employeeRepository
-            .findById(request.employeeId())
+        OrganizationStaff employee = organizationStaffRepository
+            .findByUserIdAndActiveTrue(request.employeeId())
             .orElseThrow(() -> new NotFoundException("Employee not found: " + request.employeeId()));
 
         pointTransaction.setState(TransactionState.DELIVERED);
@@ -160,8 +160,8 @@ public class PointTransactionService {
             throw new ConflictException("El canje " + request.id() + " ya fue procesado (" + pointTransaction.getState() + ").");
         }
 
-        Employee employee = employeeRepository
-            .findById(request.employeeId())
+        OrganizationStaff employee = organizationStaffRepository
+            .findByUserIdAndActiveTrue(request.employeeId())
             .orElseThrow(() -> new NotFoundException("Employee not found: " + request.employeeId()));
 
         pointTransaction.setState(TransactionState.CANCELLED);

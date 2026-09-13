@@ -9,10 +9,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointsSummaryResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.Employee;
-import studio.gnosticdeveloper.bonusbissen.entity.EmployeeRole;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
+import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 
@@ -37,24 +36,17 @@ class CustomerAppIntegrationTest extends AbstractIntegrationTest {
         program.getStorefronts().add(storefront);
         program = pointProgramRepository.save(program);
 
-        Employee cashier = new Employee();
-        cashier.setOrganization(org);
-        cashier.setUsername("cashier-summary-" + slug);
-        cashier.setPasswordHash(passwordEncoder.encode("password123"));
-        cashier.setName("cashier-summary-" + slug);
-        cashier.setRole(EmployeeRole.CASHIER);
-        cashier.getStorefronts().add(storefront);
-        employeeRepository.save(cashier);
+        createEmployee("cashier-summary-" + slug, "password123", StaffRole.CASHIER, org, storefront);
 
         return program;
     }
 
-    private void grant(String slug, UUID userId, UUID programId, int points) {
-        String token = loginEmployee("cashier-summary-" + slug, "password123");
+    private void grant(String slug, UUID userId, PointProgram program, int points) {
+        String token = loginEmployee("cashier-summary-" + slug, "password123", program.getOrganization().getId());
         ResponseEntity<Void> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(token, new GrantPointsRequest(userId, points, null, programId)),
+            authed(token, new GrantPointsRequest(userId, points, null, program.getId())),
             Void.class
         );
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -67,8 +59,8 @@ class CustomerAppIntegrationTest extends AbstractIntegrationTest {
         User user = createUser("summary-user");
         String userToken = loginUser("summary-user");
 
-        grant("coffee", user.getId(), coffee.getId(), 120);
-        grant("books", user.getId(), books.getId(), 30);
+        grant("coffee", user.getId(), coffee, 120);
+        grant("books", user.getId(), books, 30);
 
         ResponseEntity<PointsSummaryResponse> response = restTemplate.exchange(
             baseUrl() + "/exchanges/summary",
@@ -114,7 +106,7 @@ class CustomerAppIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void summaryRejectsEmployeeTokens() {
-        createEmployee("cashier-summary-denied", "password123", EmployeeRole.CASHIER);
+        createEmployee("cashier-summary-denied", "password123", StaffRole.CASHIER);
         String token = loginEmployee("cashier-summary-denied", "password123");
 
         ResponseEntity<String> response = restTemplate.exchange(
@@ -125,6 +117,21 @@ class CustomerAppIntegrationTest extends AbstractIntegrationTest {
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void staffAccountCanStillLogInAndActAsAnOrdinaryCustomer() {
+        createEmployee("cashier-dual-role", TEST_USER_PASSWORD, StaffRole.CASHIER);
+        String customerToken = loginUser("cashier-dual-role");
+
+        ResponseEntity<PointsSummaryResponse> response = restTemplate.exchange(
+            baseUrl() + "/exchanges/summary",
+            HttpMethod.GET,
+            authed(customerToken),
+            PointsSummaryResponse.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
     @Test

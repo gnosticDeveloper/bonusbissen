@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
@@ -19,7 +20,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
-import studio.gnosticdeveloper.bonusbissen.entity.Employee;
+import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
@@ -33,7 +34,7 @@ import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
-import studio.gnosticdeveloper.bonusbissen.repository.EmployeeRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
@@ -65,13 +66,15 @@ class UserServiceTest {
     @Mock
     private ExchangeCodeRepository exchangeCodeRepository;
     @Mock
-    private EmployeeRepository employeeRepository;
+    private OrganizationStaffRepository organizationStaffRepository;
     @Mock
     private PointProgramRepository pointProgramRepository;
     @Mock
     private StorefrontRepository storefrontRepository;
     @Mock
     private EmailVerificationService emailVerificationService;
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private UserService userService;
@@ -80,11 +83,11 @@ class UserServiceTest {
     private static final UUID PROGRAM_ID = UUID.randomUUID();
     private static final UUID STOREFRONT_ID = UUID.randomUUID();
 
-    private Employee employeeWithOrganization() {
+    private OrganizationStaff employeeWithOrganization() {
         Organization organization = new Organization();
         organization.setId(UUID.randomUUID());
 
-        Employee employee = new Employee();
+        OrganizationStaff employee = new OrganizationStaff();
         employee.setId(EMPLOYEE_ID);
         employee.setOrganization(organization);
         return employee;
@@ -178,7 +181,7 @@ class UserServiceTest {
         user.setId(userId);
         user.setActive(false);
 
-        when(employeeRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> userService.grantPoints(grantRequest(userId, 50), EMPLOYEE_ID, STOREFRONT_ID))
@@ -201,7 +204,7 @@ class UserServiceTest {
         User user = new User();
         user.setId(userId);
 
-        when(employeeRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(pointProgramRepository.existsByIdAndStorefronts_Id(PROGRAM_ID, STOREFRONT_ID)).thenReturn(false);
 
@@ -236,7 +239,7 @@ class UserServiceTest {
         user.setId(userId);
         user.setName("Someone");
 
-        when(employeeRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         stubGrantProgramAndStorefront();
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -258,7 +261,7 @@ class UserServiceTest {
     @Test
     void grantPointsWithUnknownUserThrowsNotFound() {
         UUID userId = UUID.randomUUID();
-        when(employeeRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.grantPoints(grantRequest(userId, 50), EMPLOYEE_ID, STOREFRONT_ID))
@@ -361,9 +364,14 @@ class UserServiceTest {
         Organization organization = new Organization();
         organization.setId(organizationId);
 
-        Employee employee = new Employee();
+        User staffUser = new User();
+        staffUser.setId(UUID.randomUUID());
+        staffUser.setName("Cashier");
+
+        OrganizationStaff employee = new OrganizationStaff();
         employee.setId(UUID.randomUUID());
         employee.setOrganization(organization);
+        employee.setUser(staffUser);
 
         User user = new User();
         user.setId(UUID.randomUUID());
