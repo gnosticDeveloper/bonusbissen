@@ -11,12 +11,16 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.PointProgramUpdateRequest
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
+import studio.gnosticdeveloper.bonusbissen.entity.User;
+import studio.gnosticdeveloper.bonusbissen.entity.UserPointProgram;
 import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.UserPointProgramRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 
 @Service
 public class PointProgramService {
@@ -24,15 +28,21 @@ public class PointProgramService {
     private final PointProgramRepository pointProgramRepository;
     private final StorefrontRepository storefrontRepository;
     private final OrganizationRepository organizationRepository;
+    private final UserPointProgramRepository userPointProgramRepository;
+    private final UserRepository userRepository;
 
     public PointProgramService(
         PointProgramRepository pointProgramRepository,
         StorefrontRepository storefrontRepository,
-        OrganizationRepository organizationRepository
+        OrganizationRepository organizationRepository,
+        UserPointProgramRepository userPointProgramRepository,
+        UserRepository userRepository
     ) {
         this.pointProgramRepository = pointProgramRepository;
         this.storefrontRepository = storefrontRepository;
         this.organizationRepository = organizationRepository;
+        this.userPointProgramRepository = userPointProgramRepository;
+        this.userRepository = userRepository;
     }
 
     @Transactional(readOnly = true)
@@ -84,6 +94,39 @@ public class PointProgramService {
         Set<UUID> toRemove = new HashSet<>(storefrontIds);
         program.getStorefronts().removeIf(s -> toRemove.contains(s.getId()));
         return pointProgramRepository.save(program);
+    }
+
+    /** Self-service join: a user opts in to any active program. */
+    @Transactional
+    public void join(UUID userId, UUID programId) {
+        PointProgram program = pointProgramRepository
+            .findById(programId)
+            .filter(PointProgram::isActive)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar el programa de puntos con ID " + programId + "."));
+        User user = userRepository
+            .findById(userId)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + userId + "."));
+        joinIfMissing(user, program);
+    }
+
+    /** Staff joining a user to one of their own organization's programs on the user's behalf. */
+    @Transactional
+    public void joinOnBehalf(UUID userId, UUID programId, UUID organizationId) {
+        PointProgram program = getOwned(programId, organizationId);
+        User user = userRepository
+            .findById(userId)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + userId + "."));
+        joinIfMissing(user, program);
+    }
+
+    private void joinIfMissing(User user, PointProgram program) {
+        if (userPointProgramRepository.existsByUser_IdAndPointProgram_Id(user.getId(), program.getId())) {
+            return;
+        }
+        UserPointProgram membership = new UserPointProgram();
+        membership.setUser(user);
+        membership.setPointProgram(program);
+        userPointProgramRepository.save(membership);
     }
 
     private PointProgram getOwned(UUID id, UUID organizationId) {

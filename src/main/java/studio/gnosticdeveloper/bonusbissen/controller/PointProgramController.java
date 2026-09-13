@@ -8,6 +8,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import studio.gnosticdeveloper.bonusbissen.dto.request.AttachStorefrontsRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.JoinPointProgramRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.PointProgramCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.PointProgramUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointProgramResponse;
@@ -58,6 +59,17 @@ public class PointProgramController {
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
         return PointProgramResponse.from(pointProgramService.attachStorefronts(id, request.storefrontIds(), principal.organizationId()));
+    }
+
+    /** Staff joining a user to this program on their behalf (e.g. a walk-in at the register). */
+    @PostMapping("/{id}/members")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void joinMember(
+        @PathVariable UUID id,
+        @Valid @RequestBody JoinPointProgramRequest request,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
+        pointProgramService.joinOnBehalf(request.userId(), id, principal.organizationId());
     }
 
     @DeleteMapping("/{id}/storefronts")

@@ -41,6 +41,7 @@ import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.UserPointProgramRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Service
@@ -53,6 +54,7 @@ public class UserService {
     private final OrganizationStaffRepository organizationStaffRepository;
     private final PointProgramRepository pointProgramRepository;
     private final StorefrontRepository storefrontRepository;
+    private final UserPointProgramRepository userPointProgramRepository;
     private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
 
@@ -64,6 +66,7 @@ public class UserService {
         OrganizationStaffRepository organizationStaffRepository,
         PointProgramRepository pointProgramRepository,
         StorefrontRepository storefrontRepository,
+        UserPointProgramRepository userPointProgramRepository,
         EmailVerificationService emailVerificationService,
         PasswordEncoder passwordEncoder
     ) {
@@ -74,6 +77,7 @@ public class UserService {
         this.organizationStaffRepository = organizationStaffRepository;
         this.pointProgramRepository = pointProgramRepository;
         this.storefrontRepository = storefrontRepository;
+        this.userPointProgramRepository = userPointProgramRepository;
         this.emailVerificationService = emailVerificationService;
         this.passwordEncoder = passwordEncoder;
     }
@@ -95,8 +99,7 @@ public class UserService {
     public HomeStatsResponse getHomeStats(UUID organizationId) {
         int totalExchanges = pointTransactionRepository.countByTransactionType(TransactionType.REDEEM, organizationId);
         int pendingExchanges = pointTransactionRepository.countByTransactionTypeStatePending(TransactionType.REDEEM, organizationId);
-        //This should use a many to many once we add subscription mechanics to org's point stores
-        int totalUsers = userRepository.countCustomers();
+        int totalUsers = userPointProgramRepository.countDistinctUsersByOrganizationId(organizationId);
         int totalPointsAwarded = pointTransactionRepository.calculatePointsAwarded(TransactionType.EARN, organizationId);
 
         return new HomeStatsResponse(totalExchanges, pendingExchanges, totalUsers, totalPointsAwarded);
@@ -240,6 +243,9 @@ public class UserService {
 
         if (!pointProgramRepository.existsByIdAndStorefronts_Id(request.pointProgramId(), storefrontId)) {
             throw new BadRequestException("Ese programa de puntos no está activo en este local.");
+        }
+        if (!userPointProgramRepository.existsByUser_IdAndPointProgram_Id(request.userId(), request.pointProgramId())) {
+            throw new ConflictException("El cliente todavía no se unió a este programa de puntos.");
         }
         PointProgram program = pointProgramRepository
             .findById(request.pointProgramId())
