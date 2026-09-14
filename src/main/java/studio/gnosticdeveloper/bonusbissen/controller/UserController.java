@@ -15,6 +15,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.PasswordUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.service.PointProgramService;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
@@ -32,9 +33,11 @@ import studio.gnosticdeveloper.bonusbissen.service.UserService;
 public class UserController {
 
     private final UserService userService;
+    private final PointProgramService pointProgramService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, PointProgramService pointProgramService) {
         this.userService = userService;
+        this.pointProgramService = pointProgramService;
     }
 
     @GetMapping
@@ -73,6 +76,14 @@ public class UserController {
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
         return UserResponse.from(userService.update(principal.id(), request));
+    }
+
+    /** Self-service join: the logged-in user opts in to a point program (issue #20). */
+    @PostMapping("/me/point-programs/{programId}")
+    @PreAuthorize("hasRole('USER')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void joinPointProgram(@PathVariable UUID programId, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        pointProgramService.join(principal.id(), programId);
     }
 
     @PostMapping("/me/resend-verification")

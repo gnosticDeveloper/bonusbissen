@@ -78,6 +78,21 @@ CREATE TABLE IF NOT EXISTS users (
     created_at     TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
+-- user_point_programs: a user's membership in a point program (issue #20).
+-- A user must join a program (self-service, or an employee joining them on
+-- the user's behalf) before points can be earned in it -- see the CHECK-less
+-- gate enforced in PointTransactionService/UserService.grantPoints.
+CREATE TABLE IF NOT EXISTS user_point_programs (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id           UUID NOT NULL REFERENCES users(id),
+    point_program_id  UUID NOT NULL REFERENCES point_programs(id),
+    joined_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, point_program_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_point_programs_user_id ON user_point_programs(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_point_programs_point_program_id ON user_point_programs(point_program_id);
+
 -- organization_staff: is this user currently staff somewhere, and with what
 -- role. Not a second account -- credentials live on `users`. At most one row
 -- per user may be active at a time (enforced below).

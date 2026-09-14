@@ -8,6 +8,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.JoinPointProgramRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointsSummaryResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
@@ -43,6 +44,12 @@ class CustomerAppIntegrationTest extends AbstractIntegrationTest {
 
     private void grant(String slug, UUID userId, PointProgram program, int points) {
         String token = loginEmployee("cashier-summary-" + slug, "password123", program.getOrganization().getId());
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + program.getId() + "/members",
+            HttpMethod.POST,
+            authed(token, new JoinPointProgramRequest(userId)),
+            Void.class
+        );
         ResponseEntity<Void> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,

@@ -48,13 +48,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     )
     Page<User> search(@Param("search") String search, Pageable pageable);
 
-    /** Loyalty members only -- excludes accounts currently staffing an organization. */
-    @Query(
-        value = "select count(*) from users c where c.active = true and not exists (select 1 from organization_staff os where os.user_id = c.id and os.active = true)",
-        nativeQuery = true
-    )
-    int countCustomers();
-
     @Query(
         value =
             """

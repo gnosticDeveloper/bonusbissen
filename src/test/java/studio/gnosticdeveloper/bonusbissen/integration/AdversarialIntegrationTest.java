@@ -10,6 +10,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.JoinPointProgramRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
@@ -37,6 +38,12 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     }
 
     private void grant(String cashierToken, UUID userId, int points) {
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
+            HttpMethod.POST,
+            authed(cashierToken, new JoinPointProgramRequest(userId)),
+            Void.class
+        );
         ResponseEntity<UserPointsAwardResponse> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,

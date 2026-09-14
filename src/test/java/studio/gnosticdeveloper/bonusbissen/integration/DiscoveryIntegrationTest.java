@@ -10,6 +10,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.JoinPointProgramRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.BusinessResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CityOption;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
@@ -124,6 +125,12 @@ class DiscoveryIntegrationTest extends AbstractIntegrationTest {
         User user = createUser("discover-gamma-user");
         String userToken = loginUser("discover-gamma-user");
 
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + fx.program().getId() + "/members",
+            HttpMethod.POST,
+            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
+            Void.class
+        );
         ResponseEntity<Void> grant = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,

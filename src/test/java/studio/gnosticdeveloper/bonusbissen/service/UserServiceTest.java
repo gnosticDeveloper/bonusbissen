@@ -16,6 +16,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
@@ -40,6 +41,7 @@ import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.UserPointProgramRepository;
 
 import java.util.List;
 import java.util.Optional;
@@ -71,6 +73,8 @@ class UserServiceTest {
     private PointProgramRepository pointProgramRepository;
     @Mock
     private StorefrontRepository storefrontRepository;
+    @Mock
+    private UserPointProgramRepository userPointProgramRepository;
     @Mock
     private EmailVerificationService emailVerificationService;
     @Mock
@@ -106,6 +110,17 @@ class UserServiceTest {
         when(pointProgramRepository.existsByIdAndStorefronts_Id(PROGRAM_ID, STOREFRONT_ID)).thenReturn(true);
         when(pointProgramRepository.findById(PROGRAM_ID)).thenReturn(Optional.of(program));
         when(storefrontRepository.findById(STOREFRONT_ID)).thenReturn(Optional.of(storefront));
+        when(userPointProgramRepository.existsByUser_IdAndPointProgram_Id(any(), eq(PROGRAM_ID))).thenReturn(true);
+    }
+
+    @Test
+    void getHomeStatsCountsMembersScopedToTheOrganization() {
+        UUID organizationId = UUID.randomUUID();
+        when(userPointProgramRepository.countDistinctUsersByOrganizationId(organizationId)).thenReturn(7);
+
+        HomeStatsResponse stats = userService.getHomeStats(organizationId);
+
+        assertThat(stats.totalUsers()).isEqualTo(7);
     }
 
     @Test
@@ -210,6 +225,23 @@ class UserServiceTest {
 
         assertThatThrownBy(() -> userService.grantPoints(grantRequest(userId, 50), EMPLOYEE_ID, STOREFRONT_ID))
             .isInstanceOf(BadRequestException.class);
+
+        verify(pointTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void grantPointsForAUserWhoHasNotJoinedTheProgramThrowsConflict() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(pointProgramRepository.existsByIdAndStorefronts_Id(PROGRAM_ID, STOREFRONT_ID)).thenReturn(true);
+        when(userPointProgramRepository.existsByUser_IdAndPointProgram_Id(userId, PROGRAM_ID)).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.grantPoints(grantRequest(userId, 50), EMPLOYEE_ID, STOREFRONT_ID))
+            .isInstanceOf(ConflictException.class);
 
         verify(pointTransactionRepository, never()).save(any());
     }
