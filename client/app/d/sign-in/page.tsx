@@ -86,7 +86,7 @@ export default function DashboardSignInPage() {
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
               aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-              className="shrink-0 text-muted transition-colors hover:text-foreground"
+              className="shrink-0 py-3 pl-3 pr-1.5 text-muted transition-colors hover:text-foreground"
             >
               {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
             </button>
