@@ -2,14 +2,16 @@ treeView-beta
     app/
         (auth)/
             sign-in/
-                page.tsx [❌]
+                page.tsx [✔]
             sign-up/
-                page.tsx [❌]
+                page.tsx [✔]
         b/
-            layout.tsx [❌] %% Layout for session validating.
-            page.tsx [❌] %% Main page for BonusBissen where users can view all orgs and configurate their profile.
+            layout.tsx [✔]
+            page.tsx [🟡] %% Main page for BonusBissen where users can view all orgs and configurate their profile.
             perfil/
                 page.tsx [❌] %% User profile page, where it can check his information stored in the app.
+            descubrir/
+                page.tsx [❌] %% List of all active orgs with BonusBissen. This page reassembles a "discover page" so users can have a quick look for any local business.
         d/
             sign-in/
                 page.tsx [❌] %% sign-in by slug input.
@@ -31,8 +33,6 @@ treeView-beta
                         page.tsx [❌] %% A list of all the customers afiliated to this org (We will probably use this page on the future to manage banning or exclusion).
                     mi-negocio/
                         page.tsx [❌] %% Admin-only page where users can change the org's information that's shown to customers (address, hours, logo image, description, etc.).
-        descubrir/
-            page.tsx [❌] %% List of all active orgs with BonusBissen. This page reassembles a "discover page" so users can have a quick look for any local business.
         s/
             [unique_identifier]/
                 layout.tsx [❌] %% It only validates the global session.

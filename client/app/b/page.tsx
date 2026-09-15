@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Menu, ChevronRight, UserRound } from "lucide-react";
+import { Menu, UserRound } from "lucide-react";
 import { PointsCard } from "@/components/points-card";
 import { BusinessList } from "@/components/business-list";
 import { useUserStore } from "@/lib/user-store";

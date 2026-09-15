@@ -2,17 +2,18 @@
 
 import { Spinner } from "@/components/spinner";
 import { Business } from "@/lib/definitions";
-import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import { ChevronRight, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
 import { RewardCard } from "./reward-card";
 import { formatPoints } from "@/lib/helpers/format";
 import { getBusinesses } from "@/app/b/actions";
+import { Carousel } from "./carousel";
+import Link from "next/link";
 
 export function BusinessList({ city }: { city: string | null }) {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [rewardIndexes, setRewardIndexes] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let active = true;
@@ -22,6 +23,7 @@ export function BusinessList({ city }: { city: string | null }) {
     // gets only the first three cities based on popularity (how many users are afiliated to).
     getBusinesses(3, city ?? undefined).then((result) => {
       if (!active) return;
+      console.log({ result });
       if (result.ok) setBusinesses(result.data);
       else setError(true);
       setLoading(false);
@@ -50,8 +52,6 @@ export function BusinessList({ city }: { city: string | null }) {
   return (
     <section className="relative z-1 grid gap-4">
       {businesses.map((business) => {
-        const index = rewardIndexes[business.id] ?? 0;
-        const reward = business.rewards[index % business.rewards.length];
         return (
           <article
             className="relative min-h-62.5 overflow-hidden rounded-[22px] text-white shadow-[0_14px_28px_#1b152015]"
@@ -67,44 +67,31 @@ export function BusinessList({ city }: { city: string | null }) {
                 <div className="grid h-8.75 w-8.75 shrink-0 place-items-center rounded-[11px] border border-white/50 bg-white/13 font-serif text-lg font-bold text-white">
                   {business.name.charAt(0)}
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="m-0 mb-0.5 text-[9px] font-bold tracking-[0.09em] text-white/70 uppercase">{business.category}</p>
                   <h3 className="m-0 text-xl tracking-[-0.6px]">{business.name}</h3>
                 </div>
-                <ChevronRight className="ml-auto opacity-80" size={19} />
+                <Link
+                  href={`/s/${business.id}/discover`}
+                  className="flex justify-center items-center gap-x-1 rounded-full border border-white/20 bg-black/15 text-white transition-opacity hover:bg-black/25 py-1 px-3"
+                >
+                  <span className="text-lg">Ver más</span>
+                  <ChevronRight className="ml-auto opacity-80" size={19} />
+                </Link>
               </div>
 
               <p className="mt-2.5 mb-3 max-w-57.5 text-[11px] leading-[1.4] text-white/86">{business.description}</p>
 
               <div className="flex items-center gap-1.25">
-                <button
-                  aria-label="Recompensa anterior"
-                  onClick={() =>
-                    setRewardIndexes((state) => ({
-                      ...state,
-                      [business.id]: (index - 1 + business.rewards.length) % business.rewards.length,
-                    }))
-                  }
-                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-white/25 bg-black/9 text-white"
-                >
-                  <ChevronLeft size={14} />
-                </button>
-                <RewardCard reward={reward} color={business.color} />
-                <button
-                  aria-label="Siguiente recompensa"
-                  onClick={() => setRewardIndexes((state) => ({ ...state, [business.id]: (index + 1) % business.rewards.length }))}
-                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-white/25 bg-black/9 text-white"
-                >
-                  <ChevronRight size={14} />
-                </button>
+                <Carousel items={business.rewards} renderItem={(reward) => <RewardCard reward={reward} color={business.color} />} />
               </div>
 
-              <div className="relative z-1 mt-3.75 flex items-center justify-between gap-1.5 text-[9px] text-white/73">
+              <div className="relative z-1 mt-3.75 flex items-center justify-between gap-1.5 text-sm text-white/73">
                 <span className="flex items-center gap-1">
-                  <MapPin size={12} /> {business.address.street} • Palermo
+                  <MapPin size={16} /> {business.address.street} • Palermo
                 </span>
-                <strong className="text-[11px] whitespace-nowrap text-white">
-                  {formatPoints(business.points)} · {business.pointLabel}
+                <strong className="whitespace-nowrap text-white">
+                  {formatPoints(business.points)} {business.pointLabel}
                 </strong>
               </div>
             </div>
