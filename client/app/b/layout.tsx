@@ -13,7 +13,7 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
   }, [syncThemeFromDOM]);
 
   return (
-    <div className="min-h-svh bg-background">
+    <div className="min-h-svh bg-background pb-26">
       {children}
       <SideMenu />
       <BottomNav />

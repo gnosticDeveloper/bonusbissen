@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, MapPin } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { Spinner } from "./spinner";
 import { getLocations } from "@/app/b/actions";
 
@@ -10,8 +10,6 @@ interface CitySelectProps {
   onChange: (city: string | null) => void;
 }
 
-// TODO: should remove the re-fetch attempt to avoid fetching the locations every time the users open it.
-// Or check if there's already data before trying the refetch.
 export function CitySelect({ value, onChange }: CitySelectProps) {
   const [open, setOpen] = useState(false);
   const [cities, setCities] = useState<string[] | null>(null);
@@ -65,21 +63,21 @@ export function CitySelect({ value, onChange }: CitySelectProps) {
   }
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative min-w-0">
       <button
         type="button"
         onClick={handleToggle}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs text-foreground transition-colors duration-240"
+        className="flex max-w-full items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs text-foreground transition-colors duration-240"
       >
-        <span>{value ?? "Todas las zonas"}</span>
-        <ChevronDown size={13} className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
+        <span className="truncate">{value ?? "Todas las zonas"}</span>
+        <ChevronDown size={13} className={`shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
       </button>
 
       <div
         role="listbox"
-        className={`absolute right-0 z-40 mt-2 w-45 origin-top-right rounded-2xl border border-border bg-card p-1.5 shadow-[0_14px_28px_#1b152015] transition-all duration-150 ease-out ${
+        className={`absolute right-0 z-40 mt-2 w-52 origin-top-right rounded-2xl border border-border bg-card p-1.5 shadow-[0_14px_28px_#1b152015] transition-all duration-150 ease-out ${
           open ? "pointer-events-auto scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
         }`}
       >
@@ -100,7 +98,7 @@ export function CitySelect({ value, onChange }: CitySelectProps) {
               className="flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-left text-xs text-foreground transition-colors duration-240 hover:bg-background"
             >
               <span>Todas las zonas</span>
-              {value === null && <Check size={13} className="text-primary" />}
+              {value === null && <Check size={16} className="shrink-0 text-primary" />}
             </button>
             {cities?.map((city) => (
               <button
@@ -111,8 +109,8 @@ export function CitySelect({ value, onChange }: CitySelectProps) {
                 onClick={() => handleSelect(city)}
                 className="flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-left text-xs text-foreground transition-colors duration-240 hover:bg-background"
               >
-                <span>{city}</span>
-                {value === city && <Check size={13} className="text-primary" />}
+                <span className="truncate">{city}</span>
+                {value === city && <Check size={16} className="shrink-0 text-primary" />}
               </button>
             ))}
           </>

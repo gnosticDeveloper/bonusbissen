@@ -23,7 +23,6 @@ export function BusinessList({ city }: { city: string | null }) {
     // gets only the first three cities based on popularity (how many users are afiliated to).
     getBusinesses(3, city ?? undefined).then((result) => {
       if (!active) return;
-      console.log({ result });
       if (result.ok) setBusinesses(result.data);
       else setError(true);
       setLoading(false);
@@ -83,7 +82,10 @@ export function BusinessList({ city }: { city: string | null }) {
               <p className="mt-2.5 mb-3 max-w-57.5 text-[11px] leading-[1.4] text-white/86">{business.description}</p>
 
               <div className="flex items-center gap-1.25">
-                <Carousel items={business.rewards} renderItem={(reward) => <RewardCard reward={reward} color={business.color} />} />
+                <Carousel
+                  items={business.rewards}
+                  renderItem={(reward) => <RewardCard pointsLabel={business.pointLabel} reward={reward} color={business.color} />}
+                />
               </div>
 
               <div className="relative z-1 mt-3.75 flex items-center justify-between gap-1.5 text-sm text-white/73">

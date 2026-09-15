@@ -132,7 +132,7 @@ export function Carousel<T>({
               aria-label={`Ir a slide ${index + 1}`}
               onClick={() => goToIndex(index)}
               className={`h-1.25 rounded-full transition-all duration-180 ${
-                index === slide ? "w-4.25 bg-primary" : "w-1.25 bg-border hover:bg-border/70"
+                index === slide ? "w-4.25 bg-primary" : "w-1.25 bg-primary-foreground hover:bg-border/70"
               }`}
             />
           ))}

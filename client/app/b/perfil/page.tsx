@@ -37,7 +37,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-svh w-full max-w-107.5 flex-col px-4 pb-28 pt-6">
+    <div className="mx-auto flex min-h-svh w-full max-w-107.5 flex-col px-4 pt-6">
       <Link href="/b" className="mb-6 inline-flex w-fit items-center gap-1.5 text-sm text-muted transition-colors hover:text-foreground">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0" aria-hidden="true">
           <path d="M10 12.5L5.5 8L10 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

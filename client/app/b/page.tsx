@@ -31,7 +31,7 @@ export default function MainHomePage() {
   }, []);
 
   return (
-    <main className="relative mx-auto min-h-screen w-full max-w-107.5 overflow-hidden bg-background px-5 pt-6 pb-26 transition-colors duration-240 sm:border-x sm:border-border">
+    <main className="relative mx-auto min-h-screen w-full max-w-107.5 overflow-hidden bg-background px-5 pt-6 transition-colors duration-240 sm:border-x sm:border-border">
       <header className="relative z-1 mb-6.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="grid h-10 w-10 place-items-center rounded-full border-2 border-background bg-primary text-white shadow-[0_0_0_1px_var(--primary)]">
@@ -69,10 +69,12 @@ export default function MainHomePage() {
 
       <div className="relative z-1 mb-3 flex justify-end"></div>
 
-      <section className="relative mb-3.75 flex items-center justify-between">
-        <div>
+      <section className="relative mb-3.75 flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <span className="mb-1 block text-[10px] font-bold tracking-[0.08em] text-muted uppercase">Explorá cerca tuyo</span>
-          <h2 className="m-0 text-[21px] tracking-[-0.8px] text-foreground">{selectedCity ? `Ahora en ${selectedCity}` : "Descubrí negocios"}</h2>
+          <h2 className="m-0 truncate text-[21px] tracking-[-0.8px] text-foreground">
+            {selectedCity ? `Ahora en ${selectedCity}` : "Descubrí negocios"}
+          </h2>
         </div>
         <CitySelect value={selectedCity} onChange={setSelectedCity} />
       </section>
