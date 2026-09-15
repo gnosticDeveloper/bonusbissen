@@ -1,24 +1,29 @@
-import Link from "next/link";
+"use client";
+
 import { CitySelect } from "@/components/city-select";
 import { BusinessList } from "@/components/business-list";
-import { getBusinesses } from "@/app/b/actions";
+import { PaginationControls } from "@/components/pagination-controls";
+import { useBusinesses } from "@/hooks/use-businesses";
+import { useRef, useState } from "react";
 
 const PAGE_SIZE = 10;
 
-export default async function DescubrirPage({ searchParams }: { searchParams: Promise<{ city?: string; size?: string }> }) {
-  const params = await searchParams;
-  const city = params.city;
-  const size = params.size ? Number(params.size) : PAGE_SIZE;
+export default function DescubrirPage() {
+  const [city, setCity] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const listTopRef = useRef<HTMLDivElement>(null);
 
-  const businesses = await getBusinesses(size, city);
+  const { businesses, totalPages, loading, error } = useBusinesses({ size: PAGE_SIZE, city, page });
 
-  if (!businesses.ok) return;
+  function handleCityChange(nextCity: string | null) {
+    setCity(nextCity);
+    setPage(0);
+  }
 
-  const hasMore = businesses.data.length >= size;
-
-  const nextParams = new URLSearchParams();
-  if (city) nextParams.set("city", city);
-  nextParams.set("size", String(size + PAGE_SIZE));
+  function handlePageChange(nextPage: number) {
+    setPage(nextPage);
+    listTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   return (
     <div className="mx-auto flex min-h-svh w-full max-w-107.5 flex-col px-4 pb-12 pt-6">
@@ -28,24 +33,24 @@ export default async function DescubrirPage({ searchParams }: { searchParams: Pr
       </header>
 
       <div className="mb-5">
-        <CitySelect defaultValue={city} />
+        <CitySelect value={city} onChange={handleCityChange} />
       </div>
 
-      {businesses.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border p-6 text-center">
-          <p className="text-sm text-muted">{city ? "No encontramos negocios en esta ciudad todavía." : "Todavía no hay negocios cargados."}</p>
-        </div>
-      ) : (
-        <BusinessList businesses={businesses.data} />
+      <div ref={listTopRef} />
+
+      {totalPages > 1 && (
+        <PaginationControls page={page} totalPages={totalPages} onPageChange={handlePageChange} disabled={loading} className="mb-4" />
       )}
 
-      {hasMore && (
-        <Link
-          href={`/descubrir?${nextParams.toString()}`}
-          className="mx-auto mt-6 inline-flex items-center justify-center rounded-full border border-border px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/10"
-        >
-          Cargar más
-        </Link>
+      <BusinessList
+        businesses={businesses}
+        loading={loading}
+        error={error}
+        emptyMessage={city ? "No encontramos negocios en esta ciudad todavía." : "Todavía no hay negocios cargados."}
+      />
+
+      {totalPages > 1 && (
+        <PaginationControls page={page} totalPages={totalPages} onPageChange={handlePageChange} disabled={loading} className="mt-6" />
       )}
     </div>
   );

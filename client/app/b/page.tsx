@@ -9,6 +9,7 @@ import { useUIStore } from "@/lib/ui-store";
 import { PointsResponse } from "@/lib/definitions";
 import { getPoints } from "@/app/b/actions";
 import { CitySelect } from "@/components/city-select";
+import { useBusinesses } from "@/hooks/use-businesses";
 
 export default function MainHomePage() {
   const user = useUserStore((state) => state.user);
@@ -17,6 +18,8 @@ export default function MainHomePage() {
   const [points, setPoints] = useState<PointsResponse | null>(null);
   const [pointsError, setPointsError] = useState(false);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+
+  const { businesses, loading, error } = useBusinesses({ size: 3, city: selectedCity, page: 0 });
 
   useEffect(() => {
     let active = true;
@@ -67,8 +70,6 @@ export default function MainHomePage() {
 
       <PointsCard points={pointsError ? null : points} />
 
-      <div className="relative z-1 mb-3 flex justify-end"></div>
-
       <section className="relative mb-3.75 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <span className="mb-1 block text-[10px] font-bold tracking-[0.08em] text-muted uppercase">Explorá cerca tuyo</span>
@@ -79,7 +80,12 @@ export default function MainHomePage() {
         <CitySelect value={selectedCity} onChange={setSelectedCity} />
       </section>
 
-      <BusinessList city={selectedCity} />
+      <BusinessList
+        businesses={businesses}
+        loading={loading}
+        error={error}
+        emptyMessage={selectedCity ? "No encontramos negocios en esta ciudad todavía." : "Todavía no hay negocios cargados."}
+      />
     </main>
   );
 }

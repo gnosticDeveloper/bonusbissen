@@ -1,4 +1,3 @@
-import { formatDiscountValue } from "@/lib/helpers/format";
 import { Reward } from "@/lib/types/reward";
 import { Sparkles } from "lucide-react";
 
@@ -14,7 +13,7 @@ export function RewardCard({ reward, color, pointsLabel }: { reward: Reward; col
         <p className="my-0.75 truncate text-[11px] text-white/74">{reward.description}</p>
         <span className="inline-flex items-center gap-1 truncate text-[10px] text-primary-foreground">
           <Sparkles size={13} /> {reward.costPoints} {pointsLabel ?? "puntos"}{" "}
-          {reward.discountValue ? ` · ${formatDiscountValue(reward.discountValue)} off` : ""}
+          {reward.discountValue ? ` · ${reward.discountValue}% off` : ""}
         </span>
       </div>
     </div>

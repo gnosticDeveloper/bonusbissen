@@ -14,18 +14,23 @@ export async function getPoints(): Promise<ActionResult<PointsResponse>> {
   return request<PointsResponse>("/exchanges/summary");
 }
 
+export interface GetBusinessesParams {
+  page?: number; // 0-indexed, default 0 (convención de Spring Pageable)
+  size?: number;
+  city?: string;
+}
 /**
  * Get all the nearby businesses on the current user's city. This should accept an argument "city" or "postal_code" to avoid showing users businesses out of their interests (the ones that are in other town, city, or even province - too far away).
  *
  * @returns An object containing all local business nearby the logged-in user.
  */
-export async function getBusinesses(size: number = 10, city?: string): Promise<ActionResult<Business[]>> {
+export async function getBusinesses({ page = 0, size = 10, city }: GetBusinessesParams = {}): Promise<ActionResult<PagedResponse<Business>>> {
   const params = new URLSearchParams();
+  params.append("page", page.toString());
   params.append("size", size.toString());
   if (city) params.append("city", city);
 
-  const result = await request<PagedResponse<Business>>(`/discover/storefronts?${params.toString()}`);
-  return result.ok ? { ok: true, data: result.data.items } : result;
+  return request<PagedResponse<Business>>(`/discover/storefronts?${params.toString()}`);
 }
 
 export async function getLocations(): Promise<ActionResult<Location[]>> {

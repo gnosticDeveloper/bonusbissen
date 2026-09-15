@@ -1,38 +1,19 @@
-"use client";
-
 import { Spinner } from "@/components/spinner";
 import { Business } from "@/lib/definitions";
 import { ChevronRight, MapPin } from "lucide-react";
-import { useEffect, useState } from "react";
 import { RewardCard } from "./reward-card";
 import { formatPoints } from "@/lib/helpers/format";
-import { getBusinesses } from "@/app/b/actions";
 import { Carousel } from "./carousel";
 import Link from "next/link";
 
-export function BusinessList({ city }: { city: string | null }) {
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+interface BusinessListProps {
+  businesses: Business[];
+  loading: boolean;
+  error: boolean;
+  emptyMessage?: string;
+}
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError(false);
-
-    // gets only the first three cities based on popularity (how many users are afiliated to).
-    getBusinesses(3, city ?? undefined).then((result) => {
-      if (!active) return;
-      if (result.ok) setBusinesses(result.data);
-      else setError(true);
-      setLoading(false);
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [city]);
-
+export function BusinessList({ businesses, loading, error, emptyMessage = "Parece que no hay negocios cerca :(" }: BusinessListProps) {
   if (loading)
     return (
       <section className="flex min-h-27.5 items-center justify-center gap-2.25 text-xs text-muted">
@@ -43,9 +24,7 @@ export function BusinessList({ city }: { city: string | null }) {
 
   if (error || businesses.length === 0)
     return (
-      <section className="h-full rounded-xl border border-dashed border-border px-2.5 py-3.5 text-center text-xs text-muted">
-        Parece que no hay negocios cerca :(
-      </section>
+      <section className="h-full rounded-xl border border-dashed border-border px-2.5 py-3.5 text-center text-xs text-muted">{emptyMessage}</section>
     );
 
   return (
