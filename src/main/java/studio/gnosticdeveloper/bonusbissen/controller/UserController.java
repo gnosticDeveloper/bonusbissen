@@ -9,23 +9,22 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.PasswordUpdateRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
-import studio.gnosticdeveloper.bonusbissen.service.PointProgramService;
-import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
-import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
-import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
-import studio.gnosticdeveloper.bonusbissen.dto.response.UserResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.request.PasswordUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UserResponse;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
+import studio.gnosticdeveloper.bonusbissen.service.PointProgramService;
 import studio.gnosticdeveloper.bonusbissen.service.UserService;
 
 @RestController
@@ -71,10 +70,7 @@ public class UserController {
 
     @PatchMapping("/me")
     @PreAuthorize("hasRole('USER')")
-    public UserResponse updateSelf(
-        @Valid @RequestBody UserUpdateRequest request,
-        @AuthenticationPrincipal AuthenticatedPrincipal principal
-    ) {
+    public UserResponse updateSelf(@Valid @RequestBody UserUpdateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return UserResponse.from(userService.update(principal.id(), request));
     }
 
@@ -126,7 +122,10 @@ public class UserController {
 
     @PostMapping("/grant")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
-    public UserPointsAwardResponse grantPoints(@Valid @RequestBody GrantPointsRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+    public UserPointsAwardResponse grantPoints(
+        @Valid @RequestBody GrantPointsRequest request,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
         return userService.grantPoints(request, principal.id(), principal.storefrontId());
     }
 
@@ -158,9 +157,13 @@ public class UserController {
     }
 
     @GetMapping("/{id}/exchanges")
-    public List<HistoricalExchangeResponse> getHistoricalExchanges(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+    public List<HistoricalExchangeResponse> getHistoricalExchanges(
+        @PathVariable UUID id,
+        @RequestParam(required = false) UUID storefrontId,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
         requireSelfIfUser(id, principal);
-        return userService.getHistoricalExchangesByUserId(id);
+        return userService.getHistoricalExchangesByUserId(id, storefrontId);
     }
 
     @GetMapping("/{id}/movements")
