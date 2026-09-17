@@ -1,48 +1,50 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.security.access.AccessDeniedException;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
-import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
-import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.User;
-import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
+import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
+import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
+import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
+import studio.gnosticdeveloper.bonusbissen.entity.User;
+import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
-import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
-import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
-import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
-import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
-import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserPointProgramRepository;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 
 @Service
 public class UserService {
@@ -85,12 +87,8 @@ public class UserService {
     /** Resets the password of a currently-active staff account. */
     @Transactional
     public void resetPassword(UUID userId, String newPassword) {
-        organizationStaffRepository
-            .findByUserIdAndActiveTrue(userId)
-            .orElseThrow(() -> new NotFoundException("Employee not found: " + userId));
-        User user = userRepository
-            .findById(userId)
-            .orElseThrow(() -> new NotFoundException("Employee not found: " + userId));
+        organizationStaffRepository.findByUserIdAndActiveTrue(userId).orElseThrow(() -> new NotFoundException("Employee not found: " + userId));
+        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("Employee not found: " + userId));
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
     }
@@ -112,9 +110,7 @@ public class UserService {
      */
     @Transactional
     public User update(UUID id, UserUpdateRequest request) {
-        User user = userRepository
-            .findById(id)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
+        User user = userRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
 
         user.setName(request.name().trim());
 
@@ -159,9 +155,7 @@ public class UserService {
 
     @Transactional
     public User reactivate(UUID id) {
-        User user = userRepository
-            .findById(id)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
+        User user = userRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
 
         user.setActive(true);
         return userRepository.save(user);
@@ -169,9 +163,7 @@ public class UserService {
 
     @Transactional
     public void deleteById(UUID id) {
-        User user = userRepository
-            .findById(id)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
+        User user = userRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
 
         user.setActive(false);
         userRepository.save(user);
@@ -184,20 +176,50 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserPointsResponse getUserPointsById(UUID id, UUID programId) {
-        User user = userRepository
-            .findById(id)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
+        User user = userRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
         Integer points = programId != null ? getBalance(id, programId) : null;
         return UserPointsResponse.from(user, points);
     }
 
     @Transactional(readOnly = true)
-    public List<HistoricalExchangeResponse> getHistoricalExchangesByUserId(UUID userId) {
-        List<PointTransaction> allExchangesByUserId = pointTransactionRepository.findAllByUserIdAndTypeOrderByCreatedAtDesc(
-            userId,
-            TransactionType.REDEEM
-        );
-        return allExchangesByUserId.stream().map(HistoricalExchangeResponse::from).toList();
+    public List<HistoricalExchangeResponse> getHistoricalExchangesByUserId(UUID userId, UUID storefrontId) {
+        UUID organizationId = resolveOrganizationId(storefrontId);
+
+        List<PointTransaction> exchanges = pointTransactionRepository.findExchangeHistory(userId, TransactionType.REDEEM, organizationId);
+
+        Map<UUID, String> codesByTransactionId = loadPendingExchangeCodes(exchanges);
+
+        return exchanges
+            .stream()
+            .map(ex -> HistoricalExchangeResponse.from(ex, codesByTransactionId.get(ex.getId())))
+            .toList();
+    }
+
+    private UUID resolveOrganizationId(UUID storefrontId) {
+        if (storefrontId == null) {
+            return null;
+        }
+        return storefrontRepository
+            .findById(storefrontId)
+            .map(storefront -> storefront.getOrganization().getId())
+            .orElseThrow(() -> new NotFoundException("Storefront no encontrado: " + storefrontId));
+    }
+
+    private Map<UUID, String> loadPendingExchangeCodes(List<PointTransaction> exchanges) {
+        List<UUID> pendingIds = exchanges
+            .stream()
+            .filter(ex -> ex.getState() == TransactionState.PENDING)
+            .map(PointTransaction::getId)
+            .toList();
+
+        if (pendingIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return exchangeCodeRepository
+            .findByPointTransactionIdIn(pendingIds)
+            .stream()
+            .collect(Collectors.toMap(ec -> ec.getPointTransaction().getId(), ExchangeCode::getCode));
     }
 
     @Transactional(readOnly = true)

@@ -53,8 +53,8 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
                   href={`/s/${business.id}/discover`}
                   className="flex justify-center items-center gap-x-1 rounded-full border border-white/20 bg-black/15 text-white transition-opacity hover:bg-black/25 py-1 px-3"
                 >
-                  <span className="text-lg">Ver más</span>
-                  <ChevronRight className="ml-auto opacity-80" size={19} />
+                  <span className="text-base">Unirse</span>
+                  <ChevronRight className="ml-auto opacity-80" size={17} />
                 </Link>
               </div>
 

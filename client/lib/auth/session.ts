@@ -44,5 +44,5 @@ export function decodeJwt(token: string): Payload {
 }
 
 export async function getSessionToken() {
-  return (await cookies()).get("bonusbissen_token")?.value;
+  return (await cookies()).get("access_token")?.value;
 }

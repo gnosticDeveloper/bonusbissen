@@ -40,5 +40,5 @@ export async function getLocations(): Promise<ActionResult<Location[]>> {
 export async function signOut() {
   const cookieStore = await cookies();
   cookieStore.delete("access_token");
-  redirect("/sign-in");
+  return redirect("/sign-in");
 }
