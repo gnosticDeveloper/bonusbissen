@@ -25,6 +25,20 @@ spring:
           starttls:
             enable: true
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+  health:
+    mail:
+      # The app already gates real SMTP behind app.mail.enabled (LoggingEmailSender
+      # otherwise); Boot's own indicator ignores that and always tries to authenticate.
+      enabled: false
+
 app:
   jwt:
     secret: ${JWT_SECRET:dev-only-secret-change-me-please-01234567890123456789xdxdxdxdxdddxd123dx213dx123xd123xd12x3d1x23dx1d23x1d23x1d23x}

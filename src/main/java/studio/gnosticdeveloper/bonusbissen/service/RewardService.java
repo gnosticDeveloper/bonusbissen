@@ -7,6 +7,8 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,6 +27,8 @@ import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 
 @Service
 public class RewardService {
+
+    private static final Logger log = LoggerFactory.getLogger(RewardService.class);
 
     private final RewardRepository rewardRepository;
     private final PointProgramRepository pointProgramRepository;
@@ -66,9 +70,9 @@ public class RewardService {
             try {
                 imagePath = saveImage(request.image());
             } catch (IOException e) {
-                // Note: we catch the exception so the app doesn't crash if the image can't be saved.
-                // Personally, I prefer to keep it like this since if the image doesn't save, the app should still work.
-                System.err.println("Error al guardar la imagen: " + e.getMessage());
+                // Caught so the app doesn't crash if the image can't be saved -- the reward
+                // is still created, just without an image.
+                log.warn("Error al guardar la imagen", e);
             }
         }
 
@@ -144,7 +148,7 @@ public class RewardService {
                 // Mismo criterio que en el alta: si la imagen no se pudo guardar,
                 // la app sigue funcionando con el resto de los campos actualizados,
                 // conservando la imagen anterior.
-                System.err.println("Error al guardar la imagen: " + e.getMessage());
+                log.warn("Error al guardar la imagen", e);
                 reward = rewardRepository.save(reward);
             }
         } else if (Boolean.TRUE.equals(request.removeImage())) {
@@ -171,8 +175,7 @@ public class RewardService {
             // archivo huérfano en disco, molesto pero no corrompe datos. La
             // fila de la base ya quedó correcta en cualquiera de los dos
             // casos que llaman a este método.
-            // Nota: un capo claudio codo.
-            System.err.println("Error al borrar la imagen anterior: " + e.getMessage());
+            log.warn("Error al borrar la imagen anterior", e);
         }
     }
 }

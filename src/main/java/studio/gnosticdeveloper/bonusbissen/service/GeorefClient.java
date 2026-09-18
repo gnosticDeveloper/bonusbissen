@@ -3,6 +3,8 @@ package studio.gnosticdeveloper.bonusbissen.service;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -16,6 +18,8 @@ import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
  */
 @Component
 public class GeorefClient {
+
+    private static final Logger log = LoggerFactory.getLogger(GeorefClient.class);
 
     private final RestClient restClient;
     private final boolean enabled;
@@ -51,6 +55,7 @@ public class GeorefClient {
                 .retrieve()
                 .body(GeorefResponse.class);
         } catch (RestClientException e) {
+            log.warn("Georef call failed for address '{}'", trimmed, e);
             throw new BadRequestException("No pudimos validar esa dirección en este momento. Probá de nuevo en unos minutos.");
         }
 
