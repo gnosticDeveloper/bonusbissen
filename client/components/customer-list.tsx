@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useModal } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { deleteCustomerById } from "@/app/(customers)/actions";
-import { formatDate, formatPoints } from "@/lib/helpers/format";
+import { formatPoints } from "@/lib/helpers/format";
 import { Pencil, Trash2 } from "lucide-react";
 import { useEmployeeAuth } from "@/providers/auth-provider";
 import { CustomerPointsResponse } from "@/app/[orgId]/dashboard/actions";
@@ -22,8 +22,6 @@ function DeleteCustomerModal({ customer }: { customer: CustomerPointsResponse })
       return;
     }
 
-    console.error("Error en DeleteCustomerModal. El cliente no se pudo eliminar: ", result.error);
-    console.info("Código de error:", result.error);
     notify("Hubo un error al eliminar al cliente.", "error");
   };
 

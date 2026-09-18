@@ -29,17 +29,15 @@ treeView-beta
                     page.tsx [❌] %% Reward's list and CRUD page.
                 (admin-only)/
                     layout.tsx [❌] %% Admin role validation layout.
-                    lista-clientes/
-                        page.tsx [❌] %% A list of all the customers afiliated to this org (We will probably use this page on the future to manage banning or exclusion).
                     mi-negocio/
                         page.tsx [❌] %% Admin-only page where users can change the org's information that's shown to customers (address, hours, logo image, description, etc.).
         s/
             [unique_identifier]/
-                layout.tsx [❌] %% It only validates the global session.
+                layout.tsx [✔] %% It only validates the global session.
                 afiliarse/
                     page.tsx [❌] %% It uses the slug, doesn't require a membership.
                 (member-only)/
-                    layout.tsx [❌] %% Here we do validate a membership on this org.
+                    layout.tsx [🟡] %% Here we do validate a membership on this org.
                     inicio/
                         page.tsx [❌]
                     recompensas/

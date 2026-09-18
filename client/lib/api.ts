@@ -31,7 +31,29 @@ export const request = async <T>(path: string, init?: RequestInit): Promise<Acti
       },
       cache: "no-store",
     });
-    console.log({ ok: response.ok });
+    if (!response.ok) return { ok: false, error: "No pudimos completar la solicitud." };
+    return { ok: true, data: (await response.json()) as T };
+  } catch {
+    return { ok: false, error: "El servicio no está disponible en este momento." };
+  }
+};
+
+export const dashboardRequest = async <T>(path: string, init?: RequestInit): Promise<ActionResult<T>> => {
+  const cookiesStore = await cookies();
+  const token = cookiesStore.get("d_token")?.value;
+
+  if (!token) redirect("/sign-in");
+
+  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
+  try {
+    const response = await fetch(`${backendUrl}${path}`, {
+      ...init,
+      headers: {
+        ...init?.headers,
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
     if (!response.ok) return { ok: false, error: "No pudimos completar la solicitud." };
     return { ok: true, data: (await response.json()) as T };
   } catch {

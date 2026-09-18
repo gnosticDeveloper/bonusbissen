@@ -1,10 +1,5 @@
 import { cookies } from "next/headers";
-
-export enum UserRole {
-  ADMIN = "ADMIN",
-  CASHIER = "CASHIER",
-  USER = "USER",
-}
+import { UserRole } from "../definitions";
 
 export interface Payload {
   sub: string;
@@ -24,7 +19,6 @@ export function isSessionValid(token?: string): boolean {
   const isExpired = !payload.exp || payload.exp * 1000 < Date.now();
 
   if (isExpired || !isValidRole) {
-    console.info("\n[API] | proxy.ts | The user session is not valid. The token or the role are invalid.\n");
     return false;
   }
 
@@ -45,4 +39,9 @@ export function decodeJwt(token: string): Payload {
 
 export async function getSessionToken() {
   return (await cookies()).get("access_token")?.value;
+}
+
+export async function getDashboardSessionToken() {
+  const cookieStore = await cookies();
+  return cookieStore.get("d_token")?.value;
 }

@@ -14,6 +14,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.PasswordUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.AdminUserInfoResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
@@ -66,6 +67,12 @@ public class UserController {
     @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
     public HomeStatsResponse getHomeStats(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return userService.getHomeStats(principal.organizationId());
+    }
+
+    @GetMapping("/me/admin")
+    @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
+    public AdminUserInfoResponse getMeAdmin(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return userService.getAdminUserInfo(principal.id(), principal.organizationId());
     }
 
     @PatchMapping("/me")

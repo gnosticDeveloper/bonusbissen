@@ -11,7 +11,15 @@ import { CreateRewardModal } from "./modals/rewards/create-reward-modal";
 export function CreateRewardButton() {
   const { open } = useModal();
   return (
-    <Button onClick={() => open(<CreateRewardModal />, { title: "Crear recompensa", description: "Añade una recompensa al catálogo." })}>
+    <Button
+      className="self-stretch"
+      onClick={() =>
+        open(<CreateRewardModal />, {
+          title: "Crear recompensa",
+          description: "Añade una recompensa al catálogo.",
+        })
+      }
+    >
       <Plus data-icon="inline-start" />
       Nueva recompensa
     </Button>
