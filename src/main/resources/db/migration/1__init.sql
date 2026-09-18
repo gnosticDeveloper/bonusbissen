@@ -36,11 +36,6 @@ CREATE TABLE IF NOT EXISTS storefronts (
     CHECK (online OR address IS NOT NULL)
 );
 
--- Idempotent: an existing DB picks these up on next boot. Backfill `city` by hand.
-ALTER TABLE storefronts ADD COLUMN IF NOT EXISTS city     VARCHAR(120);
-ALTER TABLE storefronts ADD COLUMN IF NOT EXISTS category VARCHAR(80);
-ALTER TABLE storefronts ADD COLUMN IF NOT EXISTS color    VARCHAR(9);
-
 -- point_programs: a named pool of points ("Puntos Café", "Club Online").
 -- A program belongs to one organization and is honoured at one or more of
 -- its storefronts (point_program_storefronts). A user's balance is computed
