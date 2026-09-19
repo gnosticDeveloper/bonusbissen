@@ -29,6 +29,10 @@ public class Storefront {
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "point_program_id")
+    private PointProgram pointProgram;
+
     @Column(nullable = false, length = 255)
     private String name;
 

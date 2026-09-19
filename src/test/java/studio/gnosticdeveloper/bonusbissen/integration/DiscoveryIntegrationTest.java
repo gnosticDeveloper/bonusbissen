@@ -34,6 +34,12 @@ class DiscoveryIntegrationTest extends AbstractIntegrationTest {
         org.setName("Discover Org " + slug);
         org = organizationRepository.save(org);
 
+        PointProgram program = new PointProgram();
+        program.setOrganization(org);
+        program.setName("Puntos " + slug);
+        program.setUnitLabel("granos");
+        program = pointProgramRepository.save(program);
+
         Storefront storefront = new Storefront();
         storefront.setOrganization(org);
         storefront.setName("Local " + slug);
@@ -41,14 +47,8 @@ class DiscoveryIntegrationTest extends AbstractIntegrationTest {
         storefront.setCity(city);
         storefront.setCategory("Cafetería");
         storefront.setColor("#123456");
+        storefront.setPointProgram(program);
         storefront = storefrontRepository.save(storefront);
-
-        PointProgram program = new PointProgram();
-        program.setOrganization(org);
-        program.setName("Puntos " + slug);
-        program.setUnitLabel("granos");
-        program.getStorefronts().add(storefront);
-        program = pointProgramRepository.save(program);
 
         return new Fixture(storefront, program);
     }

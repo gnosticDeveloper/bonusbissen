@@ -95,9 +95,8 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
         join organizations o on o.id = pp.organization_id
         left join lateral (
             select s.category, s.color, s.icon_path
-            from point_program_storefronts pps
-            join storefronts s on s.id = pps.storefront_id
-            where pps.point_program_id = pp.id and s.active
+            from storefronts s
+            where s.point_program_id = pp.id and s.active
             order by s.created_at asc
             limit 1
         ) sf on true
