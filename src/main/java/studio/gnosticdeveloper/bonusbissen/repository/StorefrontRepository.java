@@ -15,30 +15,22 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
 
     Optional<Storefront> findByIdAndOrganizationId(UUID id, UUID organizationId);
 
-    /** Active storefronts running >=1 active program, newest first, optionally by city. */
+    /** Active storefronts running an active program, newest first, optionally by city. */
     @Query(
         value =
             """
             select s.* from storefronts s
-            where s.active
+            join point_programs pp on pp.id = s.point_program_id
+            where s.active and pp.active
               and (cast(:city as text) is null or s.city = cast(:city as text))
-              and exists (
-                  select 1 from point_program_storefronts pps
-                  join point_programs pp on pp.id = pps.point_program_id
-                  where pps.storefront_id = s.id and pp.active
-              )
             order by s.created_at desc
             """,
         countQuery =
             """
             select count(*) from storefronts s
-            where s.active
+            join point_programs pp on pp.id = s.point_program_id
+            where s.active and pp.active
               and (cast(:city as text) is null or s.city = cast(:city as text))
-              and exists (
-                  select 1 from point_program_storefronts pps
-                  join point_programs pp on pp.id = pps.point_program_id
-                  where pps.storefront_id = s.id and pp.active
-              )
             """,
         nativeQuery = true
     )

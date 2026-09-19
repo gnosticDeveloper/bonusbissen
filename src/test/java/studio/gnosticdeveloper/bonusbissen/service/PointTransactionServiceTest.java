@@ -96,7 +96,7 @@ class PointTransactionServiceTest {
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
         when(organizationStaffRepository.findByUserIdAndActiveTrue(employee.getId())).thenReturn(Optional.of(employee));
 
-        pointTransactionService.approveExchange(new ApproveExchangeRequest(tx.getId(), employee.getId()), organization.getId());
+        pointTransactionService.approveExchange(new ApproveExchangeRequest(tx.getId()), organization.getId(), employee.getId());
 
         assertThat(tx.getState()).isEqualTo(TransactionState.DELIVERED);
         assertThat(tx.getEmployee()).isEqualTo(employee);
@@ -108,7 +108,7 @@ class PointTransactionServiceTest {
         UUID id = UUID.randomUUID();
         when(pointTransactionRepository.findById(id)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> pointTransactionService.approveExchange(new ApproveExchangeRequest(id, UUID.randomUUID()), UUID.randomUUID()))
+        assertThatThrownBy(() -> pointTransactionService.approveExchange(new ApproveExchangeRequest(id), UUID.randomUUID(), UUID.randomUUID()))
             .isInstanceOf(NotFoundException.class);
     }
 
@@ -121,7 +121,7 @@ class PointTransactionServiceTest {
 
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
 
-        assertThatThrownBy(() -> pointTransactionService.approveExchange(new ApproveExchangeRequest(tx.getId(), UUID.randomUUID()), organization.getId()))
+        assertThatThrownBy(() -> pointTransactionService.approveExchange(new ApproveExchangeRequest(tx.getId()), organization.getId(), UUID.randomUUID()))
             .isInstanceOf(ConflictException.class);
 
         verify(pointTransactionRepository, times(0)).save(any());
@@ -140,7 +140,7 @@ class PointTransactionServiceTest {
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
         when(organizationStaffRepository.findByUserIdAndActiveTrue(employee.getId())).thenReturn(Optional.of(employee));
 
-        pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), employee.getId(), false), organization.getId());
+        pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), false), organization.getId(), employee.getId());
 
         assertThat(tx.getState()).isEqualTo(TransactionState.CANCELLED);
         verify(pointTransactionRepository, times(1)).save(any());
@@ -155,7 +155,7 @@ class PointTransactionServiceTest {
 
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
 
-        assertThatThrownBy(() -> pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), UUID.randomUUID(), true), organization.getId()))
+        assertThatThrownBy(() -> pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), true), organization.getId(), UUID.randomUUID()))
             .isInstanceOf(ConflictException.class);
 
         verify(pointTransactionRepository, times(0)).save(any());
@@ -179,7 +179,7 @@ class PointTransactionServiceTest {
         when(organizationStaffRepository.findByUserIdAndActiveTrue(employee.getId())).thenReturn(Optional.of(employee));
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), employee.getId(), true), organization.getId());
+        pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), true), organization.getId(), employee.getId());
 
         ArgumentCaptor<PointTransaction> captor = ArgumentCaptor.forClass(PointTransaction.class);
         verify(pointTransactionRepository, times(2)).save(captor.capture());

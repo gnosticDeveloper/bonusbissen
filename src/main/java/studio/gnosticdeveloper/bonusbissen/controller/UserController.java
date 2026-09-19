@@ -75,6 +75,12 @@ public class UserController {
         return userService.getAdminUserInfo(principal.id(), principal.organizationId());
     }
 
+    @GetMapping("/me")
+    @PreAuthorize("hasRole('USER')")
+    public UserResponse getSelf(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return UserResponse.from(userService.getById(principal.id()));
+    }
+
     @PatchMapping("/me")
     @PreAuthorize("hasRole('USER')")
     public UserResponse updateSelf(@Valid @RequestBody UserUpdateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
@@ -87,6 +93,14 @@ public class UserController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void joinPointProgram(@PathVariable UUID programId, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         pointProgramService.join(principal.id(), programId);
+    }
+
+    /** Self-service join by storefront: the customer app only ever knows the storefront it's showing. */
+    @PostMapping("/me/storefronts/{storefrontId}/point-programs")
+    @PreAuthorize("hasRole('USER')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void joinPointProgramByStorefront(@PathVariable UUID storefrontId, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        pointProgramService.joinByStorefront(principal.id(), storefrontId);
     }
 
     @PostMapping("/me/resend-verification")
