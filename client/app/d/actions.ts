@@ -1,36 +1,25 @@
 "use server";
 
-import { request } from "@/lib/api";
+import { dashboardRequest } from "@/lib/api";
 import { HomeStats, PendingExchangeReview, TopClient, TopReward } from "./types";
+import { ActionResult } from "@/lib/action-result";
 
-export async function getHomeStats(): Promise<HomeStats> {
-  const response = await request("/users/home-stats");
-  const data = await response.json();
-
-  return data;
+export async function getHomeStats(): Promise<ActionResult<HomeStats>> {
+  return await dashboardRequest<HomeStats>("/users/home-stats");
 }
 
-export async function getPendingExchanges(): Promise<PendingExchangeReview[]> {
+export async function getPendingExchanges(): Promise<ActionResult<PendingExchangeReview[]>> {
   // self-reminder: I should probably consider implementing tanstack query to handle UI updates on data mutation and server state.
   // As this app grows, it's becoming hard to manage this type of updates properly without missing any tags.
-  const response = await request("/exchanges/pending", { next: { tags: ["pending-exchanges-employee"] } });
-
-  const data = await response.json();
-  return data;
+  return await dashboardRequest<PendingExchangeReview[]>("/exchanges/pending", { next: { tags: ["pending-exchanges-employee"] } });
 }
 
-export async function getTopRewards(): Promise<TopReward[]> {
-  const response = await request("/rewards/top");
-
-  const data = await response.json();
-  return data;
+export async function getTopRewards(): Promise<ActionResult<TopReward[]>> {
+  return await dashboardRequest<TopReward[]>("/rewards/top");
 }
 
-export async function getTopClients(): Promise<TopClient[]> {
-  const response = await request("/customers/top");
-
-  const data = await response.json();
-  return data;
+export async function getTopClients(): Promise<ActionResult<TopClient[]>> {
+  return await dashboardRequest<TopClient[]>("/users/top");
 }
 
 // export async function reactivateCustomer(id: string): Promise<ActionResult<Customer>> {

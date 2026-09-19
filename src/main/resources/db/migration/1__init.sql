@@ -37,9 +37,12 @@ CREATE TABLE IF NOT EXISTS storefronts (
 );
 
 -- point_programs: a named pool of points ("Puntos Café", "Club Online").
--- A program belongs to one organization and is honoured at one or more of
--- its storefronts (point_program_storefronts). A user's balance is computed
--- per (user, program): SUM(points) WHERE user_id = ? AND point_program_id = ?.
+-- A program belongs to one organization and is honoured at zero or more of
+-- its storefronts, via storefronts.point_program_id (one-to-many: a
+-- storefront can honour at most one program at a time; reassigning it away
+-- from its current program is rejected, not overwritten -- see
+-- PointProgramService.attachStorefronts). A user's balance is computed per
+-- (user, program): SUM(points) WHERE user_id = ? AND point_program_id = ?.
 CREATE TABLE IF NOT EXISTS point_programs (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id  UUID NOT NULL REFERENCES organizations(id),
@@ -50,13 +53,9 @@ CREATE TABLE IF NOT EXISTS point_programs (
     UNIQUE (organization_id, name)
 );
 
--- Which storefronts honour which program. Two storefronts on one program
--- share a single pool; a storefront on no program does not run points at all.
-CREATE TABLE IF NOT EXISTS point_program_storefronts (
-    point_program_id  UUID NOT NULL REFERENCES point_programs(id),
-    storefront_id     UUID NOT NULL REFERENCES storefronts(id),
-    PRIMARY KEY (point_program_id, storefront_id)
-);
+-- Idempotent: an existing DB picks this up on next boot. A storefront runs no
+-- points at all while this is null.
+ALTER TABLE storefronts ADD COLUMN IF NOT EXISTS point_program_id UUID REFERENCES point_programs(id);
 
 -- users: self-service loyalty accounts. A user signs up and authenticates
 -- with a username + password. Email is optional; once verified it can also
@@ -195,7 +194,7 @@ CREATE INDEX IF NOT EXISTS idx_organization_staff_user_id ON organization_staff(
 CREATE INDEX IF NOT EXISTS idx_storefronts_organization_id ON storefronts(organization_id);
 CREATE INDEX IF NOT EXISTS idx_storefronts_city ON storefronts(city) WHERE city IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_point_programs_organization_id ON point_programs(organization_id);
-CREATE INDEX IF NOT EXISTS idx_pps_storefront_id ON point_program_storefronts(storefront_id);
+CREATE INDEX IF NOT EXISTS idx_storefronts_point_program_id ON storefronts(point_program_id) WHERE point_program_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_staff_storefronts_storefront_id ON staff_storefronts(storefront_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_exchange_codes_point_transaction_id ON exchange_codes(point_transaction_id);
 -- Codes only need to be unique within an organization: two different

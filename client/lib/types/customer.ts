@@ -1,7 +1,9 @@
 export interface Customer {
   id: string;
   name: string;
-  phone: string;
+  username: string;
+  email: string;
+  emailVerified: boolean;
   points: number;
   formattedCreatedAt: string;
 }

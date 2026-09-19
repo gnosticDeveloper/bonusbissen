@@ -110,17 +110,17 @@ public abstract class AbstractIntegrationTest {
                     organization.setName("Test Org");
                     organization = organizationRepository.save(organization);
 
+                    PointProgram program = new PointProgram();
+                    program.setOrganization(organization);
+                    program.setName("Puntos");
+                    program = pointProgramRepository.save(program);
+
                     Storefront storefront = new Storefront();
                     storefront.setOrganization(organization);
                     storefront.setName("Test Storefront");
                     storefront.setAddress("123 Test St");
+                    storefront.setPointProgram(program);
                     storefront = storefrontRepository.save(storefront);
-
-                    PointProgram program = new PointProgram();
-                    program.setOrganization(organization);
-                    program.setName("Puntos");
-                    program.getStorefronts().add(storefront);
-                    program = pointProgramRepository.save(program);
 
                     sharedStorefront = storefront;
                     sharedProgram = program;

@@ -17,6 +17,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.AdminUserInfoResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
@@ -101,6 +102,18 @@ public class UserService {
         int totalPointsAwarded = pointTransactionRepository.calculatePointsAwarded(TransactionType.EARN, organizationId);
 
         return new HomeStatsResponse(totalExchanges, pendingExchanges, totalUsers, totalPointsAwarded);
+    }
+
+    @Transactional(readOnly = true)
+    public AdminUserInfoResponse getAdminUserInfo(UUID userId, UUID organizationId) {
+        return userRepository
+            .findAdminUserInfo(userId, organizationId)
+            .orElseThrow(() -> new NotFoundException("Staff membership not found or inactive"));
+    }
+
+    @Transactional(readOnly = true)
+    public User getById(UUID id) {
+        return userRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
     }
 
     /**

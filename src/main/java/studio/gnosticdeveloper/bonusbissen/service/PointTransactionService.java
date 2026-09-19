@@ -130,7 +130,7 @@ public class PointTransactionService {
     }
 
     @Transactional
-    public void approveExchange(ApproveExchangeRequest request, UUID organizationId) {
+    public void approveExchange(ApproveExchangeRequest request, UUID organizationId, UUID callerId) {
         PointTransaction pointTransaction = pointTransactionRepository
             .findById(request.id())
             .orElseThrow(() -> new NotFoundException("Point transaction not found: " + request.id()));
@@ -141,8 +141,8 @@ public class PointTransactionService {
         }
 
         OrganizationStaff employee = organizationStaffRepository
-            .findByUserIdAndActiveTrue(request.employeeId())
-            .orElseThrow(() -> new NotFoundException("Employee not found: " + request.employeeId()));
+            .findByUserIdAndActiveTrue(callerId)
+            .orElseThrow(() -> new NotFoundException("Employee not found: " + callerId));
 
         pointTransaction.setState(TransactionState.DELIVERED);
         pointTransaction.setEmployee(employee);
@@ -150,7 +150,7 @@ public class PointTransactionService {
     }
 
     @Transactional
-    public void cancelExchange(CancelExchangeRequest request, UUID organizationId) {
+    public void cancelExchange(CancelExchangeRequest request, UUID organizationId, UUID callerId) {
         PointTransaction pointTransaction = pointTransactionRepository
             .findById(request.id())
             .orElseThrow(() -> new NotFoundException("Point transaction not found: " + request.id()));
@@ -161,8 +161,8 @@ public class PointTransactionService {
         }
 
         OrganizationStaff employee = organizationStaffRepository
-            .findByUserIdAndActiveTrue(request.employeeId())
-            .orElseThrow(() -> new NotFoundException("Employee not found: " + request.employeeId()));
+            .findByUserIdAndActiveTrue(callerId)
+            .orElseThrow(() -> new NotFoundException("Employee not found: " + callerId));
 
         pointTransaction.setState(TransactionState.CANCELLED);
         pointTransaction.setEmployee(employee);

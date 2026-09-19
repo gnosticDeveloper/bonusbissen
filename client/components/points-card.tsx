@@ -17,7 +17,7 @@ export function PointsCard({ points }: { points: PointsResponse | null }) {
 
   const totalCard = (
     <div
-      className="flex min-h-33 items-center justify-between gap-3 rounded-[22px] px-5 py-4 text-white shadow-[0_10px_24px_-6px_rgba(23,19,30,0.35)]"
+      className="flex min-h-33 items-center justify-between gap-3 rounded-[22px] px-5 py-4 text-white"
       style={{ backgroundColor: "#232027" }}
     >
       <div className="min-w-0">
@@ -46,7 +46,7 @@ export function PointsCard({ points }: { points: PointsResponse | null }) {
         mainCard={totalCard}
         renderItem={(membership) => (
           <div
-            className="flex min-h-33 items-center justify-between gap-3 rounded-[22px] px-5 py-4 text-white shadow-[0_10px_24px_-6px_rgba(23,19,30,0.35)]"
+            className="flex min-h-33 items-center justify-between gap-3 rounded-[22px] px-5 py-4 text-white"
             style={{ backgroundColor: membership.org.color }}
           >
             <div className="min-w-0">

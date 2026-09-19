@@ -259,7 +259,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         ResponseEntity<Void> approve = restTemplate.exchange(
             baseUrl() + "/exchanges/approve",
             HttpMethod.POST,
-            authed(cashierToken, new ApproveExchangeRequest(exchangeId, cashier.getId())),
+            authed(cashierToken, new ApproveExchangeRequest(exchangeId)),
             Void.class
         );
         assertThat(approve.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -290,7 +290,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         ResponseEntity<Void> cancel = restTemplate.exchange(
             baseUrl() + "/exchanges/cancel",
             HttpMethod.POST,
-            authed(cashierToken, new CancelExchangeRequest(exchangeId, cashier.getId(), true)),
+            authed(cashierToken, new CancelExchangeRequest(exchangeId, true)),
             Void.class
         );
         assertThat(cancel.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -314,7 +314,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         restTemplate.exchange(
             baseUrl() + "/exchanges/cancel",
             HttpMethod.POST,
-            authed(cashierToken, new CancelExchangeRequest(exchangeId, cashier.getId(), false)),
+            authed(cashierToken, new CancelExchangeRequest(exchangeId, false)),
             Void.class
         );
 

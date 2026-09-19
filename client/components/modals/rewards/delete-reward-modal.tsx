@@ -3,8 +3,8 @@ import { useState } from "react";
 import { Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Reward } from "@/lib/types/reward";
-import { deleteReward } from "@/app/[orgId]/(employee)/dashboard/rewards/actions";
 import { useModal } from "@/components/modal";
+import { deleteReward } from "@/app/d/[slug]/gestion-recompensas/actions";
 
 export function DeleteRewardModal({ reward }: { reward: Reward }) {
   const { close } = useModal();

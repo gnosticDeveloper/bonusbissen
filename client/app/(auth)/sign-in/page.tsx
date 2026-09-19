@@ -30,7 +30,7 @@ export default function SignInPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-107.5 flex-col bg-background px-6.5 pt-13.5 pb-8 text-foreground">
+    <main className="mx-auto flex min-h-svh w-full max-w-107.5 flex-col bg-background px-6.5 pt-13.5 pb-8 text-foreground">
       <BrandLockup />
 
       <h1 className="mt-4.25 mb-3 text-[38px] leading-none text-foreground">
