@@ -14,7 +14,6 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.RewardResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
-import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
@@ -28,18 +27,15 @@ public class DiscoveryService {
     private static final int MAX_REWARDS_PER_CARD = 3;
 
     private final StorefrontRepository storefrontRepository;
-    private final PointProgramRepository pointProgramRepository;
     private final RewardRepository rewardRepository;
     private final PointTransactionRepository pointTransactionRepository;
 
     public DiscoveryService(
         StorefrontRepository storefrontRepository,
-        PointProgramRepository pointProgramRepository,
         RewardRepository rewardRepository,
         PointTransactionRepository pointTransactionRepository
     ) {
         this.storefrontRepository = storefrontRepository;
-        this.pointProgramRepository = pointProgramRepository;
         this.rewardRepository = rewardRepository;
         this.pointTransactionRepository = pointTransactionRepository;
     }
@@ -59,7 +55,7 @@ public class DiscoveryService {
     }
 
     private BusinessResponse toBusiness(Storefront storefront, UUID viewerUserId) {
-        PointProgram program = pointProgramRepository.findPrimaryProgramForStorefront(storefront.getId()).orElse(null);
+        PointProgram program = storefront.getPointProgram();
 
         String pointLabel = DEFAULT_POINT_LABEL;
         int points = 0;

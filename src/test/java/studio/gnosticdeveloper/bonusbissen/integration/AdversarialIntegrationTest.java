@@ -161,7 +161,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         ResponseEntity<Void> response = restTemplate.exchange(
             baseUrl() + "/exchanges/approve",
             HttpMethod.POST,
-            authed(userToken, new ApproveExchangeRequest(exchangeId, cashier.getId())),
+            authed(userToken, new ApproveExchangeRequest(exchangeId)),
             Void.class
         );
 
@@ -193,14 +193,14 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         restTemplate.exchange(
             baseUrl() + "/exchanges/approve",
             HttpMethod.POST,
-            authed(cashierToken, new ApproveExchangeRequest(exchangeId, cashier.getId())),
+            authed(cashierToken, new ApproveExchangeRequest(exchangeId)),
             Void.class
         );
 
         ResponseEntity<Void> cancelResponse = restTemplate.exchange(
             baseUrl() + "/exchanges/cancel",
             HttpMethod.POST,
-            authed(cashierToken, new CancelExchangeRequest(exchangeId, cashier.getId(), true)),
+            authed(cashierToken, new CancelExchangeRequest(exchangeId, true)),
             Void.class
         );
 
@@ -232,13 +232,13 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         restTemplate.exchange(
             baseUrl() + "/exchanges/cancel",
             HttpMethod.POST,
-            authed(cashierToken, new CancelExchangeRequest(exchangeId, cashier.getId(), true)),
+            authed(cashierToken, new CancelExchangeRequest(exchangeId, true)),
             Void.class
         );
         ResponseEntity<Void> secondCancel = restTemplate.exchange(
             baseUrl() + "/exchanges/cancel",
             HttpMethod.POST,
-            authed(cashierToken, new CancelExchangeRequest(exchangeId, cashier.getId(), true)),
+            authed(cashierToken, new CancelExchangeRequest(exchangeId, true)),
             Void.class
         );
 

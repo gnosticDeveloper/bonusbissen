@@ -12,8 +12,9 @@ import java.util.UUID;
 
 /**
  * A named pool of points ("Puntos Café", "Club Online"). Belongs to one
- * organization and is honoured at one or more of its storefronts. A user's
- * balance is computed per (user, program).
+ * organization and is honoured at zero or more of its storefronts -- a
+ * storefront can honour at most one program at a time. A user's balance is
+ * computed per (user, program).
  */
 @Entity
 @Table(name = "point_programs")
@@ -39,12 +40,7 @@ public class PointProgram {
     @Column(nullable = false)
     private boolean active = true;
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-        name = "point_program_storefronts",
-        joinColumns = @JoinColumn(name = "point_program_id"),
-        inverseJoinColumns = @JoinColumn(name = "storefront_id")
-    )
+    @OneToMany(mappedBy = "pointProgram", fetch = FetchType.LAZY)
     private Set<Storefront> storefronts = new HashSet<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)

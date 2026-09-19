@@ -87,14 +87,14 @@ public class PointTransactionController {
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     @ResponseStatus(code = HttpStatus.OK)
     public void cancelExchange(@RequestBody CancelExchangeRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        pointTransactionService.cancelExchange(request, principal.organizationId());
+        pointTransactionService.cancelExchange(request, principal.organizationId(), principal.id());
     }
 
     @PostMapping("/approve")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     @ResponseStatus(code = HttpStatus.OK)
     public void approveExchange(@RequestBody ApproveExchangeRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        pointTransactionService.approveExchange(request, principal.organizationId());
+        pointTransactionService.approveExchange(request, principal.organizationId(), principal.id());
     }
 
     @PostMapping("/user-cancel")

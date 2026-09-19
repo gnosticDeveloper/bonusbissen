@@ -111,6 +111,11 @@ public class UserService {
             .orElseThrow(() -> new NotFoundException("Staff membership not found or inactive"));
     }
 
+    @Transactional(readOnly = true)
+    public User getById(UUID id) {
+        return userRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
+    }
+
     /**
      * A user edits their own profile: display name plus an optional email.
      * Changing the email (or clearing it) drops the verified flag; when a new
