@@ -12,9 +12,8 @@ import org.springframework.web.client.RestClientException;
 import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
 
 /**
- * Validates a street address against the georef-ar API and derives its
- * "Localidad, Provincia" city. Disabled via {@code app.georef.enabled=false}
- * (tests): the address is then passed through untouched and city left null.
+ * Validates a street address against the georef-ar API, scoped by the
+ * caller-supplied city and province.
  */
 @Component
 public class GeorefClient {
@@ -32,13 +31,22 @@ public class GeorefClient {
         this.enabled = enabled;
     }
 
-    public ResolvedAddress resolve(String rawAddress) {
+    public ResolvedAddress resolve(String rawAddress, String rawCity, String rawProvince) {
         if (rawAddress == null || rawAddress.isBlank()) {
             throw new BadRequestException("Un local físico necesita una dirección.");
         }
-        String trimmed = rawAddress.trim();
+        if (rawProvince == null || rawProvince.isBlank()) {
+            throw new BadRequestException("Un local físico necesita una provincia.");
+        }
+        if (rawCity == null || rawCity.isBlank()) {
+            throw new BadRequestException("Un local físico necesita una ciudad.");
+        }
+        String address = rawAddress.trim();
+        String province = rawProvince.trim();
+        String city = rawCity.trim();
+
         if (!enabled) {
-            return new ResolvedAddress(trimmed, null);
+            return new ResolvedAddress(address, city, province);
         }
 
         GeorefResponse response;
@@ -47,7 +55,9 @@ public class GeorefClient {
                 .get()
                 .uri(uri ->
                     uri.path("/direcciones")
-                        .queryParam("direccion", trimmed)
+                        .queryParam("direccion", address)
+                        .queryParam("provincia", province)
+                        .queryParam("localidad", city)
                         .queryParam("campos", "calle.nombre,altura.valor,localidad_censal.nombre,provincia.nombre")
                         .queryParam("max", 1)
                         .build()
@@ -55,34 +65,30 @@ public class GeorefClient {
                 .retrieve()
                 .body(GeorefResponse.class);
         } catch (RestClientException e) {
-            log.warn("Georef call failed for address '{}'", trimmed, e);
+            log.warn("Georef call failed for address '{}, {}, {}'", address, city, province, e);
             throw new BadRequestException("No pudimos validar esa dirección en este momento. Probá de nuevo en unos minutos.");
         }
 
         if (response == null || response.direcciones() == null || response.direcciones().isEmpty()) {
-            throw new BadRequestException("No pudimos validar esa dirección. Revisá que la calle y la altura sean reales.");
+            log.warn("Georef found no match for address '{}, {}, {}'", address, city, province);
+            throw new BadRequestException("No pudimos validar esa dirección. Revisá que la calle, la altura, la ciudad y la provincia sean reales.");
         }
 
-        return toResolvedAddress(response.direcciones().get(0), trimmed);
+        return toResolvedAddress(response.direcciones().get(0), address, city, province);
     }
 
-    // Built from the response's structured fields (calle/altura for the street,
-    // localidad_censal/provincia for the city) rather than `nomenclatura`: that
-    // field embeds `departamento`, a coarser division than localidad_censal, so
-    // using it here would make `address` disagree with the `city` we derive.
-    private static ResolvedAddress toResolvedAddress(Direccion d, String fallbackAddress) {
+    private static ResolvedAddress toResolvedAddress(Direccion d, String fallbackAddress, String fallbackCity, String fallbackProvince) {
         String street = d.calle() != null ? d.calle().nombre() : null;
         Integer number = d.altura() != null ? d.altura().valor() : null;
         String address = street != null ? (number != null ? street + " " + number : street) : fallbackAddress;
 
-        String locality = d.localidadCensal() != null ? d.localidadCensal().nombre() : null;
-        String province = d.provincia() != null ? d.provincia().nombre() : null;
-        String city = locality != null && province != null ? locality + ", " + province : (province != null ? province : locality);
+        String locality = d.localidadCensal() != null ? d.localidadCensal().nombre() : fallbackCity;
+        String province = d.provincia() != null ? d.provincia().nombre() : fallbackProvince;
 
-        return new ResolvedAddress(address, city);
+        return new ResolvedAddress(address, locality, province);
     }
 
-    public record ResolvedAddress(String address, String city) {}
+    public record ResolvedAddress(String address, String city, String province) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record GeorefResponse(List<Direccion> direcciones) {}

@@ -49,7 +49,7 @@ public class StorefrontService {
         storefront.setHours(blankToNull(request.hours()));
         storefront.setIconPath(blankToNull(request.icon()));
         storefront.setDescription(blankToNull(request.description()));
-        applyLocation(storefront, request.online(), request.address());
+        applyLocation(storefront, request.online(), request.address(), request.city(), request.province());
         return storefrontRepository.save(storefront);
     }
 
@@ -63,7 +63,7 @@ public class StorefrontService {
         storefront.setHours(blankToNull(request.hours()));
         storefront.setIconPath(blankToNull(request.icon()));
         storefront.setDescription(blankToNull(request.description()));
-        applyLocation(storefront, request.online(), request.address());
+        applyLocation(storefront, request.online(), request.address(), request.city(), request.province());
         if (request.active() != null) {
             storefront.setActive(request.active());
         }
@@ -83,16 +83,18 @@ public class StorefrontService {
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar el local con ID " + id + "."));
     }
 
-    /** Online storefronts have no address/city; physical ones get both via georef. */
-    private void applyLocation(Storefront storefront, boolean online, String address) {
+    /** Online storefronts have no address/city/province; physical ones get all three via georef. */
+    private void applyLocation(Storefront storefront, boolean online, String address, String city, String province) {
         if (online) {
             storefront.setAddress(null);
             storefront.setCity(null);
+            storefront.setProvince(null);
             return;
         }
-        GeorefClient.ResolvedAddress resolved = georefClient.resolve(address);
+        GeorefClient.ResolvedAddress resolved = georefClient.resolve(address, city, province);
         storefront.setAddress(resolved.address());
         storefront.setCity(resolved.city());
+        storefront.setProvince(resolved.province());
     }
 
     private static String blankToNull(String value) {

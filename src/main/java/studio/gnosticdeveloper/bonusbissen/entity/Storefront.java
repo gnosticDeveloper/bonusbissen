@@ -42,9 +42,13 @@ public class Storefront {
     @Column(length = 255)
     private String address;
 
-    /** Canonical "Localidad, Provincia", derived via georef-ar. */
+    /** Canonical locality (localidad censal), derived via georef-ar. */
     @Column(length = 120)
     private String city;
+
+    /** Canonical provincia, derived via georef-ar. */
+    @Column(length = 120)
+    private String province;
 
     @Column(length = 80)
     private String category;
