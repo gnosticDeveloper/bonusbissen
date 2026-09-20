@@ -2,9 +2,9 @@ spring:
   application:
     name: bonusbissen
   datasource:
-    url: jdbc:postgresql://localhost:5432/bonusbissen
-    username: postgres
-    password: ale36153171
+    url: jdbc:postgresql://localhost:5432/${LOCAL_DB_NAME:bonusbissen}
+    username: ${LOCAL_DB_USER:postgres}
+    password: ${LOCAL_DB_PASSWORD:local-dev-password}
   jpa:
     hibernate:
       ddl-auto: validate

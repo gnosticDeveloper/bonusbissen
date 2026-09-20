@@ -61,6 +61,7 @@ services:
       - "${HTTPS_PORT:-443}:443"
     depends_on:
       - frontend
+      - grafana
 
   # Not started by `docker compose up`; invoked directly via
   # nginx/certbot-init.sh (issuance) and cron (renewal). See that script.
@@ -101,7 +102,9 @@ services:
       - "127.0.0.1:9090:9090"
 
   grafana:
-    # Not fronted by nginx yet -- localhost-only for now, same as prometheus/loki above.
+    # Reachable at https://grafana.<domain>/ via nginx below (see nginx.conf.example's
+    # grafana.YOUR_DOMAIN server block). Still bound to 127.0.0.1:3000 directly too,
+    # for local debugging without going through nginx.
     image: grafana/grafana:13.1.3
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?Set GRAFANA_ADMIN_USER in .env}
