@@ -44,7 +44,7 @@ public abstract class AbstractIntegrationTest {
     // stale ApplicationContext pointing at a container port that JUnit already
     // stopped and replaced between classes.
     @ServiceConnection
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine").withInitScript("schema.sql");
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
 
     static {
         POSTGRES.start();

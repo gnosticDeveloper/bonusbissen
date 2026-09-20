@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# One-time bootstrap: gets the first real Let's Encrypt cert for DOMAIN.
-# Requires nginx.conf's YOUR_DOMAIN placeholders to already be replaced,
-# and DOMAIN's DNS A record to already point at this host.
+# One-time bootstrap: gets the first real Let's Encrypt cert for DOMAIN,
+# with grafana.DOMAIN included as a SAN (nginx.conf's grafana server block
+# reuses this same cert -- see nginx.conf.example). Requires nginx.conf's
+# YOUR_DOMAIN placeholders to already be replaced, and both DOMAIN's and
+# grafana.DOMAIN's DNS A records to already point at this host.
 set -euo pipefail
 
 DOMAIN="${1:?Usage: certbot-init.sh <domain> <email>}"
 EMAIL="${2:?Usage: certbot-init.sh <domain> <email>}"
+GRAFANA_DOMAIN="grafana.$DOMAIN"
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_DIR"
@@ -47,10 +50,10 @@ rm -rf "nginx/certbot/conf/live/$DOMAIN" \
 
 docker compose run --rm certbot certonly \
   --webroot -w /var/www/certbot \
-  -d "$DOMAIN" \
+  -d "$DOMAIN" -d "$GRAFANA_DOMAIN" \
   --email "$EMAIL" --agree-tos --no-eff-email
 
 docker compose exec nginx nginx -s reload
 install_cron
 
-echo "Done. $DOMAIN is now serving a real Let's Encrypt cert."
+echo "Done. $DOMAIN and $GRAFANA_DOMAIN are now serving a real Let's Encrypt cert."
