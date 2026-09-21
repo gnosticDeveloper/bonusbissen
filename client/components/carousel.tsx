@@ -93,7 +93,7 @@ export function Carousel<T>({ items, mainCard = null, renderItem, fallback, clas
           {slides.map((content, index) => (
             <div
               key={index}
-              className="w-full shrink-0 min-w-0"
+              className={`w-full min-w-0 shrink-0 ${index === slide ? "carousel-slide-active" : ""}`}
               style={{
                 animation: index === slide ? `slideIn${direction === "right" ? "Right" : "Left"} 0.3s ease-out` : undefined,
               }}
@@ -138,7 +138,7 @@ export function Carousel<T>({ items, mainCard = null, renderItem, fallback, clas
       </div>
 
       {/* CSS animations */}
-      <style jsx>{`
+      <style>{`
         @keyframes slideInRight {
           from {
             opacity: 0;
@@ -157,6 +157,27 @@ export function Carousel<T>({ items, mainCard = null, renderItem, fallback, clas
           to {
             opacity: 1;
             transform: translateX(0);
+          }
+        }
+
+        .carousel-slide-active > * {
+          animation: rewardInfoFade 420ms ease-out 300ms both;
+        }
+
+        @keyframes rewardInfoFade {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .carousel-slide-active > * {
+            animation: none;
           }
         }
       `}</style>

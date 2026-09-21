@@ -42,7 +42,7 @@ export default function RewardsList({ rewards, isAdmin }: { rewards: Reward[]; i
 
             <div className="mt-auto flex items-end justify-between gap-3 border-t border-border/70 pt-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">Canjeá por</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">Se canjea por</p>
                 <p className="mt-1 text-sm font-bold text-primary">{formatPoints(reward.costPoints)} pts</p>
               </div>
 

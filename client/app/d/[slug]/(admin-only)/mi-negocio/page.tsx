@@ -1,27 +1,28 @@
-import { Card } from "@/components/ui/card";
-import { Building2 } from "lucide-react";
-import { OrganizationForm } from "@/components/organization-form";
-import { getOrganization } from "@/app/[orgId]/actions";
+import { OrganizationSection } from "@/components/organization-section";
+import { PointProgramsSection } from "@/components/point-programs-section";
+import { StorefrontsSection } from "@/components/storefronts-section";
+import { getOrganization, getPointPrograms, getStorefronts } from "./actions";
 
-export default async function OrganizationSettingsPage({ params }: { params: Promise<{ orgId: string }> }) {
-  const { orgId } = await params;
-  const org = await getOrganization(orgId);
+export default async function MiNegocioPage() {
+  const [org, storefronts, pointPrograms] = await Promise.all([
+    getOrganization(),
+    getStorefronts(),
+    getPointPrograms(),
+  ]);
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <Card className="p-6">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Building2 className="size-5" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Datos del negocio</h2>
-            <p className="text-sm text-muted-foreground">Esta información se muestra a tus clientes en la app.</p>
-          </div>
-        </div>
+    <main className="mx-auto w-full max-w-2xl text-foreground min-h-full">
+      <header className="mb-7">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Panel de administración</p>
+        <h1 className="text-3xl font-semibold tracking-tighter sm:text-4xl">Mi negocio</h1>
+        <p className="mt-2 text-sm leading-6 text-muted">Gestioná los datos de tu negocio, tus sucursales y tus programas de puntos.</p>
+      </header>
 
-        <OrganizationForm org={org} />
-      </Card>
-    </div>
+      <div className="flex flex-col gap-6">
+        <OrganizationSection org={org!} />
+        <StorefrontsSection storefronts={storefronts} />
+        <PointProgramsSection pointPrograms={pointPrograms} storefronts={storefronts} />
+      </div>
+    </main>
   );
 }

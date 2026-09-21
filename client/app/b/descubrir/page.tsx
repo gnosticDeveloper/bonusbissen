@@ -26,13 +26,13 @@ export default function DescubrirPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-svh w-full max-w-107.5 flex-col px-4 pb-12 pt-6">
-      <header className="mb-6">
+    <div className="mx-auto flex min-h-full w-full max-w-107.5 flex-col pt-6">
+      <header className="mb-6 px-5">
         <h1 className="text-xl font-medium text-foreground">Descubrí negocios</h1>
         <p className="mt-1 text-sm text-muted">Todos los comercios afiliados a BonusBissen.</p>
       </header>
 
-      <div className="mb-5">
+      <div className="mb-5 px-5 self-end">
         <CitySelect value={city} onChange={handleCityChange} />
       </div>
 

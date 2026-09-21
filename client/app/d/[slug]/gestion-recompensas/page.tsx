@@ -11,21 +11,27 @@ export default async function RewardsPage({ searchParams }: { searchParams: Prom
   const isAdmin = currentUser.ok && currentUser.data.role.toUpperCase() === UserRole.ADMIN;
   const rewards = rewardsResult.ok ? rewardsResult.data : [];
 
+  const transformedRewardsWithCompleteImagePath = rewards.map((r) => ({
+    ...r,
+    imagePath: r.imagePath ? (process.env.ASSETS_URL ?? "http://localhost:8080/uploads/" + r.imagePath) : null,
+  }));
+
   return (
     <div className="flex h-full flex-col gap-4">
       <div className="flex flex-col lg:flex-row items-center justify-between gap-2">
-        <div className="flex flex-col">
-          <h2 className="text-lg font-semibold">Recompensas</h2>
-          <p className="text-sm text-muted-foreground">
+        <header className="mb-7">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Gestión</p>
+          <h1 className="text-3xl font-semibold tracking-tighter sm:text-4xl">Recompensas</h1>
+          <p className="mt-2 text-sm leading-6 text-muted">
             {isAdmin
               ? "Creá, editá y eliminá las recompensas que tus clientes pueden canjear."
               : "Catálogo de recompensas disponibles (solo lectura)."}
           </p>
-        </div>
+        </header>
         {isAdmin ? <CreateRewardButton /> : null}
       </div>
 
-      <RewardsList rewards={rewards} isAdmin={isAdmin} />
+      <RewardsList rewards={transformedRewardsWithCompleteImagePath} isAdmin={isAdmin} />
     </div>
   );
 }

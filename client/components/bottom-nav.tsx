@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Compass, Gift, Settings, QrCode } from "lucide-react";
+import { Home, Compass, Gift, User2 } from "lucide-react";
 
 const LEFT_ITEMS = [
   { href: "/b", label: "Inicio", icon: Home },
@@ -11,7 +11,7 @@ const LEFT_ITEMS = [
 
 const RIGHT_ITEMS = [
   { href: "/b/descubrir", label: "Descubrir", icon: Compass },
-  { href: "/b/configuracion", label: "Config", icon: Settings },
+  { href: "/b/perfil", label: "Perfil", icon: User2 },
 ] as const;
 
 export function BottomNav() {
@@ -33,12 +33,12 @@ export function BottomNav() {
         ))}
 
         {/* TODO: Implementar escaneo real de QR. */}
-        <button
+        {/*<button
           aria-label="Escanear QR"
           className="-mt-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95"
         >
           <QrCode size={34} />
-        </button>
+        </button>*/}
 
         {RIGHT_ITEMS.map(({ href, label, icon: Icon }) => (
           <Link

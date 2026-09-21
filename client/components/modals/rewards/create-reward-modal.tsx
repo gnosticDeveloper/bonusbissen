@@ -1,55 +1,123 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { appendRewardFields, isValidImage } from "./helpers";
+import { useEffect, useRef, useState } from "react";
+import { isValidImage } from "./helpers";
 import { useModal } from "@/components/modal";
 import { Input, Textarea } from "@/components/ui/input";
 import { AlertCircle, ImagePlus, Loader2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createReward } from "@/app/d/[slug]/gestion-recompensas/actions";
+import { getPointPrograms } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
+import { PointProgram } from "@/lib/types/point-program";
+import { useToast } from "@/components/toast";
 
 export function CreateRewardModal() {
   const { close } = useModal();
+  const notify = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+
+  const [pointPrograms, setPointPrograms] = useState<PointProgram[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPointPrograms()
+      .then((programs) => {
+        if (!cancelled) setPointPrograms(programs.filter((p) => p.active));
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   function handleFileChange(file?: File) {
     if (!file) return;
     if (!isValidImage(file)) {
-      setError("Selecciona un archivo de imagen válido.");
+      notify("Selecciona un archivo de imagen válido.", "error");
       return;
     }
-    setError(null);
     setPreview(URL.createObjectURL(file));
   }
+
   async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(null);
     const form = e.currentTarget;
     const data = new FormData(form);
     const title = String(data.get("title") ?? "").trim();
     const costPoints = Number(data.get("costPoints"));
     const discountValue = Number(data.get("discountValue"));
-    const image = fileRef.current?.files?.[0];
-    if (!title || !Number.isInteger(costPoints) || costPoints <= 0 || !Number.isFinite(discountValue) || discountValue < 0) {
-      setError("Revisa el título, los puntos y el valor del descuento.");
+    const pointProgramId = String(data.get("pointProgramId") ?? "");
+
+    if (!title || !Number.isInteger(costPoints) || costPoints <= 0 || !Number.isFinite(discountValue) || discountValue < 0 || !pointProgramId) {
+      notify("Revisa el título, los puntos, el valor del descuento y el programa de puntos.", "error");
       return;
     }
-    appendRewardFields(data, { title, description: String(data.get("description") ?? ""), costPoints, discountValue }, image);
-    // if (mode === "update") data.set("removeImage", String(removeImage));
+
+    const image = fileRef.current?.files?.[0];
+    if (image && image.size > 0) {
+      data.set("image", image);
+    }
+
     setPending(true);
     try {
       await createReward(data);
       formRef.current?.reset();
       close();
     } catch {
-      setError("No se pudo guardar la recompensa. Inténtalo de nuevo.");
+      notify("No se pudo guardar la recompensa. Inténtalo de nuevo.", "error");
     } finally {
       setPending(false);
     }
   }
+
+  if (pointPrograms === null && !loadError) {
+    return (
+      <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        Cargando programas de puntos…
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div role="alert" className="flex items-start gap-3 rounded-xl border border-primary/25 bg-primary/10 px-3.5 py-3 text-sm text-foreground">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+        <p>No pudimos cargar tus programas de puntos. Cerrá este panel e intentá de nuevo.</p>
+      </div>
+    );
+  }
+
+  if (pointPrograms!.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-6 text-center">
+        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-primary">
+          <AlertCircle className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div>
+          <p className="text-sm font-semibold text-foreground">Necesitás un programa de puntos primero</p>
+          <p className="mt-1 text-xs leading-5 text-muted">Para crear una recompensa primero creá un programa de puntos en "Mi negocio".</p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={close}
+          className="h-10 rounded-xl border-border bg-card text-sm text-foreground hover:bg-background"
+        >
+          Entendido
+        </Button>
+      </div>
+    );
+  }
+
+  const singleProgram = pointPrograms!.length === 1 ? pointPrograms![0] : null;
+
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="grid gap-5">
       <label className="grid gap-2">
@@ -105,6 +173,32 @@ export function CreateRewardModal() {
         </label>
       </div>
 
+      <label className="grid gap-2">
+        <span className="text-sm font-medium text-foreground">Programa de puntos</span>
+        {singleProgram ? (
+          <>
+            <input type="hidden" name="pointProgramId" value={singleProgram.id} />
+            <div className="flex h-11 items-center rounded-xl border border-border bg-background px-3.5 text-sm text-muted">{singleProgram.name}</div>
+          </>
+        ) : (
+          <select
+            name="pointProgramId"
+            required
+            defaultValue=""
+            className="h-11 rounded-xl border border-border bg-background px-3.5 text-sm shadow-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+          >
+            <option value="" disabled>
+              Elegí un programa
+            </option>
+            {pointPrograms!.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        )}
+      </label>
+
       <div className="grid gap-2">
         <div>
           <p className="text-sm font-medium text-foreground">Imagen de la recompensa</p>
@@ -122,10 +216,8 @@ export function CreateRewardModal() {
 
         {preview ? (
           <div className="relative overflow-hidden rounded-2xl border border-border bg-background">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={preview} alt="Vista previa de la recompensa" className="h-44 w-full object-cover" />
-
-            <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-foreground/80 px-3 py-2.5 text-primary-foreground">
+            <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-foreground/80 px-3 py-2.5 text-background">
               <span className="truncate text-xs font-medium">Imagen seleccionada</span>
               <button
                 type="button"
@@ -169,13 +261,6 @@ export function CreateRewardModal() {
         ) : null}
       </div>
 
-      {error ? (
-        <div role="alert" className="flex items-start gap-3 rounded-xl border border-primary/25 bg-primary/10 px-3.5 py-3 text-sm text-foreground">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-          <p>{error}</p>
-        </div>
-      ) : null}
-
       <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">
         <Button
           type="button"
@@ -186,7 +271,6 @@ export function CreateRewardModal() {
         >
           Cancelar
         </Button>
-
         <Button
           type="submit"
           disabled={pending}

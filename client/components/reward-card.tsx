@@ -1,20 +1,30 @@
+import { CardPalette } from "@/lib/helpers/color";
+import { formatPoints } from "@/lib/helpers/format";
 import { Reward } from "@/lib/types/reward";
-import { Sparkles } from "lucide-react";
 
-export function RewardCard({ reward, color, pointsLabel }: { reward: Reward; color: string; pointsLabel: string | null }) {
+export function RewardCard({ reward, color, pointsLabel }: { reward: Reward; color: string; pointsLabel: string | null; palette: CardPalette }) {
   return (
-    <div className="flex min-w-0 flex-1 relative overflow-hidden rounded-[14px] border bg-black/9" style={{ borderColor: `${color}55` }}>
-      <div
-        className="w-14.5 shrink-0 self-stretch bg-cover bg-center"
-        style={{ backgroundImage: `linear-gradient(180deg, transparent, ${color}), url(${reward.imagePath})` }}
-      />
-      <div className="min-w-0 flex-1 px-2.25 py-2">
-        <strong className="block truncate text-[13px]">{reward.title}</strong>
-        <p className="my-0.75 truncate text-[11px] text-white/74">{reward.description}</p>
-        <span className="inline-flex items-center gap-1 truncate text-[10px] text-primary-foreground">
-          <Sparkles size={13} /> {reward.costPoints} {pointsLabel ?? "puntos"}{" "}
-          {reward.discountValue ? ` · ${reward.discountValue}% off` : ""}
-        </span>
+    <div className="relative aspect-4/3 w-full overflow-hidden bg-muted/20">
+      {reward.imagePath ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={reward.imagePath} alt={reward.title} className="size-full object-cover" />
+      ) : (
+        <div className="grid size-full place-items-center bg-muted/20 text-xs text-muted" aria-label="Esta recompensa no tiene imagen">
+          Sin imagen
+        </div>
+      )}
+
+      <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 via-black/30 to-transparent px-4 pb-4 pt-16 text-primary-foreground">
+        <div className="flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <h4 className="truncate text-base font-semibold tracking-[-0.02em]">{reward.title}</h4>
+            <p className="mt-1 line-clamp-1 text-xs text-primary-foreground/75">{reward.description}</p>
+          </div>
+
+          <span className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold" style={{ backgroundColor: color, color: "#fff" }}>
+            {formatPoints(reward.costPoints)} {pointsLabel ?? "puntos"}
+          </span>
+        </div>
       </div>
     </div>
   );

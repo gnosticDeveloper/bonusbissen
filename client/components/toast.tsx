@@ -40,13 +40,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             role="status"
             className={cn(
               "pointer-events-auto flex w-full max-w-sm items-start gap-2.5 rounded-xl border px-4 py-3 text-sm shadow-lg animate-in fade-in slide-in-from-bottom-2",
-              t.tone === "success" && "border-success/30 bg-card text-foreground",
-              t.tone === "error" && "border-destructive/30 bg-card text-foreground",
+              t.tone === "success" && "border-green-500/30 bg-card text-foreground",
+              t.tone === "error" && "border-red-500/30 bg-card text-foreground",
               t.tone === "info" && "border-border bg-card text-foreground",
             )}
           >
-            {t.tone === "success" && <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" />}
-            {t.tone === "error" && <XCircle className="mt-0.5 size-4 shrink-0 text-destructive" />}
+            {t.tone === "success" && <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-500" />}
+            {t.tone === "error" && <XCircle className="mt-0.5 size-4 shrink-0 text-red-500" />}
             {t.tone === "info" && <Info className="mt-0.5 size-4 shrink-0 text-primary" />}
             <span className="leading-relaxed">{t.message}</span>
           </div>

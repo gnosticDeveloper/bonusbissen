@@ -35,7 +35,7 @@ public class RewardService {
 
     private static final long MAX_BYTES = 2 * 1024 * 1024; // 2MB
     // private static final int MAX_WIDTH = 1000;
-    private static final Set<String> TYPES_ALLOWED = Set.of("image/jpeg", "image/png", "image/webp");
+    private static final Set<String> TYPES_ALLOWED = Set.of("image/jpeg", "image/png", "image/webp", "image/jpg");
 
     @Value("${app.uploads.dir}")
     private String uploadsDir;

@@ -11,9 +11,11 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.BusinessResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CityOption;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.RewardResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.StorefrontDiscoverResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
+import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
@@ -51,7 +53,17 @@ public class DiscoveryService {
 
     @Transactional(readOnly = true)
     public List<CityOption> cities() {
-        return storefrontRepository.findDistinctActiveCities().stream().map(name -> new CityOption(name, name)).toList();
+        return storefrontRepository
+            .findDistinctActiveCities()
+            .stream()
+            .map(name -> new CityOption(name, name))
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public StorefrontDiscoverResponse getStorefrontBasicInfoById(UUID id) {
+        return storefrontRepository.getBasicInfoById(id)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la sucursal con ID " + id + "."));
     }
 
     private BusinessResponse toBusiness(Storefront storefront, UUID viewerUserId) {
@@ -87,7 +99,7 @@ public class DiscoveryService {
             pointLabel,
             points,
             rewards,
-            new BusinessResponse.Address(storefront.getAddress())
+            new BusinessResponse.Address(storefront.getAddress(), storefront.getCity(), storefront.getProvince())
         );
     }
 }

@@ -82,6 +82,20 @@ public class PointProgramService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
+    @Transactional(readOnly = true)
+    public boolean isMemberByStorefront(UUID userId, UUID storefrontId) {
+        Storefront storefront = storefrontRepository
+            .findById(storefrontId)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la sucursal con ID " + storefrontId + "."));
+
+        PointProgram program = storefront.getPointProgram();
+        if (program == null || !program.isActive()) {
+            return false;
+        }
+
+        return userPointProgramRepository.existsByUser_IdAndPointProgram_Id(userId, program.getId());
+    }
+
     /** Assigns each storefront to this program. Rejects any storefront already tied to a different program. */
     @Transactional
     public PointProgram attachStorefronts(UUID id, List<UUID> storefrontIds, UUID organizationId) {

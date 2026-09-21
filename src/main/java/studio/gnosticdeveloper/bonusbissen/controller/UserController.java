@@ -17,6 +17,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.AdminUserInfoResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.MembershipResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
@@ -101,6 +102,16 @@ public class UserController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void joinPointProgramByStorefront(@PathVariable UUID storefrontId, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         pointProgramService.joinByStorefront(principal.id(), storefrontId);
+    }
+
+    /** Called from "/s/[slug]" to know whether the logged-in user should see "afiliarse" or "inicio". */
+    @GetMapping("/me/storefronts/{storefrontId}/membership")
+    @PreAuthorize("hasRole('USER')")
+    public MembershipResponse checkMembershipByStorefront(
+        @PathVariable UUID storefrontId,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
+        return new MembershipResponse(pointProgramService.isMemberByStorefront(principal.id(), storefrontId));
     }
 
     @PostMapping("/me/resend-verification")

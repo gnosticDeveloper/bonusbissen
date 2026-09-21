@@ -49,7 +49,7 @@ export type Business = {
   pointLabel: string;
   points: number;
   rewards: Reward[];
-  address: { street: string };
+  address: { street: string; city: string, province: string };
 };
 
 export type Location = {

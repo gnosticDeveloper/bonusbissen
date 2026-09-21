@@ -22,8 +22,6 @@ export default function PointsManagerPage() {
 
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // dentro de submit(), en los dos branches donde hacés notify(..., "success"):
-
   const [selected, setSelected] = useState<Customer | null>(null);
   const [granting, setGranting] = useState(false);
   // TODO: Notes are not implemented yet in the backend database.
@@ -44,6 +42,8 @@ export default function PointsManagerPage() {
     setError(null);
   }
 
+  console.log("selected a user:", selected);
+
   async function submit() {
     if (!selected) return;
 
@@ -63,7 +63,7 @@ export default function PointsManagerPage() {
       }
 
       // TODO: get the programPointId here.
-      const result = await grantPointsTo(selected.id, points, "", note);
+      const result = await grantPointsTo(selected.id, points, note);
       if (result.ok) {
         const { pointsGranted, customerName } = result.data;
         notify(`Se sumaron ${formatPoints(pointsGranted)} puntos a ${customerName}.`, "success");
@@ -78,7 +78,7 @@ export default function PointsManagerPage() {
         setError("Ingresá una cantidad de puntos válida (número entero mayor a 0).");
         return;
       }
-      const result = await grantPointsTo(selected.id, points, "", note);
+      const result = await grantPointsTo(selected.id, points, note);
       if (result.ok) {
         const { pointsGranted, customerName } = result.data;
         notify(`Se sumaron ${formatPoints(pointsGranted)} puntos a ${customerName}.`, "success");

@@ -7,7 +7,7 @@ import { Carousel } from "./carousel";
 export function PointsCard({ points }: { points: PointsResponse | null }) {
   if (!points)
     return (
-      <section className="relative z-1 mb-8.75">
+      <section className="relative px-5 z-1 mb-8.75">
         <div className="flex min-h-33 items-center justify-center gap-2 rounded-[22px] bg-[#232027] text-sm text-white/80">
           <Spinner />
           <span>Cargando tus puntos...</span>
@@ -40,7 +40,7 @@ export function PointsCard({ points }: { points: PointsResponse | null }) {
   );
 
   return (
-    <div className="mb-8.75">
+    <div className="mb-8.75 px-5">
       <Carousel
         items={points.memberships}
         mainCard={totalCard}

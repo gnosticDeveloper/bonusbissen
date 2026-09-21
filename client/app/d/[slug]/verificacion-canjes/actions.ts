@@ -1,7 +1,6 @@
 "use server";
 
-import { request } from "@/lib/api";
-
+import { dashboardRequest } from "@/lib/api";
 
 export interface Redemption {
   id: string;
@@ -25,15 +24,15 @@ export interface Redemption {
 }
 
 export async function getResolvedExchanges() {
-  const res = await request("/exchanges/resolved");
+  const res = await dashboardRequest<Redemption[]>("/exchanges/resolved");
 
-  if (!res.ok) return null;
+  if (!res.ok) return [];
 
-  return await res.json() as Redemption[];
+  return res.data;
 }
 
-export async function validateCode(code: string): Promise<Redemption | null> {
-  const res = await request("/exchanges/verify", {
+export async function validateCode(code: string) {
+  const res = await dashboardRequest<Redemption>("/exchanges/verify", {
     body: JSON.stringify({ code }),
     headers: {
       "Content-Type": "application/json",
@@ -42,11 +41,11 @@ export async function validateCode(code: string): Promise<Redemption | null> {
 
   if (!res.ok) return null;
 
-  return await res.json();
+  return res.data;
 }
 
 export async function confirmRedemption(id: string) {
-  const res = await request("/exchanges/approve", {
+  const res = await dashboardRequest("/exchanges/approve", {
     method: "POST",
     body: JSON.stringify({ id }),
     headers: {
@@ -58,7 +57,7 @@ export async function confirmRedemption(id: string) {
 }
 
 export async function annulateExchange(id: string, shouldRefundPoints: boolean = true) {
-  const res = await request("/exchanges/cancel", {
+  const res = await dashboardRequest("/exchanges/cancel", {
     method: "POST",
     body: JSON.stringify({ id, shouldRefundPoints }),
     headers: {

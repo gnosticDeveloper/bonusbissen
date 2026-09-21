@@ -16,5 +16,5 @@ public record BusinessResponse(
     List<RewardResponse> rewards,
     Address address
 ) {
-    public record Address(String street) {}
+    public record Address(String street, String city, String province) {}
 }

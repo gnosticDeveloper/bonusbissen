@@ -6,15 +6,15 @@ import { PointAction } from "../../types";
 import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
 import { ActionResult } from "@/lib/action-result";
 
-interface CustomerPointsAward {
-  customerName: string;
+interface UserPointsAwardResponse {
+  userName: string;
   pointsGranted: number;
 }
 
-export const grantPointsTo = async (id: string, points: number, pointProgramId: string, note?: string): Promise<ActionResult<CustomerPointsAward>> => {
-  return await dashboardRequest<CustomerPointsAward>("/users/grant", {
+export const grantPointsTo = async (id: string, points: number, note?: string): Promise<ActionResult<UserPointsAwardResponse>> => {
+  return await dashboardRequest<UserPointsAwardResponse>("/users/grant", {
     method: "POST",
-    body: JSON.stringify({ userId: id, points, pointProgramId, note }),
+    body: JSON.stringify({ userId: id, points, note }),
     headers: { "Content-Type": "application/json" },
   });
 };

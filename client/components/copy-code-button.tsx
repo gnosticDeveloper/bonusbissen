@@ -29,7 +29,7 @@ export function CopyCodeButton({ code }: { code: string }) {
       type="button"
       onClick={handleCopy}
       aria-label={copied ? "Código copiado" : "Copiar código de canje"}
-      className="flex w-full items-center justify-between gap-3 rounded-[16px] border border-primary/25 bg-primary/10 px-3.5 py-3 text-primary transition-colors hover:bg-primary/15 active:scale-[0.99] active:bg-primary/20"
+      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-primary/10 px-3.5 py-3 text-primary transition-colors hover:bg-primary/15 active:scale-[0.99] active:bg-primary/20"
     >
       <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/70">
         Código
