@@ -47,7 +47,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         ResponseEntity<UserPointsAwardResponse> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(cashierToken, new GrantPointsRequest(userId, points, null, defaultProgram().getId())),
+            authed(cashierToken, new GrantPointsRequest(userId, points, null)),
             UserPointsAwardResponse.class
         );
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -380,7 +380,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         ResponseEntity<String> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(cashierToken, new GrantPointsRequest(user.getId(), -50, null, defaultProgram().getId())),
+            authed(cashierToken, new GrantPointsRequest(user.getId(), -50, null)),
             String.class
         );
 

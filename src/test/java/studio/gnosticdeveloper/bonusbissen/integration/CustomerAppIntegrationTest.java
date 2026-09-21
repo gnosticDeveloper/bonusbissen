@@ -53,7 +53,7 @@ class CustomerAppIntegrationTest extends AbstractIntegrationTest {
         ResponseEntity<Void> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(token, new GrantPointsRequest(userId, points, null, program.getId())),
+            authed(token, new GrantPointsRequest(userId, points, null)),
             Void.class
         );
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);

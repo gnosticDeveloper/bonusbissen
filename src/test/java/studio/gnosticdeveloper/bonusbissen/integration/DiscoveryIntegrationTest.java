@@ -134,7 +134,7 @@ class DiscoveryIntegrationTest extends AbstractIntegrationTest {
         ResponseEntity<Void> grant = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(cashierToken, new GrantPointsRequest(user.getId(), 75, null, fx.program().getId())),
+            authed(cashierToken, new GrantPointsRequest(user.getId(), 75, null)),
             Void.class
         );
         assertThat(grant.getStatusCode()).isEqualTo(HttpStatus.OK);

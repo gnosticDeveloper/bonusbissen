@@ -37,7 +37,6 @@ import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
-import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
@@ -70,8 +69,6 @@ class UserServiceTest {
     @Mock
     private OrganizationStaffRepository organizationStaffRepository;
     @Mock
-    private PointProgramRepository pointProgramRepository;
-    @Mock
     private StorefrontRepository storefrontRepository;
     @Mock
     private UserPointProgramRepository userPointProgramRepository;
@@ -98,17 +95,17 @@ class UserServiceTest {
     }
 
     private GrantPointsRequest grantRequest(UUID userId, int points) {
-        return new GrantPointsRequest(userId, points, null, PROGRAM_ID);
+        return new GrantPointsRequest(userId, points, null);
     }
 
     /** Stubs the program/storefront lookups a successful grant makes. */
     private void stubGrantProgramAndStorefront() {
         PointProgram program = new PointProgram();
         program.setId(PROGRAM_ID);
+        program.setActive(true);
         Storefront storefront = new Storefront();
         storefront.setId(STOREFRONT_ID);
-        when(pointProgramRepository.existsByIdAndStorefronts_Id(PROGRAM_ID, STOREFRONT_ID)).thenReturn(true);
-        when(pointProgramRepository.findById(PROGRAM_ID)).thenReturn(Optional.of(program));
+        storefront.setPointProgram(program);
         when(storefrontRepository.findById(STOREFRONT_ID)).thenReturn(Optional.of(storefront));
         when(userPointProgramRepository.existsByUser_IdAndPointProgram_Id(any(), eq(PROGRAM_ID))).thenReturn(true);
     }
@@ -214,14 +211,16 @@ class UserServiceTest {
     }
 
     @Test
-    void grantPointsIntoAProgramNotHonouredAtTheStorefrontThrowsBadRequest() {
+    void grantPointsAtAStorefrontWithNoActiveProgramThrowsBadRequest() {
         UUID userId = UUID.randomUUID();
         User user = new User();
         user.setId(userId);
+        Storefront storefront = new Storefront();
+        storefront.setId(STOREFRONT_ID);
 
         when(organizationStaffRepository.findByUserIdAndActiveTrue(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(pointProgramRepository.existsByIdAndStorefronts_Id(PROGRAM_ID, STOREFRONT_ID)).thenReturn(false);
+        when(storefrontRepository.findById(STOREFRONT_ID)).thenReturn(Optional.of(storefront));
 
         assertThatThrownBy(() -> userService.grantPoints(grantRequest(userId, 50), EMPLOYEE_ID, STOREFRONT_ID))
             .isInstanceOf(BadRequestException.class);
@@ -234,10 +233,16 @@ class UserServiceTest {
         UUID userId = UUID.randomUUID();
         User user = new User();
         user.setId(userId);
+        PointProgram program = new PointProgram();
+        program.setId(PROGRAM_ID);
+        program.setActive(true);
+        Storefront storefront = new Storefront();
+        storefront.setId(STOREFRONT_ID);
+        storefront.setPointProgram(program);
 
         when(organizationStaffRepository.findByUserIdAndActiveTrue(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(pointProgramRepository.existsByIdAndStorefronts_Id(PROGRAM_ID, STOREFRONT_ID)).thenReturn(true);
+        when(storefrontRepository.findById(STOREFRONT_ID)).thenReturn(Optional.of(storefront));
         when(userPointProgramRepository.existsByUser_IdAndPointProgram_Id(userId, PROGRAM_ID)).thenReturn(false);
 
         assertThatThrownBy(() -> userService.grantPoints(grantRequest(userId, 50), EMPLOYEE_ID, STOREFRONT_ID))

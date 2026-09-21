@@ -43,7 +43,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         ResponseEntity<UserPointsAwardResponse> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(cashierToken, new GrantPointsRequest(userId, points, null, defaultProgram().getId())),
+            authed(cashierToken, new GrantPointsRequest(userId, points, null)),
             UserPointsAwardResponse.class
         );
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -93,7 +93,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         ResponseEntity<String> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(token, new GrantPointsRequest(user.getId(), 50, null, defaultProgram().getId())),
+            authed(token, new GrantPointsRequest(user.getId(), 50, null)),
             String.class
         );
 
@@ -217,7 +217,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         ResponseEntity<String> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(userToken, new GrantPointsRequest(user.getId(), 50, null, defaultProgram().getId())),
+            authed(userToken, new GrantPointsRequest(user.getId(), 50, null)),
             String.class
         );
 

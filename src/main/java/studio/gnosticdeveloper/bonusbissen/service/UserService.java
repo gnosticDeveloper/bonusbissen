@@ -40,7 +40,6 @@ import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
-import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
@@ -55,7 +54,6 @@ public class UserService {
     private final RewardRepository rewardRepository;
     private final ExchangeCodeRepository exchangeCodeRepository;
     private final OrganizationStaffRepository organizationStaffRepository;
-    private final PointProgramRepository pointProgramRepository;
     private final StorefrontRepository storefrontRepository;
     private final UserPointProgramRepository userPointProgramRepository;
     private final EmailVerificationService emailVerificationService;
@@ -67,7 +65,6 @@ public class UserService {
         RewardRepository rewardRepository,
         ExchangeCodeRepository exchangeCodeRepository,
         OrganizationStaffRepository organizationStaffRepository,
-        PointProgramRepository pointProgramRepository,
         StorefrontRepository storefrontRepository,
         UserPointProgramRepository userPointProgramRepository,
         EmailVerificationService emailVerificationService,
@@ -78,7 +75,6 @@ public class UserService {
         this.rewardRepository = rewardRepository;
         this.exchangeCodeRepository = exchangeCodeRepository;
         this.organizationStaffRepository = organizationStaffRepository;
-        this.pointProgramRepository = pointProgramRepository;
         this.storefrontRepository = storefrontRepository;
         this.userPointProgramRepository = userPointProgramRepository;
         this.emailVerificationService = emailVerificationService;
@@ -276,18 +272,16 @@ public class UserService {
             .filter(User::isActive)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.userId() + "."));
 
-        if (!pointProgramRepository.existsByIdAndStorefronts_Id(request.pointProgramId(), storefrontId)) {
-            throw new BadRequestException("Ese programa de puntos no está activo en este local.");
-        }
-        if (!userPointProgramRepository.existsByUser_IdAndPointProgram_Id(request.userId(), request.pointProgramId())) {
-            throw new ConflictException("El cliente todavía no se unió a este programa de puntos.");
-        }
-        PointProgram program = pointProgramRepository
-            .findById(request.pointProgramId())
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar el programa de puntos con el ID " + request.pointProgramId() + "."));
         Storefront storefront = storefrontRepository
             .findById(storefrontId)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar el local con el ID " + storefrontId + "."));
+        PointProgram program = storefront.getPointProgram();
+        if (program == null || !program.isActive()) {
+            throw new BadRequestException("Este local no tiene un programa de puntos activo.");
+        }
+        if (!userPointProgramRepository.existsByUser_IdAndPointProgram_Id(request.userId(), program.getId())) {
+            throw new ConflictException("El cliente todavía no se unió a este programa de puntos.");
+        }
 
         PointTransaction tx = new PointTransaction();
         tx.setEmployee(employee);
