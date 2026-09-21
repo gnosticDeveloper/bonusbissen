@@ -14,6 +14,5 @@ export async function signOut(): Promise<void> {
 }
 
 export const getCurrentUser = cache(async (): Promise<ActionResult<AdminUserInfo>> => {
-  console.info("Trayendo los datos del usuario.");
   return await dashboardRequest<AdminUserInfo>("/users/me/admin");
 });

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { StorefrontDiscoverInfo } from "@/lib/types/storefront";
 import { joinStorefront } from "@/app/s/[slug]/afiliarse/actions";
 import { resolveAssetUrl } from "@/lib/helpers/assets";
+import { CARD_PALETTES, pickCardVariant } from "@/lib/helpers/color";
 
 const particleSeeds = Array.from({ length: 18 }, (_, index) => index);
 
@@ -73,6 +74,7 @@ export function AfiliarseView({ storefront }: { storefront: StorefrontDiscoverIn
   }, [storefront.id]);
 
   const iconUrl = resolveAssetUrl(storefront.iconUrl);
+  const palette = CARD_PALETTES[pickCardVariant(storefront.color)];
 
   return (
     <main
@@ -163,8 +165,8 @@ export function AfiliarseView({ storefront }: { storefront: StorefrontDiscoverIn
           <Button
             onClick={handleJoin}
             disabled={pending}
-            className="h-12 w-full rounded-2xl text-base font-semibold text-white shadow-[0_10px_24px_color-mix(in_srgb,var(--storefront-color)_28%,transparent)] transition-transform hover:brightness-105 active:scale-[0.99] disabled:opacity-60"
-            style={{ backgroundColor: "var(--storefront-color)" }}
+            className="h-12 w-full rounded-2xl text-base font-semibold shadow-[0_10px_24px_color-mix(in_srgb,var(--storefront-color)_28%,transparent)] transition-transform hover:brightness-105 active:scale-[0.99] disabled:opacity-60"
+            style={{ backgroundColor: "var(--storefront-color)", color: palette.text }}
           >
             {pending ? (
               <>

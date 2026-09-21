@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { formatPoints, parsePositiveInt } from "@/lib/helpers/format";
 import { Coins, HandCoins, Wallet } from "lucide-react";
-import { useMemo, useState } from "react";
+import { SubmitEvent, useMemo, useState } from "react";
 import PointActionList from "@/components/point-action-list";
 import { getAllCustomers, grantPointsTo } from "./actions";
 import { Customer } from "@/lib/types/customer";
@@ -42,9 +42,8 @@ export default function PointsManagerPage() {
     setError(null);
   }
 
-  console.log("selected a user:", selected);
-
-  async function submit() {
+  async function submit(e: SubmitEvent<HTMLFormElement>) {
+    e.preventDefault();
     if (!selected) return;
 
     setGranting(true);
