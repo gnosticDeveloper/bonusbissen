@@ -1,6 +1,5 @@
 "use client";
 
-import { useUserStore } from "@/lib/user-store";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signIn } from "@/app/(auth)/sign-in/actions";
@@ -11,7 +10,6 @@ import { Spinner } from "@/components/spinner";
 
 export default function SignInPage() {
   const router = useRouter();
-  const setUser = useUserStore((state) => state.setUser);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -25,7 +23,6 @@ export default function SignInPage() {
       setLoading(false);
       return;
     }
-    setUser(result.data);
     router.push("/b");
   }
 

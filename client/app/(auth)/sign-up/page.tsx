@@ -1,6 +1,5 @@
 "use client";
 
-import { useUserStore } from "@/lib/user-store";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -11,7 +10,6 @@ import { Spinner } from "@/components/spinner";
 
 export default function SignUpPage() {
   const router = useRouter();
-  const setUser = useUserStore((state) => state.setUser);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -25,7 +23,6 @@ export default function SignUpPage() {
       setLoading(false);
       return;
     }
-    setUser(result.data);
     router.push("/b");
   }
 
