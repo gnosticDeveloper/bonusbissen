@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import studio.gnosticdeveloper.bonusbissen.dto.response.StorefrontDiscoverResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 
 public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
@@ -15,39 +16,56 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
 
     Optional<Storefront> findByIdAndOrganizationId(UUID id, UUID organizationId);
 
-    /** Active storefronts running >=1 active program, newest first, optionally by city. */
+    /**
+     * Active storefronts running an active program, newest first, optionally by
+     * city. {@code city} is matched against the same "Localidad, Provincia"
+     * display string the /discover/cities picker returns -- city and province
+     * are stored as separate columns, so it's rebuilt here at query time.
+     */
     @Query(
-        value =
-            """
-            select s.* from storefronts s
-            where s.active
-              and (cast(:city as text) is null or s.city = cast(:city as text))
-              and exists (
-                  select 1 from point_program_storefronts pps
-                  join point_programs pp on pp.id = pps.point_program_id
-                  where pps.storefront_id = s.id and pp.active
-              )
-            order by s.created_at desc
-            """,
-        countQuery =
-            """
-            select count(*) from storefronts s
-            where s.active
-              and (cast(:city as text) is null or s.city = cast(:city as text))
-              and exists (
-                  select 1 from point_program_storefronts pps
-                  join point_programs pp on pp.id = pps.point_program_id
-                  where pps.storefront_id = s.id and pp.active
-              )
-            """,
+        value = """
+        select s.* from storefronts s
+        join point_programs pp on pp.id = s.point_program_id
+        where s.active and pp.active
+          and (cast(:city as text) is null or (s.city || ', ' || s.province) = cast(:city as text))
+        order by s.created_at desc
+        """,
+        countQuery = """
+        select count(*) from storefronts s
+        join point_programs pp on pp.id = s.point_program_id
+        where s.active and pp.active
+          and (cast(:city as text) is null or (s.city || ', ' || s.province) = cast(:city as text))
+        """,
         nativeQuery = true
     )
     Page<Storefront> findDiscoverable(@Param("city") String city, Pageable pageable);
 
-    /** Distinct cities that have at least one active storefront, for the city picker. */
+    /** Distinct "Localidad, Provincia" combos with at least one active storefront, for the city picker. */
     @Query(
-        value = "select distinct s.city from storefronts s where s.active and s.city is not null order by s.city",
+        value = """
+        select distinct s.city || ', ' || s.province from storefronts s
+        where s.active and s.city is not null and s.province is not null
+        order by 1
+        """,
         nativeQuery = true
     )
     List<String> findDistinctActiveCities();
+
+    @Query(
+        value = """
+            SELECT
+                s.id AS id,
+                s.name AS name,
+                o.name AS org_name,
+                s.color AS color,
+                s.icon_path AS icon_url,
+                pp.unit_label AS point_label
+            FROM storefronts s
+            JOIN organizations o ON o.id = s.organization_id
+            LEFT JOIN point_programs pp ON pp.id = s.point_program_id AND pp.active = true
+            WHERE s.id = :id AND s.active = true
+            """,
+        nativeQuery = true
+    )
+    Optional<StorefrontDiscoverResponse> getBasicInfoById(@Param("id") UUID id);
 }

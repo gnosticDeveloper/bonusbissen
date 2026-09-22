@@ -88,7 +88,8 @@ public class AuthService {
             .findByUserIdAndActiveTrue(userId)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + userId + "."));
 
-        boolean assigned = staff.getStorefronts().stream().anyMatch(s -> s.getId().equals(storefrontId));
+        boolean assigned = staff.getStorefronts().stream()
+            .anyMatch(s -> s.getId().equals(storefrontId) && s.getOrganization().getId().equals(staff.getOrganization().getId()));
         if (!assigned) {
             throw new AccessDeniedException("No estás asignado a ese local.");
         }

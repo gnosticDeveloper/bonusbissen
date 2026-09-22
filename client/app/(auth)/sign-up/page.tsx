@@ -1,6 +1,5 @@
 "use client";
 
-import { useUserStore } from "@/lib/user-store";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -11,7 +10,6 @@ import { Spinner } from "@/components/spinner";
 
 export default function SignUpPage() {
   const router = useRouter();
-  const setUser = useUserStore((state) => state.setUser);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -25,12 +23,11 @@ export default function SignUpPage() {
       setLoading(false);
       return;
     }
-    setUser(result.data);
     router.push("/b");
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-107.5 flex-col bg-background px-6.5 pt-13.5 pb-8 text-foreground">
+    <main className="mx-auto flex min-h-svh w-full max-w-107.5 flex-col bg-background px-6.5 pt-13.5 pb-8 text-foreground">
       <BrandLockup />
 
       <h1 className="mt-4.25 mb-3 text-[38px] leading-none text-foreground">
@@ -46,7 +43,7 @@ export default function SignUpPage() {
           <CircleUserRound size={17} />
           <input
             name="name"
-            placeholder="Nombre de tu cuenta"
+            placeholder="Nombre público: Juan Perez"
             autoComplete="off"
             required
             className="h-13 w-full border-0 bg-transparent text-[13px] text-foreground outline-none"
@@ -56,7 +53,7 @@ export default function SignUpPage() {
           <UserRound size={17} />
           <input
             name="username"
-            placeholder="Usuario"
+            placeholder="Nombre de usuario: juanperez123"
             autoComplete="off"
             required
             className="h-13 w-full border-0 bg-transparent text-[13px] text-foreground outline-none"

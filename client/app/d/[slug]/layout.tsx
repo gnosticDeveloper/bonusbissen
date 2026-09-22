@@ -1,11 +1,20 @@
 import { redirect } from "next/navigation";
+import { decodeJwt, getDashboardSessionToken } from "@/lib/auth/session";
+import { DashboardShell } from "@/components/dashboard-shell";
+import { getCurrentUser } from "./actions";
 
-export default async function DashboardRootLayout({ params, children }: { params: Promise<{ slug: string }>; children: React.ReactNode }) {
-  const { slug } = await params;
+export default async function DashboardRootLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
+  const session = await getDashboardSessionToken();
+  if (!session) redirect("/d/sign-in");
 
-  const canAccess = await canUserAccessDashboard(slug);
+  const { slug: orgId } = await params;
+  const payload = decodeJwt(session);
 
-  if (!canAccess) redirect(`/d/${slug}/inicio`);
+  const currentUser = await getCurrentUser();
 
-  return children;
+  return (
+    <DashboardShell orgId={orgId} role={payload.role} currentUser={currentUser.ok ? currentUser.data : null}>
+      {children}
+    </DashboardShell>
+  );
 }

@@ -6,6 +6,8 @@ public record StorefrontUpdateRequest(
     @NotBlank String name,
     boolean online,
     String address,
+    String city,
+    String province,
     String category,
     String color,
     String hours,

@@ -23,19 +23,19 @@ class CustomerAppIntegrationTest extends AbstractIntegrationTest {
         org.setName("Summary Org " + slug);
         org = organizationRepository.save(org);
 
+        PointProgram program = new PointProgram();
+        program.setOrganization(org);
+        program.setName("Programa " + slug);
+        program.setUnitLabel(unitLabel);
+        program = pointProgramRepository.save(program);
+
         Storefront storefront = new Storefront();
         storefront.setOrganization(org);
         storefront.setName("Local " + slug);
         storefront.setAddress("Calle " + slug + " 1");
         storefront.setCity("Ciudad " + slug + ", Córdoba");
+        storefront.setPointProgram(program);
         storefront = storefrontRepository.save(storefront);
-
-        PointProgram program = new PointProgram();
-        program.setOrganization(org);
-        program.setName("Programa " + slug);
-        program.setUnitLabel(unitLabel);
-        program.getStorefronts().add(storefront);
-        program = pointProgramRepository.save(program);
 
         createEmployee("cashier-summary-" + slug, "password123", StaffRole.CASHIER, org, storefront);
 
@@ -53,7 +53,7 @@ class CustomerAppIntegrationTest extends AbstractIntegrationTest {
         ResponseEntity<Void> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(token, new GrantPointsRequest(userId, points, null, program.getId())),
+            authed(token, new GrantPointsRequest(userId, points, null)),
             Void.class
         );
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);

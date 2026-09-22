@@ -6,7 +6,8 @@
     "dev": "bun --bun next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "audit:unused": "knip --include files,exports,types"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -26,6 +27,7 @@
     "@types/react-dom": "19.2.7",
     "eslint": "10.10.0",
     "eslint-config-next": "16.3.4",
+    "knip": "^6.37.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3"
   },

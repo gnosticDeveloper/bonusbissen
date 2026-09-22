@@ -1,17 +1,16 @@
 package studio.gnosticdeveloper.bonusbissen.repository;
 
-import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.User;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
+import studio.gnosticdeveloper.bonusbissen.dto.response.AdminUserInfoResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
+import studio.gnosticdeveloper.bonusbissen.entity.User;
 
 public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByUsername(String username);
@@ -20,48 +19,58 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     boolean existsByEmail(String email);
 
     @Query(
-        value =
-            """
-            select * from users c
-            where c.active = true
-              and not exists (select 1 from organization_staff os where os.user_id = c.id and os.active = true)
-              and (
-                   cast(:search as text) is null
-                   or lower(c.name) like lower(concat('%', cast(:search as text), '%'))
-                   or lower(c.username) like lower(concat('%', cast(:search as text), '%'))
-                   or lower(c.email) like lower(concat('%', cast(:search as text), '%'))
-              )
-            """,
-        countQuery =
-            """
-            select count(*) from users c
-            where c.active = true
-              and not exists (select 1 from organization_staff os where os.user_id = c.id and os.active = true)
-              and (
-                   cast(:search as text) is null
-                   or lower(c.name) like lower(concat('%', cast(:search as text), '%'))
-                   or lower(c.username) like lower(concat('%', cast(:search as text), '%'))
-                   or lower(c.email) like lower(concat('%', cast(:search as text), '%'))
-              )
-            """,
+        value = """
+        SELECT u.username, u.name, os.role
+        FROM users u
+        JOIN organization_staff os ON os.user_id = u.id
+        WHERE u.id = :userId
+          AND os.organization_id = :organizationId
+          AND os.active = true
+        """,
+        nativeQuery = true
+    )
+    Optional<AdminUserInfoResponse> findAdminUserInfo(@Param("userId") UUID userId, @Param("organizationId") UUID organizationId);
+
+    @Query(
+        value = """
+        select * from users c
+        where c.active = true
+          and not exists (select 1 from organization_staff os where os.user_id = c.id and os.active = true)
+          and (
+               cast(:search as text) is null
+               or lower(c.name) like lower(concat('%', cast(:search as text), '%'))
+               or lower(c.username) like lower(concat('%', cast(:search as text), '%'))
+               or lower(c.email) like lower(concat('%', cast(:search as text), '%'))
+          )
+        """,
+        countQuery = """
+        select count(*) from users c
+        where c.active = true
+          and not exists (select 1 from organization_staff os where os.user_id = c.id and os.active = true)
+          and (
+               cast(:search as text) is null
+               or lower(c.name) like lower(concat('%', cast(:search as text), '%'))
+               or lower(c.username) like lower(concat('%', cast(:search as text), '%'))
+               or lower(c.email) like lower(concat('%', cast(:search as text), '%'))
+          )
+        """,
         nativeQuery = true
     )
     Page<User> search(@Param("search") String search, Pageable pageable);
 
     @Query(
-        value =
-            """
-            SELECT c.id AS id, c.name AS name, CAST(SUM(t.points) AS integer) AS total_points
-            FROM point_transactions t
-            JOIN users c ON c.id = t.user_id
-            JOIN point_programs pp ON pp.id = t.point_program_id
-            WHERE t.transaction_type = 'earn'
-              AND t.state = 'delivered'
-              AND pp.organization_id = :organizationId
-              AND NOT EXISTS (SELECT 1 FROM organization_staff os WHERE os.user_id = c.id AND os.active = true)
-            GROUP BY c.id, c.name
-            ORDER BY SUM(t.points) DESC
-            """,
+        value = """
+        SELECT c.id AS id, c.name AS name, CAST(SUM(t.points) AS integer) AS total_points
+        FROM point_transactions t
+        JOIN users c ON c.id = t.user_id
+        JOIN point_programs pp ON pp.id = t.point_program_id
+        WHERE t.transaction_type = 'earn'
+          AND t.state = 'delivered'
+          AND pp.organization_id = :organizationId
+          AND NOT EXISTS (SELECT 1 FROM organization_staff os WHERE os.user_id = c.id AND os.active = true)
+        GROUP BY c.id, c.name
+        ORDER BY SUM(t.points) DESC
+        """,
         nativeQuery = true
     )
     List<Object[]> findTopClientsRaw(@Param("organizationId") UUID organizationId, Pageable pageable);

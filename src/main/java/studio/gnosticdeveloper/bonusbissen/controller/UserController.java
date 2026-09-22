@@ -14,13 +14,16 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.PasswordUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.AdminUserInfoResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.MembershipResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsBalanceResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserResponse;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
@@ -68,6 +71,18 @@ public class UserController {
         return userService.getHomeStats(principal.organizationId());
     }
 
+    @GetMapping("/me/admin")
+    @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
+    public AdminUserInfoResponse getMeAdmin(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return userService.getAdminUserInfo(principal.id(), principal.organizationId());
+    }
+
+    @GetMapping("/me")
+    @PreAuthorize("hasRole('USER')")
+    public UserResponse getSelf(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return UserResponse.from(userService.getById(principal.id()));
+    }
+
     @PatchMapping("/me")
     @PreAuthorize("hasRole('USER')")
     public UserResponse updateSelf(@Valid @RequestBody UserUpdateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
@@ -80,6 +95,34 @@ public class UserController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void joinPointProgram(@PathVariable UUID programId, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         pointProgramService.join(principal.id(), programId);
+    }
+
+    /** Self-service join by storefront: the customer app only ever knows the storefront it's showing. */
+    @PostMapping("/me/storefronts/{storefrontId}/point-programs")
+    @PreAuthorize("hasRole('USER')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void joinPointProgramByStorefront(@PathVariable UUID storefrontId, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        pointProgramService.joinByStorefront(principal.id(), storefrontId);
+    }
+
+    /** Called from "/s/[slug]" to know whether the logged-in user should see "afiliarse" or "inicio". */
+    @GetMapping("/me/storefronts/{storefrontId}/membership")
+    @PreAuthorize("hasRole('USER')")
+    public MembershipResponse checkMembershipByStorefront(
+        @PathVariable UUID storefrontId,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
+        return new MembershipResponse(pointProgramService.isMemberByStorefront(principal.id(), storefrontId));
+    }
+
+    /** Lean points balance for the customer app's home header -- avoids paying for the full business/rewards payload. */
+    @GetMapping("/me/storefronts/{storefrontId}/points")
+    @PreAuthorize("hasRole('USER')")
+    public UserPointsBalanceResponse getMyPointsByStorefront(
+        @PathVariable UUID storefrontId,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
+        return new UserPointsBalanceResponse(userService.getBalanceByStorefront(principal.id(), storefrontId));
     }
 
     @PostMapping("/me/resend-verification")
@@ -167,9 +210,13 @@ public class UserController {
     }
 
     @GetMapping("/{id}/movements")
-    public List<MovementResponse> getMovementsHistory(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+    public List<MovementResponse> getMovementsHistory(
+        @PathVariable UUID id,
+        @RequestParam(required = false) UUID storefrontId,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
         requireSelfIfUser(id, principal);
-        return userService.getMovementsByUserId(id);
+        return userService.getMovementsByUserId(id, storefrontId);
     }
 
     private void requireSelfIfUser(UUID id, AuthenticatedPrincipal principal) {

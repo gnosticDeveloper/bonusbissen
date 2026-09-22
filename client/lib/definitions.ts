@@ -1,8 +1,19 @@
 import { Coins } from "lucide-react";
-import { UserRole } from "./auth/session";
 import { Reward } from "@/lib/types/reward";
 
 type AdminPage = "home" | "points" | "redemptions" | "rewards" | "customers" | "organization";
+
+export enum UserRole {
+  ADMIN = "ADMIN",
+  CASHIER = "CASHIER",
+  USER = "USER",
+}
+
+export type AdminUserInfo = {
+  username: string;
+  name: string;
+  role: UserRole;
+};
 
 export interface NavItem {
   id: AdminPage;
@@ -38,7 +49,7 @@ export type Business = {
   pointLabel: string;
   points: number;
   rewards: Reward[];
-  address: { street: string };
+  address: { street: string; city: string, province: string };
 };
 
 export type Location = {

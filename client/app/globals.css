@@ -10,7 +10,7 @@
     --color-card: var(--card);
     --color-border: var(--border);
     --color-muted: var(--muted);
-    --font-sans: var(--font-instrument-sans), sans-serif;
+    --font-sans: var(--font-sofia-sans), sans-serif;
 }
 
 :root {

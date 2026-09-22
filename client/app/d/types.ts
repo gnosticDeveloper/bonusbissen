@@ -15,8 +15,8 @@ export type PointActionType = "add" | "subtract" | "edit" | "remove";
 
 export type PointAction = {
   id: string;
-  customerId: string;
-  customerName: string;
+  userId: string;
+  userName: string;
   type: PointActionType;
   /** Net points delta applied to the customer by this action. */
   amount: number;
@@ -47,7 +47,7 @@ export interface TopReward {
 export interface HomeStats {
   totalExchanges: number;
   pendingExchanges: number;
-  totalCustomers: number;
+  totalUsers: number;
   totalPointsAwarded: number;
 };
 

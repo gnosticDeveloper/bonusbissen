@@ -5,8 +5,7 @@ import { create } from "zustand";
 type UserInfo = {
   name: string;
   username: string;
-  avatarUrl: string | null;
-  city: string | null;
+  // avatarUrl: string | null;
   emailVerified: boolean;
   email: string | null;
 };

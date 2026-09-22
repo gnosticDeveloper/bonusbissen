@@ -21,7 +21,6 @@ export function proxy(request: NextRequest) {
 
   // Cualquier otra ruta: requiere sesión válida
   if (!hasValidSession) {
-    console.info("\n[API] | proxy.ts | The user session is not valid. The token or the role are invalid.\n");
     return NextResponse.redirect(new URL(signInUrl, request.url));
   }
 
@@ -31,6 +30,6 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Exclude API routes, static files, image optimizations, and .png files
-    "/((?!api|_next/static|_next/image|.*\\.png$).*)",
+    "/((?!api|_next/static|_next/image|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|avif|css|js|woff|woff2|ttf|map)$).*)",
   ],
 };

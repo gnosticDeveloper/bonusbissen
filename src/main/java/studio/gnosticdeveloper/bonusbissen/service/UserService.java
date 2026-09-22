@@ -17,6 +17,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.AdminUserInfoResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
@@ -39,7 +40,6 @@ import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
-import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
@@ -54,7 +54,6 @@ public class UserService {
     private final RewardRepository rewardRepository;
     private final ExchangeCodeRepository exchangeCodeRepository;
     private final OrganizationStaffRepository organizationStaffRepository;
-    private final PointProgramRepository pointProgramRepository;
     private final StorefrontRepository storefrontRepository;
     private final UserPointProgramRepository userPointProgramRepository;
     private final EmailVerificationService emailVerificationService;
@@ -66,7 +65,6 @@ public class UserService {
         RewardRepository rewardRepository,
         ExchangeCodeRepository exchangeCodeRepository,
         OrganizationStaffRepository organizationStaffRepository,
-        PointProgramRepository pointProgramRepository,
         StorefrontRepository storefrontRepository,
         UserPointProgramRepository userPointProgramRepository,
         EmailVerificationService emailVerificationService,
@@ -77,7 +75,6 @@ public class UserService {
         this.rewardRepository = rewardRepository;
         this.exchangeCodeRepository = exchangeCodeRepository;
         this.organizationStaffRepository = organizationStaffRepository;
-        this.pointProgramRepository = pointProgramRepository;
         this.storefrontRepository = storefrontRepository;
         this.userPointProgramRepository = userPointProgramRepository;
         this.emailVerificationService = emailVerificationService;
@@ -101,6 +98,18 @@ public class UserService {
         int totalPointsAwarded = pointTransactionRepository.calculatePointsAwarded(TransactionType.EARN, organizationId);
 
         return new HomeStatsResponse(totalExchanges, pendingExchanges, totalUsers, totalPointsAwarded);
+    }
+
+    @Transactional(readOnly = true)
+    public AdminUserInfoResponse getAdminUserInfo(UUID userId, UUID organizationId) {
+        return userRepository
+            .findAdminUserInfo(userId, organizationId)
+            .orElseThrow(() -> new NotFoundException("Staff membership not found or inactive"));
+    }
+
+    @Transactional(readOnly = true)
+    public User getById(UUID id) {
+        return userRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
     }
 
     /**
@@ -174,6 +183,19 @@ public class UserService {
         return pointTransactionRepository.calculateBalance(userId, programId);
     }
 
+    /** Lean balance lookup for the customer app, which only ever knows the storefront it's showing. */
+    @Transactional(readOnly = true)
+    public int getBalanceByStorefront(UUID userId, UUID storefrontId) {
+        Storefront storefront = storefrontRepository
+            .findById(storefrontId)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la sucursal con ID " + storefrontId + "."));
+        PointProgram program = storefront.getPointProgram();
+        if (program == null || !program.isActive()) {
+            throw new NotFoundException("Esta sucursal no tiene un programa de puntos activo.");
+        }
+        return getBalance(userId, program.getId());
+    }
+
     @Transactional(readOnly = true)
     public UserPointsResponse getUserPointsById(UUID id, UUID programId) {
         User user = userRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
@@ -193,6 +215,12 @@ public class UserService {
             .stream()
             .map(ex -> HistoricalExchangeResponse.from(ex, codesByTransactionId.get(ex.getId())))
             .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<MovementResponse> getMovementsByUserId(UUID userId, UUID storefrontId) {
+        List<PointTransaction> movements = pointTransactionRepository.findAllByUserIdAndStorefrontIdOrderByCreatedAtDesc(userId, storefrontId);
+        return movements.stream().map(MovementResponse::from).toList();
     }
 
     private UUID resolveOrganizationId(UUID storefrontId) {
@@ -220,12 +248,6 @@ public class UserService {
             .findByPointTransactionIdIn(pendingIds)
             .stream()
             .collect(Collectors.toMap(ec -> ec.getPointTransaction().getId(), ExchangeCode::getCode));
-    }
-
-    @Transactional(readOnly = true)
-    public List<MovementResponse> getMovementsByUserId(UUID userId) {
-        List<PointTransaction> movements = pointTransactionRepository.findAllByUserIdOrderByCreatedAtDesc(userId);
-        return movements.stream().map(MovementResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
@@ -263,18 +285,16 @@ public class UserService {
             .filter(User::isActive)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.userId() + "."));
 
-        if (!pointProgramRepository.existsByIdAndStorefronts_Id(request.pointProgramId(), storefrontId)) {
-            throw new BadRequestException("Ese programa de puntos no está activo en este local.");
-        }
-        if (!userPointProgramRepository.existsByUser_IdAndPointProgram_Id(request.userId(), request.pointProgramId())) {
-            throw new ConflictException("El cliente todavía no se unió a este programa de puntos.");
-        }
-        PointProgram program = pointProgramRepository
-            .findById(request.pointProgramId())
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar el programa de puntos con el ID " + request.pointProgramId() + "."));
         Storefront storefront = storefrontRepository
             .findById(storefrontId)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar el local con el ID " + storefrontId + "."));
+        PointProgram program = storefront.getPointProgram();
+        if (program == null || !program.isActive()) {
+            throw new BadRequestException("Este local no tiene un programa de puntos activo.");
+        }
+        if (!userPointProgramRepository.existsByUser_IdAndPointProgram_Id(request.userId(), program.getId())) {
+            throw new ConflictException("El cliente todavía no se unió a este programa de puntos.");
+        }
 
         PointTransaction tx = new PointTransaction();
         tx.setEmployee(employee);

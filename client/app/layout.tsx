@@ -1,13 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Instrument_Sans } from "next/font/google";
+import { Sofia_Sans } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/toast";
 import { ModalProvider } from "@/components/modal";
+import Script from "next/script";
 
-const instrumentSans = Instrument_Sans({
+const instrumentSans = Sofia_Sans({
   subsets: ["latin"],
-  variable: "--font-instrument-sans",
+  variable: "--font-sofia-sans",
   display: "swap",
+  weight: "variable",
 });
 
 // TODO: use generateMetadata() instead of static metadata obj.
@@ -39,10 +41,10 @@ const THEME_INIT_SCRIPT = `
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={instrumentSans.variable} suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-      </head>
       <body className="font-sans antialiased">
+        <Script id="theme-init" strategy="beforeInteractive">
+          {THEME_INIT_SCRIPT}
+        </Script>
         <ModalProvider>
           <ToastProvider>{children}</ToastProvider>
         </ModalProvider>

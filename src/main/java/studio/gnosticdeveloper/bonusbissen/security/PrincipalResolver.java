@@ -29,7 +29,8 @@ public class PrincipalResolver {
                         staff.getUser().getUsername(),
                         staff.getRole().name(),
                         staff.getOrganization().getId(),
-                        storefrontId != null && staff.getStorefronts().stream().anyMatch(s -> s.getId().equals(storefrontId))
+                        storefrontId != null && staff.getStorefronts().stream()
+                            .anyMatch(s -> s.getId().equals(storefrontId) && s.getOrganization().getId().equals(staff.getOrganization().getId()))
                             ? storefrontId
                             : null
                     ));

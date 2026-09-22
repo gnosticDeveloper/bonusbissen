@@ -3,18 +3,17 @@
 // import { useUserStore } from "@/lib/user-store";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { getAllOrganizations, signIn } from "@/app/d/sign-in/actions";
+import { getAllOrganizations, OrganizationOption, selectStorefront, signIn } from "@/app/d/sign-in/actions";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
 import Link from "next/link";
 import { BrandLockup } from "@/components/brand";
 import { Spinner } from "@/components/spinner";
-import type { Organization } from "@/lib/types/organization";
 import { Autocomplete } from "@/components/autocomplete-input";
 
 export default function DashboardSignInPage() {
   const router = useRouter();
   // const setUser = useUserStore((state) => state.setUser);
-  const [org, setOrg] = useState<Organization | null>(null);
+  const [org, setOrg] = useState<OrganizationOption | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -28,13 +27,20 @@ export default function DashboardSignInPage() {
       setLoading(false);
       return;
     }
-    // TODO: implementar setUser una vez que definamos bien el manejo de sesión de empleados/admins.
-    // setUser(result.data);
-    router.push("/d");
+
+    console.info("🐟 got data:", result.data);
+
+    if (result.data.storefronts.length === 1) {
+      await selectStorefront(result.data.storefronts[0].id);
+      router.push(`/d/${result.data.storefronts[0].id}/inicio`);
+    }
+
+    // TODO: navigate to a selection page.
+    setLoading(false);
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-107.5 flex-col bg-background px-6.5 pt-13.5 pb-8 text-foreground">
+    <main className="mx-auto flex min-h-svh w-full max-w-107.5 flex-col bg-background px-6.5 pt-13.5 pb-8 text-foreground">
       <BrandLockup />
 
       <h1 className="mt-4.25 mb-3 text-[38px] leading-none text-foreground">
@@ -46,13 +52,13 @@ export default function DashboardSignInPage() {
       <p className="mb-8.5 max-w-72.5 text-[13px] leading-[1.55] text-muted">Elegí tu negocio para gestionar puntos, canjes y recompensas.</p>
 
       <div className="mb-3">
-        <Autocomplete<Organization>
+        <Autocomplete<OrganizationOption>
           selected={org}
           onSelect={setOrg}
           onClear={() => setOrg(null)}
           fetchFn={getAllOrganizations}
           getId={(o) => o.id}
-          displayKeys={["name", "address"]}
+          displayKeys={["name"]}
           placeholder="Buscar tu negocio…"
         />
       </div>

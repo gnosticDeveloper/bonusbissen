@@ -34,6 +34,12 @@ class DiscoveryIntegrationTest extends AbstractIntegrationTest {
         org.setName("Discover Org " + slug);
         org = organizationRepository.save(org);
 
+        PointProgram program = new PointProgram();
+        program.setOrganization(org);
+        program.setName("Puntos " + slug);
+        program.setUnitLabel("granos");
+        program = pointProgramRepository.save(program);
+
         Storefront storefront = new Storefront();
         storefront.setOrganization(org);
         storefront.setName("Local " + slug);
@@ -41,14 +47,8 @@ class DiscoveryIntegrationTest extends AbstractIntegrationTest {
         storefront.setCity(city);
         storefront.setCategory("Cafetería");
         storefront.setColor("#123456");
+        storefront.setPointProgram(program);
         storefront = storefrontRepository.save(storefront);
-
-        PointProgram program = new PointProgram();
-        program.setOrganization(org);
-        program.setName("Puntos " + slug);
-        program.setUnitLabel("granos");
-        program.getStorefronts().add(storefront);
-        program = pointProgramRepository.save(program);
 
         return new Fixture(storefront, program);
     }
@@ -134,7 +134,7 @@ class DiscoveryIntegrationTest extends AbstractIntegrationTest {
         ResponseEntity<Void> grant = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
-            authed(cashierToken, new GrantPointsRequest(user.getId(), 75, null, fx.program().getId())),
+            authed(cashierToken, new GrantPointsRequest(user.getId(), 75, null)),
             Void.class
         );
         assertThat(grant.getStatusCode()).isEqualTo(HttpStatus.OK);

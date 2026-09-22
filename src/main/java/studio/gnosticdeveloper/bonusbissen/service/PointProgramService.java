@@ -60,10 +60,11 @@ public class PointProgramService {
         program.setOrganization(organization);
         program.setName(request.name().trim());
         program.setUnitLabel(blankToNull(request.unitLabel()));
+        program = saveUnique(program);
         if (request.storefrontIds() != null && !request.storefrontIds().isEmpty()) {
-            program.setStorefronts(resolveOwnedStorefronts(request.storefrontIds(), organizationId));
+            assignStorefronts(program, request.storefrontIds(), organizationId);
         }
-        return saveUnique(program);
+        return program;
     }
 
     @Transactional
@@ -81,19 +82,56 @@ public class PointProgramService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
+    @Transactional(readOnly = true)
+    public boolean isMemberByStorefront(UUID userId, UUID storefrontId) {
+        Storefront storefront = storefrontRepository
+            .findById(storefrontId)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la sucursal con ID " + storefrontId + "."));
+
+        PointProgram program = storefront.getPointProgram();
+        if (program == null || !program.isActive()) {
+            return false;
+        }
+
+        return userPointProgramRepository.existsByUser_IdAndPointProgram_Id(userId, program.getId());
+    }
+
+    /** Assigns each storefront to this program. Rejects any storefront already tied to a different program. */
     @Transactional
     public PointProgram attachStorefronts(UUID id, List<UUID> storefrontIds, UUID organizationId) {
         PointProgram program = getOwned(id, organizationId);
-        program.getStorefronts().addAll(resolveOwnedStorefronts(storefrontIds, organizationId));
-        return pointProgramRepository.save(program);
+        assignStorefronts(program, storefrontIds, organizationId);
+        return getOwned(id, organizationId);
     }
 
     @Transactional
     public PointProgram detachStorefronts(UUID id, List<UUID> storefrontIds, UUID organizationId) {
         PointProgram program = getOwned(id, organizationId);
-        Set<UUID> toRemove = new HashSet<>(storefrontIds);
-        program.getStorefronts().removeIf(s -> toRemove.contains(s.getId()));
-        return pointProgramRepository.save(program);
+        Set<UUID> toDetach = new HashSet<>(storefrontIds);
+        for (Storefront storefront : resolveOwnedStorefronts(storefrontIds, organizationId)) {
+            if (toDetach.contains(storefront.getId()) && program.getId().equals(optionalProgramId(storefront))) {
+                storefront.setPointProgram(null);
+                storefrontRepository.save(storefront);
+            }
+        }
+        return getOwned(id, organizationId);
+    }
+
+    private static UUID optionalProgramId(Storefront storefront) {
+        return storefront.getPointProgram() == null ? null : storefront.getPointProgram().getId();
+    }
+
+    private void assignStorefronts(PointProgram program, List<UUID> storefrontIds, UUID organizationId) {
+        for (Storefront storefront : resolveOwnedStorefronts(storefrontIds, organizationId)) {
+            UUID currentProgramId = optionalProgramId(storefront);
+            if (currentProgramId != null && !currentProgramId.equals(program.getId())) {
+                throw new ConflictException(
+                    "La sucursal \"" + storefront.getName() + "\" ya tiene un programa de puntos asignado. Desvinculala primero."
+                );
+            }
+            storefront.setPointProgram(program);
+            storefrontRepository.save(storefront);
+        }
     }
 
     /** Self-service join: a user opts in to any active program. */
@@ -103,6 +141,22 @@ public class PointProgramService {
             .findById(programId)
             .filter(PointProgram::isActive)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar el programa de puntos con ID " + programId + "."));
+        User user = userRepository
+            .findById(userId)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + userId + "."));
+        joinIfMissing(user, program);
+    }
+
+    /** Self-service join by storefront: the front-end only ever knows the storefront it's showing. */
+    @Transactional
+    public void joinByStorefront(UUID userId, UUID storefrontId) {
+        Storefront storefront = storefrontRepository
+            .findById(storefrontId)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la sucursal con ID " + storefrontId + "."));
+        PointProgram program = storefront.getPointProgram();
+        if (program == null || !program.isActive()) {
+            throw new NotFoundException("Esta sucursal no tiene un programa de puntos activo.");
+        }
         User user = userRepository
             .findById(userId)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + userId + "."));

@@ -44,7 +44,7 @@ public abstract class AbstractIntegrationTest {
     // stale ApplicationContext pointing at a container port that JUnit already
     // stopped and replaced between classes.
     @ServiceConnection
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine").withInitScript("schema.sql");
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
 
     static {
         POSTGRES.start();
@@ -110,17 +110,17 @@ public abstract class AbstractIntegrationTest {
                     organization.setName("Test Org");
                     organization = organizationRepository.save(organization);
 
+                    PointProgram program = new PointProgram();
+                    program.setOrganization(organization);
+                    program.setName("Puntos");
+                    program = pointProgramRepository.save(program);
+
                     Storefront storefront = new Storefront();
                     storefront.setOrganization(organization);
                     storefront.setName("Test Storefront");
                     storefront.setAddress("123 Test St");
+                    storefront.setPointProgram(program);
                     storefront = storefrontRepository.save(storefront);
-
-                    PointProgram program = new PointProgram();
-                    program.setOrganization(organization);
-                    program.setName("Puntos");
-                    program.getStorefronts().add(storefront);
-                    program = pointProgramRepository.save(program);
 
                     sharedStorefront = storefront;
                     sharedProgram = program;

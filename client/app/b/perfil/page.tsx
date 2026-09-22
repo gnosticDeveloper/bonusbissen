@@ -83,7 +83,7 @@ export default function ProfilePage() {
               {verifyState === "sending" && (
                 <span className="size-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
               )}
-              {verifyState === "sending" ? "Enviando..." : "Verificar email"}
+              {verifyState === "sending" ? "Enviando..." : "Enviar correo de verificación"}
             </button>
           )}
 

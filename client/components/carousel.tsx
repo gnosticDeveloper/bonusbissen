@@ -12,14 +12,7 @@ interface CarouselProps<T> {
   autoSlideInterval?: number;
 }
 
-export function Carousel<T>({
-  items,
-  mainCard = null,
-  renderItem,
-  fallback,
-  className = "",
-  autoSlideInterval = 5000,
-}: CarouselProps<T>) {
+export function Carousel<T>({ items, mainCard = null, renderItem, fallback, className = "", autoSlideInterval = 5000 }: CarouselProps<T>) {
   const [slide, setSlide] = useState(0);
   const [direction, setDirection] = useState<"left" | "right">("right");
   const [isAnimating, setIsAnimating] = useState(false);
@@ -55,7 +48,7 @@ export function Carousel<T>({
       if (!isAuto) resetTimer();
       setTimeout(() => setIsAnimating(false), 300);
     },
-    [isAnimating, slides.length, resetTimer]
+    [isAnimating, slides.length, resetTimer],
   );
 
   const goToIndex = useCallback(
@@ -67,7 +60,7 @@ export function Carousel<T>({
       resetTimer();
       setTimeout(() => setIsAnimating(false), 300);
     },
-    [isAnimating, slide, slides.length, resetTimer]
+    [isAnimating, slide, slides.length, resetTimer],
   );
 
   useEffect(() => {
@@ -100,12 +93,9 @@ export function Carousel<T>({
           {slides.map((content, index) => (
             <div
               key={index}
-              className="w-full shrink-0 min-w-0"
+              className={`w-full min-w-0 shrink-0 ${index === slide ? "carousel-slide-active" : ""}`}
               style={{
-                animation:
-                  index === slide
-                    ? `slideIn${direction === "right" ? "Right" : "Left"} 0.3s ease-out`
-                    : undefined,
+                animation: index === slide ? `slideIn${direction === "right" ? "Right" : "Left"} 0.3s ease-out` : undefined,
               }}
             >
               {content}
@@ -148,7 +138,7 @@ export function Carousel<T>({
       </div>
 
       {/* CSS animations */}
-      <style jsx>{`
+      <style>{`
         @keyframes slideInRight {
           from {
             opacity: 0;
@@ -167,6 +157,27 @@ export function Carousel<T>({
           to {
             opacity: 1;
             transform: translateX(0);
+          }
+        }
+
+        .carousel-slide-active > * {
+          animation: rewardInfoFade 420ms ease-out 300ms both;
+        }
+
+        @keyframes rewardInfoFade {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .carousel-slide-active > * {
+            animation: none;
           }
         }
       `}</style>

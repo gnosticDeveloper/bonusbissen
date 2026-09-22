@@ -6,6 +6,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -19,6 +21,8 @@ import java.util.UUID;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthFilter.class);
 
     private final JwtService jwtService;
     private final PrincipalResolver principalResolver;
@@ -61,6 +65,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 // más adelante en la cadena, sin necesidad de un throw acá.
             }
         } catch (JwtException | IllegalArgumentException e) {
+            // DEBUG, not WARN: an expired token is routine traffic from any client with a
+            // stale session, not an anomaly -- would otherwise drown the warn-rate dashboard.
+            log.debug("Rejected JWT: {}", e.getMessage());
             SecurityContextHolder.clearContext();
         }
 

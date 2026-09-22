@@ -1,5 +1,6 @@
 "use client";
-import { annulateExchange, confirmRedemption, Redemption, validateCode } from "@/app/[orgId]/(employee)/dashboard/redemptions/actions";
+
+import { annulateExchange, confirmRedemption, Redemption, validateCode } from "@/app/d/[slug]/verificacion-canjes/actions";
 import { useToast } from "@/components/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,34 @@ import { FieldError, Input, Label } from "@/components/ui/input";
 import { relativeTime, truncate } from "@/lib/helpers/format";
 import { CheckCircle2, Search, Ticket, XCircle } from "lucide-react";
 import { useState } from "react";
+import { Skeleton } from "./ui/skeleton";
+
+export function RedemptionValidatorSkeleton() {
+  return (
+    <Card className="overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]">
+      {" "}
+      <CardHeader className="border-b border-border px-5 py-5 sm:px-6">
+        {" "}
+        <div className="flex items-center gap-3">
+          {" "}
+          <Skeleton className="size-10 rounded-2xl" />{" "}
+          <div className="grid gap-2">
+            {" "}
+            <Skeleton className="h-4 w-32" /> <Skeleton className="h-3 w-48" />{" "}
+          </div>{" "}
+        </div>{" "}
+      </CardHeader>{" "}
+      <CardContent className="grid gap-5 px-5 py-5 sm:px-6">
+        {" "}
+        <div className="grid gap-2">
+          {" "}
+          <Skeleton className="h-3 w-28" /> <Skeleton className="h-12 w-full rounded-xl" />{" "}
+        </div>{" "}
+        <Skeleton className="h-12 w-full rounded-xl" />{" "}
+      </CardContent>{" "}
+    </Card>
+  );
+}
 
 export default function RedemptionValidator() {
   const notify = useToast();
@@ -46,13 +75,25 @@ export default function RedemptionValidator() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Ticket className="size-4 text-primary" /> Validar canje
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+    <Card className="overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]">
+      {" "}
+      <CardHeader className="border-b border-border px-5 py-5 sm:px-6">
+        {" "}
+        <CardTitle className="flex items-center gap-3 text-base tracking-[-0.02em]">
+          {" "}
+          <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary">
+            {" "}
+            <Ticket className="size-5" aria-hidden="true" />{" "}
+          </span>{" "}
+          <span>
+            {" "}
+            <span className="block">Validar canje</span>{" "}
+            <span className="mt-1 block text-xs font-normal text-muted"> Ingresá el código para consultar la recompensa. </span>{" "}
+          </span>{" "}
+        </CardTitle>{" "}
+      </CardHeader>{" "}
+      <CardContent className="flex flex-col gap-5 px-5 py-5 sm:px-6 sm:py-6">
+        {" "}
         <form
           onSubmit={async (e) => {
             e.preventDefault();
@@ -60,96 +101,130 @@ export default function RedemptionValidator() {
           }}
           className="flex flex-col gap-3 sm:flex-row sm:items-end"
         >
-          <div className="flex flex-1 flex-col gap-1.5">
-            <Label htmlFor="code">Código de canje</Label>
+          {" "}
+          <div className="flex flex-1 flex-col gap-2">
+            {" "}
+            <Label htmlFor="code" className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+              {" "}
+              Código de canje{" "}
+            </Label>{" "}
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              {" "}
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden="true" />{" "}
               <Input
                 id="code"
                 required
-                className="pl-9 font-mono uppercase tracking-wider"
+                className="h-12 rounded-xl border-border bg-background pl-10 font-mono uppercase tracking-[0.18em] shadow-none placeholder:text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
                 placeholder="XXXXXX"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-              />
-            </div>
-          </div>
-          <Button type="submit" className="sm:w-auto">
-            Buscar
-          </Button>
-        </form>
-        <FieldError message={error} />
-
+              />{" "}
+            </div>{" "}
+          </div>{" "}
+          <Button type="submit" className="h-12 rounded-xl bg-primary px-5 font-semibold text-primary-foreground hover:bg-primary/90">
+            {" "}
+            Buscar{" "}
+          </Button>{" "}
+        </form>{" "}
+        <FieldError message={error} />{" "}
         {found && found.reward && found.customer ? (
-          <div className="flex flex-col gap-4 rounded-xl border border-border bg-background/60 p-3">
+          <div className="grid gap-4 rounded-2xl border border-border bg-background/60 p-4">
+            {" "}
             <div className="flex gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {" "}
               <img
                 src={found.reward.imagePath || "/placeholder.svg"}
                 alt={found.reward.title}
-                className="size-20 shrink-0 rounded-lg border border-border object-cover"
-              />
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-semibold">{found.reward.title}</h4>
-                  <Badge tone="primary">{found.reward.discountValue}</Badge>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">{truncate(found.reward.description, 90)}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border pt-3 text-sm">
-              <span className="text-xs text-muted-foreground">Cliente</span>
-              <span className="text-xs text-muted-foreground">Reclamado</span>
-              <span className="font-medium">{found.customer.name}</span>
-              <span className="font-medium">{relativeTime(found.redeemedAt)}</span>
-              <span className="text-muted-foreground">{found.customer.phone}</span>
-              <span className="text-muted-foreground">{found.reward.pointsRequired} pts</span>
-            </div>
-
+                className="size-20 shrink-0 rounded-2xl border border-border object-cover"
+              />{" "}
+              <div className="min-w-0">
+                {" "}
+                <div className="flex flex-wrap items-start gap-2">
+                  {" "}
+                  <h4 className="text-sm font-semibold text-foreground">{found.reward.title}</h4>{" "}
+                  <Badge tone="primary" className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                    {" "}
+                    {found.reward.discountValue}{" "}
+                  </Badge>{" "}
+                </div>{" "}
+                <p className="mt-1.5 text-xs leading-5 text-muted"> {truncate(found.reward.description, 90)} </p>{" "}
+              </div>{" "}
+            </div>{" "}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border pt-3">
+              {" "}
+              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Cliente</span>{" "}
+              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Canjeado</span>{" "}
+              <span className="truncate text-sm font-medium text-foreground">{found.customer.name}</span>{" "}
+              <span className="text-sm font-medium text-foreground">{relativeTime(found.redeemedAt)}</span>{" "}
+              <span className="truncate text-xs text-muted">{found.customer.phone}</span>{" "}
+              <span className="text-xs text-muted">{found.reward.pointsRequired} pts</span>{" "}
+            </div>{" "}
             {!showCancel ? (
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="grid gap-2 sm:grid-cols-2">
+                {" "}
                 <Button
-                  className="flex-1 py-2 bg-success text-success-foreground [a]:hover:bg-success/90 hover:bg-success/90"
+                  className="h-11 rounded-xl bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
                   onClick={async () => {
                     await confirmRedemption(found.id);
                     notify("Canje confirmado correctamente.");
                     reset();
                   }}
                 >
-                  <CheckCircle2 className="size-4" /> Confirmar
-                </Button>
-                <Button variant="destructive" className="flex-1 py-2" onClick={() => setShowCancel(true)}>
-                  <XCircle className="size-4" /> Anular
-                </Button>
+                  {" "}
+                  <CheckCircle2 className="size-4" aria-hidden="true" /> Confirmar entrega{" "}
+                </Button>{" "}
+                <Button
+                  variant="outline"
+                  className="h-11 rounded-xl border-border text-foreground hover:bg-background"
+                  onClick={() => setShowCancel(true)}
+                >
+                  {" "}
+                  <XCircle className="size-4" aria-hidden="true" /> Anular canje{" "}
+                </Button>{" "}
               </div>
             ) : (
-              <div className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-                <label className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input type="checkbox" checked={refund} onChange={(e) => setRefund(e.target.checked)} className="size-4 accent-primary" />
-                  Devolver los {found.reward.pointsRequired} puntos al cliente
-                </label>
-                <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1" onClick={() => setShowCancel(false)}>
-                    Volver
-                  </Button>
+              <div className="grid gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-4">
+                {" "}
+                <label className="flex cursor-pointer items-start gap-2 text-sm text-foreground">
+                  {" "}
+                  <input
+                    type="checkbox"
+                    checked={refund}
+                    onChange={(e) => setRefund(e.target.checked)}
+                    className="mt-0.5 size-4 accent-primary"
+                  />{" "}
+                  <span>
+                    {" "}
+                    Devolver los <strong>{found.reward.pointsRequired} puntos</strong> al cliente{" "}
+                  </span>{" "}
+                </label>{" "}
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {" "}
                   <Button
-                    variant="destructive"
-                    className="flex-1"
+                    variant="outline"
+                    className="h-11 rounded-xl border-border bg-card text-foreground hover:bg-background"
+                    onClick={() => setShowCancel(false)}
+                  >
+                    {" "}
+                    Volver{" "}
+                  </Button>{" "}
+                  <Button
+                    className="h-11 rounded-xl bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
                     onClick={async () => {
                       await annulateExchange(found.id);
                       notify(refund ? "Canje anulado y puntos devueltos al cliente." : "Canje anulado sin devolver puntos.", "info");
                       reset();
                     }}
                   >
-                    Confirmar anulación
-                  </Button>
-                </div>
+                    {" "}
+                    Confirmar anulación{" "}
+                  </Button>{" "}
+                </div>{" "}
               </div>
-            )}
+            )}{" "}
           </div>
-        ) : null}
-      </CardContent>
+        ) : null}{" "}
+      </CardContent>{" "}
     </Card>
   );
 }

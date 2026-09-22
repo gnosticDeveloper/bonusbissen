@@ -34,16 +34,16 @@ export default function MainHomePage() {
   }, []);
 
   return (
-    <main className="relative mx-auto min-h-screen w-full max-w-107.5 overflow-hidden bg-background px-5 pt-6 transition-colors duration-240 sm:border-x sm:border-border">
-      <header className="relative z-1 mb-6.5 flex items-center justify-between">
+    <main className="relative mx-auto min-h-screen w-full max-w-107.5 overflow-hidden bg-background pt-6 transition-colors duration-200 sm:border-x sm:border-border">
+      <header className="relative z-1 px-5 mb-6.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="grid h-10 w-10 place-items-center rounded-full border-2 border-background bg-primary text-white shadow-[0_0_0_1px_var(--primary)]">
-            {user?.avatarUrl ? (
+            {/*{user?.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={user.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
             ) : (
-              <UserRound size={17} />
-            )}
+            )}*/}
+            <UserRound size={17} />
           </div>
           <div>
             <span className="mb-1 block text-[10px] font-bold tracking-[0.08em] text-muted uppercase">Buen día</span>
@@ -70,7 +70,7 @@ export default function MainHomePage() {
 
       <PointsCard points={pointsError ? null : points} />
 
-      <section className="relative mb-3.75 flex items-center justify-between gap-3">
+      <section className="relative px-5 mb-3.75 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <span className="mb-1 block text-[10px] font-bold tracking-[0.08em] text-muted uppercase">Explorá cerca tuyo</span>
           <h2 className="m-0 truncate text-[21px] tracking-[-0.8px] text-foreground">
