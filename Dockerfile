@@ -7,7 +7,8 @@ RUN mvn -B package -DskipTests
 
 FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
-RUN addgroup -S spring && adduser -S spring -G spring \
+RUN apk add --no-cache postgresql16-client \
+    && addgroup -S spring && adduser -S spring -G spring \
     && mkdir -p /var/lib/bonusbissen/uploads/rewards \
     && chown -R spring:spring /var/lib/bonusbissen
 USER spring
