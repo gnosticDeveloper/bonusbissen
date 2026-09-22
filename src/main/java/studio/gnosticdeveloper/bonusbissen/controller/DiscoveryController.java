@@ -37,6 +37,12 @@ public class DiscoveryController {
         return discoveryService.discover(city, viewer, pageable);
     }
 
+    @GetMapping("/{storefrontId}/business")
+    public BusinessResponse storefronts(@PathVariable UUID storefrontId, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        UUID viewer = principal != null && "USER".equals(principal.role()) ? principal.id() : null;
+        return discoveryService.discoverBusinessById(storefrontId, viewer);
+    }
+
     /** Called from the "afiliarse" page, where users can join a pointProgram based on the storefrontId. */
     @GetMapping("/storefronts/{id}")
     public StorefrontDiscoverResponse storefrontById(@PathVariable UUID id) {

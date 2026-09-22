@@ -64,8 +64,8 @@ export default function PointsManagerPage() {
       // TODO: get the programPointId here.
       const result = await grantPointsTo(selected.id, points, note);
       if (result.ok) {
-        const { pointsGranted, customerName } = result.data;
-        notify(`Se sumaron ${formatPoints(pointsGranted)} puntos a ${customerName}.`, "success");
+        const { pointsGranted, userName } = result.data;
+        notify(`Se sumaron ${formatPoints(pointsGranted)} puntos a ${userName}.`, "success");
         setRefreshKey((k) => k + 1);
         setSpend("");
       } else {
@@ -79,8 +79,8 @@ export default function PointsManagerPage() {
       }
       const result = await grantPointsTo(selected.id, points, note);
       if (result.ok) {
-        const { pointsGranted, customerName } = result.data;
-        notify(`Se sumaron ${formatPoints(pointsGranted)} puntos a ${customerName}.`, "success");
+        const { pointsGranted, userName } = result.data;
+        notify(`Se sumaron ${formatPoints(pointsGranted)} puntos a ${userName}.`, "success");
         setRefreshKey((k) => k + 1);
         setManual("");
       } else {
@@ -126,7 +126,7 @@ export default function PointsManagerPage() {
                 onClear={clearSelection}
                 fetchFn={getAllCustomers}
                 getId={(c) => c.id}
-                displayKeys={["name", "email"]}
+                displayKeys={["username", "email"]}
                 // Note: the backend threw me a null points here. I used the ?? operator to avoid null errors when calling formatPoints. I should check the workflow better.
                 badge={(c) => `${formatPoints(c.points ?? 0)} pts`}
                 placeholder="Buscar por nombre o email…"
@@ -174,6 +174,7 @@ export default function PointsManagerPage() {
                       id="spend"
                       inputMode="numeric"
                       placeholder="Ej. 12000"
+                      autoComplete="off"
                       value={spend}
                       onChange={(e) => setSpend(e.target.value.replace(/[^\d]/g, ""))}
                       className="h-12 rounded-xl border-border bg-background pl-8 shadow-none placeholder:text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
@@ -193,6 +194,7 @@ export default function PointsManagerPage() {
                     id="manual"
                     inputMode="numeric"
                     placeholder="Ej. 100"
+                    autoComplete="off"
                     value={manual}
                     onChange={(e) => setManual(e.target.value.replace(/[^\d]/g, ""))}
                     className="h-12 rounded-xl border-border bg-background shadow-none placeholder:text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"

@@ -97,7 +97,7 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
               </p>
             </div>
           ) : (
-            <ul className="flex flex-col gap-2.5">
+            <ul className="flex flex-col gap-2.5 mt-4">
               {visibleActions.map((a) => {
                 const isPositive = a.amount >= 0;
 

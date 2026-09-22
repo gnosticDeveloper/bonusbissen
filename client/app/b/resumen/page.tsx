@@ -1,7 +1,7 @@
 import { ExchangesErrorState } from "@/components/exchanges-error-state";
 import { EmptyExchangesState } from "@/components/empty-exchanges-state";
 import { ExchangeCard } from "@/components/exchange-card";
-import { getExchangeHistory } from "./actions";
+import { getExchangeHistory } from "@/app/b/resumen/actions";
 
 export default async function MisCanjesPage() {
   const result = await getExchangeHistory();

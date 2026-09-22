@@ -5,7 +5,6 @@ import { formatPoints } from "@/lib/helpers/format";
 import { Carousel } from "./carousel";
 import Link from "next/link";
 import { resolveAssetUrl } from "@/lib/helpers/assets";
-import { CARD_PALETTES, pickCardVariant } from "@/lib/helpers/color";
 
 interface BusinessListProps {
   businesses: Business[];
@@ -31,8 +30,6 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
   return (
     <section className="grid gap-7">
       {businesses.map((storefront) => {
-        const variant = pickCardVariant(storefront.color);
-        const palette = CARD_PALETTES[variant];
         const rewards = storefront.rewards.map((reward) => ({
           ...reward,
           imagePath: resolveAssetUrl(reward.imagePath),
@@ -71,7 +68,7 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
             <Carousel
               className="w-full"
               items={rewards}
-              renderItem={(reward) => <RewardCard reward={reward} pointsLabel={storefront.pointLabel} color={storefront.color} palette={palette} />}
+              renderItem={(reward) => <RewardCard reward={reward} pointsLabel={storefront.pointLabel} color={storefront.color} />}
             />
 
             <div className="px-5 pt-3">

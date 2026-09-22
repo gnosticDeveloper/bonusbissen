@@ -46,7 +46,7 @@ export default function SignUpPage() {
           <CircleUserRound size={17} />
           <input
             name="name"
-            placeholder="Nombre de tu cuenta"
+            placeholder="Nombre público: Juan Perez"
             autoComplete="off"
             required
             className="h-13 w-full border-0 bg-transparent text-[13px] text-foreground outline-none"
@@ -56,7 +56,7 @@ export default function SignUpPage() {
           <UserRound size={17} />
           <input
             name="username"
-            placeholder="Usuario"
+            placeholder="Nombre de usuario: juanperez123"
             autoComplete="off"
             required
             className="h-13 w-full border-0 bg-transparent text-[13px] text-foreground outline-none"

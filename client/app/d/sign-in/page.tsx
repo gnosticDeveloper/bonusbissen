@@ -36,6 +36,7 @@ export default function DashboardSignInPage() {
     }
 
     // TODO: navigate to a selection page.
+    setLoading(false);
   }
 
   return (

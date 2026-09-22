@@ -76,6 +76,8 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
     )
     int calculateBalance(@Param("userId") UUID userId, @Param("programId") UUID programId);
 
+    List<PointTransaction> findAllByUserIdAndStorefrontIdOrderByCreatedAtDesc(UUID userId, UUID storefrontId);
+
     /** One row per point program the user has ever transacted in, for the points carousel. */
     @Query(
         value = """

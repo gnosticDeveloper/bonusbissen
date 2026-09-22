@@ -1,8 +1,10 @@
-import { CardPalette } from "@/lib/helpers/color";
+import { CARD_PALETTES, pickCardVariant } from "@/lib/helpers/color";
 import { formatPoints } from "@/lib/helpers/format";
 import { Reward } from "@/lib/types/reward";
 
-export function RewardCard({ reward, color, pointsLabel }: { reward: Reward; color: string; pointsLabel: string | null; palette: CardPalette }) {
+export function RewardCard({ reward, color, pointsLabel }: { reward: Reward; color: string; pointsLabel: string | null }) {
+  const palette = CARD_PALETTES[pickCardVariant(color)];
+
   return (
     <div className="relative aspect-4/3 w-full overflow-hidden bg-muted/20">
       {reward.imagePath ? (
@@ -21,7 +23,7 @@ export function RewardCard({ reward, color, pointsLabel }: { reward: Reward; col
             <p className="mt-1 line-clamp-1 text-xs text-primary-foreground/75">{reward.description}</p>
           </div>
 
-          <span className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold" style={{ backgroundColor: color, color: "#fff" }}>
+          <span className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold" style={{ backgroundColor: color, color: palette.text }}>
             {formatPoints(reward.costPoints)} {pointsLabel ?? "puntos"}
           </span>
         </div>

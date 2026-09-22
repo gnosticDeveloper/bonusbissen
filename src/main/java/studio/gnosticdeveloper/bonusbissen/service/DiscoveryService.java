@@ -52,6 +52,15 @@ public class DiscoveryService {
     }
 
     @Transactional(readOnly = true)
+    public BusinessResponse discoverBusinessById(UUID storefrontId, UUID viewerUserId) {
+        BusinessResponse business = storefrontRepository
+            .findById(storefrontId)
+            .map(storefront -> toBusiness(storefront, viewerUserId))
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la sucursal con ID " + storefrontId + "."));
+        return business;
+    }
+
+    @Transactional(readOnly = true)
     public List<CityOption> cities() {
         return storefrontRepository
             .findDistinctActiveCities()
@@ -62,7 +71,8 @@ public class DiscoveryService {
 
     @Transactional(readOnly = true)
     public StorefrontDiscoverResponse getStorefrontBasicInfoById(UUID id) {
-        return storefrontRepository.getBasicInfoById(id)
+        return storefrontRepository
+            .getBasicInfoById(id)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar la sucursal con ID " + id + "."));
     }
 

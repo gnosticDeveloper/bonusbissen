@@ -204,6 +204,12 @@ public class UserService {
             .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<MovementResponse> getMovementsByUserId(UUID userId, UUID storefrontId) {
+        List<PointTransaction> movements = pointTransactionRepository.findAllByUserIdAndStorefrontIdOrderByCreatedAtDesc(userId, storefrontId);
+        return movements.stream().map(MovementResponse::from).toList();
+    }
+
     private UUID resolveOrganizationId(UUID storefrontId) {
         if (storefrontId == null) {
             return null;
@@ -229,12 +235,6 @@ public class UserService {
             .findByPointTransactionIdIn(pendingIds)
             .stream()
             .collect(Collectors.toMap(ec -> ec.getPointTransaction().getId(), ExchangeCode::getCode));
-    }
-
-    @Transactional(readOnly = true)
-    public List<MovementResponse> getMovementsByUserId(UUID userId) {
-        List<PointTransaction> movements = pointTransactionRepository.findAllByUserIdOrderByCreatedAtDesc(userId);
-        return movements.stream().map(MovementResponse::from).toList();
     }
 
     @Transactional(readOnly = true)

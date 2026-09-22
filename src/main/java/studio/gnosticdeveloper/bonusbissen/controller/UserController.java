@@ -199,9 +199,13 @@ public class UserController {
     }
 
     @GetMapping("/{id}/movements")
-    public List<MovementResponse> getMovementsHistory(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+    public List<MovementResponse> getMovementsHistory(
+        @PathVariable UUID id,
+        @RequestParam(required = false) UUID storefrontId,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
         requireSelfIfUser(id, principal);
-        return userService.getMovementsByUserId(id);
+        return userService.getMovementsByUserId(id, storefrontId);
     }
 
     private void requireSelfIfUser(UUID id, AuthenticatedPrincipal principal) {
