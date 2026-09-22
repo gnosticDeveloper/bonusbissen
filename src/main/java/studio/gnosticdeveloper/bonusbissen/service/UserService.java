@@ -183,6 +183,19 @@ public class UserService {
         return pointTransactionRepository.calculateBalance(userId, programId);
     }
 
+    /** Lean balance lookup for the customer app, which only ever knows the storefront it's showing. */
+    @Transactional(readOnly = true)
+    public int getBalanceByStorefront(UUID userId, UUID storefrontId) {
+        Storefront storefront = storefrontRepository
+            .findById(storefrontId)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la sucursal con ID " + storefrontId + "."));
+        PointProgram program = storefront.getPointProgram();
+        if (program == null || !program.isActive()) {
+            throw new NotFoundException("Esta sucursal no tiene un programa de puntos activo.");
+        }
+        return getBalance(userId, program.getId());
+    }
+
     @Transactional(readOnly = true)
     public UserPointsResponse getUserPointsById(UUID id, UUID programId) {
         User user = userRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));

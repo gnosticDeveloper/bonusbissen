@@ -23,6 +23,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsBalanceResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserResponse;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
@@ -112,6 +113,16 @@ public class UserController {
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
         return new MembershipResponse(pointProgramService.isMemberByStorefront(principal.id(), storefrontId));
+    }
+
+    /** Lean points balance for the customer app's home header -- avoids paying for the full business/rewards payload. */
+    @GetMapping("/me/storefronts/{storefrontId}/points")
+    @PreAuthorize("hasRole('USER')")
+    public UserPointsBalanceResponse getMyPointsByStorefront(
+        @PathVariable UUID storefrontId,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
+        return new UserPointsBalanceResponse(userService.getBalanceByStorefront(principal.id(), storefrontId));
     }
 
     @PostMapping("/me/resend-verification")
