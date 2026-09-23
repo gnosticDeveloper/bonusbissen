@@ -53,7 +53,13 @@ services:
         condition: service_healthy
 
   frontend:
-    build: ./client
+    build:
+      context: ./client
+      args:
+        # Next.js inlines NEXT_PUBLIC_* vars at build time, not read at container
+        # startup like everything below -- changing ASSETS_URL requires a real
+        # rebuild (docker compose build frontend), a restart alone won't pick it up.
+        NEXT_PUBLIC_ASSETS_URL: ${ASSETS_URL:-https://localhost/}
     container_name: frontend
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/"]
