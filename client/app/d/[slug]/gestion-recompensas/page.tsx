@@ -18,7 +18,7 @@ export default async function RewardsPage({ searchParams }: { searchParams: Prom
 
   const transformedRewardsWithCompleteImagePath = rewards.map((r) => ({
     ...r,
-    imagePath: r.imagePath ? (process.env.ASSETS_URL ?? "http://localhost:8080/uploads/" + r.imagePath) : null,
+    imagePath: r.imagePath ? (process.env.ASSETS_URL ?? "http://localhost:8080/uploads/") + r.imagePath : null,
   }));
 
   return (
