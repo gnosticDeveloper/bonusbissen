@@ -232,7 +232,7 @@
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
-          "expr": "{container=\"bonusbissen-backend-1\"} | detected_level=~\"${level:regex}\"",
+          "expr": "{container=\"backend\"} | detected_level=~\"${level:regex}\"",
           "refId": "A"
         }
       ],
