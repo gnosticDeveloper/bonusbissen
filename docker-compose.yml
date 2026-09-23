@@ -33,6 +33,11 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-bonusbissen <no-reply@bonusbissen.local>}
       MAIL_VERIFICATION_URL: ${MAIL_VERIFICATION_URL:-http://localhost:3000/verify-email}
+      DR_BACKUP_S3_ENDPOINT: ${DR_BACKUP_S3_ENDPOINT:-}
+      DR_BACKUP_S3_BUCKET: ${DR_BACKUP_S3_BUCKET:-}
+      DR_BACKUP_S3_ACCESS_KEY: ${DR_BACKUP_S3_ACCESS_KEY:-}
+      DR_BACKUP_S3_SECRET_KEY: ${DR_BACKUP_S3_SECRET_KEY:-}
+      DR_BACKUP_CRON: ${DR_BACKUP_CRON:-0 0 5 * * *}
     volumes:
       - uploads:/var/lib/bonusbissen/uploads
     ports:

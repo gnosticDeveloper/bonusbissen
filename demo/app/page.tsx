@@ -1,14 +1,33 @@
 "use client";
 
+import { useState } from "react";
 import { BrandLockup } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { ArrowRight, ShieldCheck, Store, Users } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Copy, Mail, ShieldCheck, Store, Users } from "lucide-react";
 import Link from "next/link";
 
+const CONTACT_EMAIL = "info@glauxlabs.studio";
+
+const contactMailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Quiero agendar una demo de Bonus Bissen")}&body=${encodeURIComponent(
+  "Hola equipo de Bonus Bissen,\n\nMe gustaría coordinar una demo para conocer más sobre el sistema.\n\nNombre del negocio:\nTipo de negocio (bar / restaurante / otro):\nZona:\n\n¡Gracias!\n\n— Enviado desde la demo de Bonus Bissen (demo.bonusbissen.store)",
+)}`;
+
 export default function HomePage() {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(CONTACT_EMAIL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API no disponible.
+    }
+  };
+
   return (
     <main className="flex min-h-dvh flex-col bg-background">
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
@@ -23,7 +42,7 @@ export default function HomePage() {
             Fidelización para tu negocio
           </span>
           <h1 className="text-pretty text-3xl font-bold tracking-tight sm:text-5xl">Sumá puntos, canjeá recompensas y hacé volver a tus clientes</h1>
-          <p className="mx-auto max-w-2xl text-pretty text-base text-muted-foreground leading-relaxed sm:text-lg">
+          <p className="mx-auto max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
             Bonus Bissen es un sistema de puntos y recompensas pensado para bares y comercios locales. Elegí cómo querés ingresar a la demostración.
           </p>
         </section>
@@ -35,7 +54,7 @@ export default function HomePage() {
             </div>
             <div className="flex flex-col gap-1.5">
               <h2 className="text-lg font-semibold">Panel administrativo</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <p className="text-sm leading-relaxed text-muted-foreground">
                 Para dueños y empleados. Cargá puntos, validá canjes, gestioná recompensas, clientes y los datos de tu negocio.
               </p>
             </div>
@@ -50,7 +69,7 @@ export default function HomePage() {
             </div>
             <div className="flex flex-col gap-1.5">
               <h2 className="text-lg font-semibold">Vista de clientes</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <p className="text-sm leading-relaxed text-muted-foreground">
                 Para tus clientes. Consultá tus puntos, descubrí recompensas disponibles, canjealas y seguí el estado de tus canjes.
               </p>
             </div>
@@ -60,20 +79,66 @@ export default function HomePage() {
           </Card>
         </section>
 
-        <p className="text-center text-xs text-muted-foreground">
-          Demo funcional · Los datos se guardan solo en tu navegador y se reinician al cerrar la pestaña.
-        </p>
+        <Card className="flex flex-col gap-5 border-primary/20 bg-primary/5 p-6 sm:p-7">
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Estamos construyendo</span>
+            <h2 className="text-balance text-2xl font-bold tracking-tight">Buscamos negocios piloto para darle forma al futuro de Bonus Bissen</h2>
+            <p className="max-w-3xl text-pretty leading-relaxed text-muted-foreground">
+              El sistema está actualmente en desarrollo y queremos probarlo junto a clientes reales. La versión piloto es una prueba gratuita pensada
+              para conocer tu experiencia, detectar oportunidades de mejora y refinar el sistema antes de lanzar nuestra primera versión estable.
+            </p>
+          </div>
+          <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
+            <div className="rounded-lg bg-background/70 p-3 leading-relaxed">
+              <strong className="text-foreground">Probalo gratis</strong>
+              <br />
+              Sin costo durante la etapa piloto.
+            </div>
+            <div className="rounded-lg bg-background/70 p-3 leading-relaxed">
+              <strong className="text-foreground">Ayudanos a mejorar</strong>
+              <br />
+              Tus comentarios nos ayudan a mejorar el sistema.
+            </div>
+            <div className="rounded-lg bg-background/70 p-3 leading-relaxed">
+              <strong className="text-foreground">Accedé a condiciones especiales</strong>
+              <br />
+              Como un precio mensual preferencial.
+            </div>
+          </div>
+          <Link href={contactMailto} className={cn(buttonVariants({ size: "lg" }), "w-full gap-1.5 sm:w-fit")}>
+            Quiero ser cliente piloto <ArrowUpRight className="size-4" />
+          </Link>
+        </Card>
+
+        <Card className="flex flex-col items-center gap-3 border-dashed p-5 text-center sm:flex-row sm:justify-between sm:gap-4 sm:text-left">
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground">
+              <Mail className="size-5" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <h3 className="text-sm font-semibold">¿Querés conocer más sobre Bonus Bissen?</h3>
+              <p className="text-sm text-muted-foreground">Escribinos y coordinamos una demo para tu negocio.</p>
+            </div>
+          </div>
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <Link href={contactMailto} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "flex-1 gap-1.5 sm:flex-none")}>
+              <Mail className="size-4" />
+              {CONTACT_EMAIL}
+              <ArrowUpRight className="size-3.5" />
+            </Link>
+            <button
+              type="button"
+              onClick={handleCopy}
+              aria-label="Copiar dirección de correo"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 px-2.5")}
+            >
+              {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+            </button>
+          </div>
+        </Card>
 
         <p className="text-center text-xs text-muted-foreground">
-          Un producto de{" "}
-          <Link
-            href="https://glauxlabs.studio"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium text-foreground underline underline-offset-4 hover:text-primary"
-          >
-            Glaux Labs
-          </Link>
+          Demo funcional · Los datos se guardan solo en tu navegador y se reinician al cerrar la pestaña.
         </p>
       </div>
     </main>
