@@ -2,7 +2,6 @@
 
 import { Gift } from "lucide-react";
 import type { Reward } from "@/lib/types/reward";
-import { resolveAssetUrl } from "@/lib/helpers/assets";
 import { useModal } from "@/components/modal";
 import { RewardClaimModal } from "@/components/modals/rewards/claim-reward-modal";
 
@@ -16,7 +15,10 @@ export function MemberOnlyRewardCard({ reward }: { reward: Reward }) {
     });
   };
 
-  const imageUrl = resolveAssetUrl(reward.imagePath);
+  // reward.imagePath already comes fully-resolved from the server (page.tsx
+  // prefixes it with ASSETS_URL before passing it down) -- resolving it again
+  // here would double the prefix and produce a malformed URL.
+  const imageUrl = reward.imagePath;
 
   return (
     <button
