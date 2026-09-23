@@ -2,7 +2,7 @@ name: CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "remake-frontend-to-match-demo" ]
   workflow_dispatch:
 
 concurrency:
