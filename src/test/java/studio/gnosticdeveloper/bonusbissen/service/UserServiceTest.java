@@ -16,6 +16,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.ClaimRewardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
@@ -319,9 +320,9 @@ class UserServiceTest {
         when(pointTransactionRepository.calculateBalance(userId, PROGRAM_ID)).thenReturn(30);
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        String code = userService.claimReward(new ClaimRewardRequest(userId, rewardId));
+        ClaimRewardResponse response = userService.claimReward(new ClaimRewardRequest(userId, rewardId));
 
-        assertThat(code).hasSize(6);
+        assertThat(response.code()).hasSize(6);
 
         ArgumentCaptor<PointTransaction> captor = ArgumentCaptor.forClass(PointTransaction.class);
         verify(pointTransactionRepository).save(captor.capture());
