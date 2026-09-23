@@ -42,7 +42,12 @@ export default async function MemberOnlyRewardsPage({
     );
   }
 
-  const rewards = result.data.items.filter((reward) => reward.active);
+  const rewards = result.data.items
+    .filter((reward) => reward.active)
+    .map((reward) => ({
+      ...reward,
+      imagePath: reward.imagePath ? (process.env.ASSETS_URL ?? "http://localhost:8080/uploads/") + reward.imagePath : null,
+    }));
   const { totalPages } = result.data;
 
   return (
