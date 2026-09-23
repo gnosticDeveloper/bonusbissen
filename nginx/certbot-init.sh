@@ -44,6 +44,23 @@ fi
 
 docker compose up -d nginx
 
+# `up -d` returns as soon as the container is created, not once nginx has
+# actually finished its entrypoint sequence and loaded the dummy cert below
+# into memory. Without this wait, the rm -rf can race ahead of that and
+# delete the cert file before nginx ever reads it -- nginx then fails to
+# start with a spurious "No such file or directory" on the cert path.
+for attempt in $(seq 1 15); do
+  if curl -sS -o /dev/null http://localhost/; then
+    break
+  fi
+  if [ "$attempt" -eq 15 ]; then
+    echo "nginx did not come up in time; not deleting the dummy cert." >&2
+    docker compose logs nginx --tail=50
+    exit 1
+  fi
+  sleep 1
+done
+
 rm -rf "nginx/certbot/conf/live/$DOMAIN" \
        "nginx/certbot/conf/archive/$DOMAIN" \
        "nginx/certbot/conf/renewal/$DOMAIN.conf"

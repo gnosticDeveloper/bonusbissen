@@ -46,22 +46,18 @@ public class SmtpEmailSender implements EmailSender {
         }
     }
 
-    //TODO: we should probably make an adequate message here. This could likely land in spam
-
     private String buildBody(String name, String link) {
         return """
             Hola %s,
 
-            Creaste una cuenta en bonusbissen, el programa de puntos que funciona en
-            todos los comercios adheridos. La cuenta es tuya y es de bonusbissen: no
-            pertenece a ningún comercio en particular.
-
-            Para verificar tu email, entrá en este enlace:
+            Para verificar tu email, entrá a este enlace:
             %s
+
+            Una vez verificado, vas a poder usarlo para iniciar sesión.
 
             Si no creaste esta cuenta, podés ignorar este mensaje.
 
-            — El equipo de bonusbissen
+            Glaux labs
             """.formatted(name, link);
     }
 }
