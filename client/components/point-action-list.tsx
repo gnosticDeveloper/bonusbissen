@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, Wallet } from "lucide-react";
 import { Customer } from "@/lib/types/customer";
 import { getAllPointActions } from "@/app/d/[slug]/administrar-puntos/actions";
+import { UpdateGrantModal } from "./modals/grant/update-grant-modal";
+import { useModal } from "./modal";
 
 type PointAction = Awaited<ReturnType<typeof getAllPointActions>>[number];
 
 export default function PointActionList({ selected, refreshKey }: { selected: Customer | null; refreshKey?: number }) {
+  const { open } = useModal();
   const [actions, setActions] = useState<PointAction[]>([]);
   const [isPending, startTransition] = useTransition();
 
@@ -132,7 +135,12 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
                         variant="ghost"
                         size="icon-sm"
                         aria-label="Editar movimiento"
-                        onClick={() => {}}
+                        onClick={() =>
+                          open(<UpdateGrantModal a={a} />, {
+                            title: "Mofidicar puntos",
+                            description: `Modifica los puntos que le entregaste a ${a.userName}`,
+                          })
+                        }
                         className="rounded-lg text-muted hover:bg-background hover:text-foreground"
                       >
                         <Pencil className="size-4" />
@@ -141,7 +149,7 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
                         variant="ghost"
                         size="icon-sm"
                         aria-label="Eliminar movimiento"
-                        onClick={() => {}}
+                        // onClick={() => open(<DeleteGrantModal pointA={a} />)}
                         className="rounded-lg text-muted hover:bg-primary/10 hover:text-primary"
                       >
                         <Trash2 className="size-4" />

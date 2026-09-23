@@ -28,16 +28,15 @@ export default function DashboardSignInPage() {
       setLoading(false);
       return;
     }
-    console.info("🐟 got signIn data:", result.data);
     if (result.data.storefronts.length === 1) {
       await selectStorefront(result.data.storefronts[0].id);
       router.push(`/d/${result.data.storefronts[0].id}/inicio`);
+    } else {
+      open(<SelectStorefrontModal storefronts={result.data.storefronts} />, {
+        title: "Selecciona un local donde entrar",
+        description: "Antes de entrar al panel, debes seleccionar un local para entrar.",
+      });
     }
-
-    open(<SelectStorefrontModal storefronts={result.data.storefronts} />, {
-      title: "Selecciona un local donde entrar",
-      description: "Antes de entrar al panel, debes seleccionar un local para entrar.",
-    });
 
     setLoading(false);
   }

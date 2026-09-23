@@ -27,7 +27,7 @@ export function SelectStorefrontModal({ storefronts }: SelectStorefrontModalProp
       await selectStorefront(id);
       router.push(`/d/${id}/inicio`);
       close();
-    } catch {
+    } catch (e) {
       setErrorMessage("Algo salió mal. Por favor intenta nuevamente en unos segundos.");
     } finally {
       setLoading(false);

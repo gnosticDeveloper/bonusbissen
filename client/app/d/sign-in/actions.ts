@@ -1,6 +1,7 @@
 "use server";
 
 import { ActionResult } from "@/lib/action-result";
+import { dashboardRequest } from "@/lib/api";
 import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
 import { cookies } from "next/headers";
 
@@ -89,35 +90,19 @@ export async function signIn(formData: FormData): Promise<ActionResult<{ storefr
 }
 
 export async function selectStorefront(storefrontId: string) {
-  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
+  const res = await dashboardRequest<{ token: string }>("/auth/storefront", {
+    method: "POST",
+    body: JSON.stringify({ storefrontId }),
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) return { success: false, error: "No pudimos seleccionar el local." };
 
-  try {
-    const response = await fetch(`${backendUrl}/auth/storefront`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ storefrontId }),
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) return { success: false, error: "Error buscando una sucursal." };
-      return { success: false, error: "No pudimos completar el inicio de sesión." };
-    }
-
-    const { token } = (await response.json()) as { token: string };
-
-    const cookieStore = await cookies();
-    cookieStore.set("d_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-    });
-
-    return {
-      success: true,
-    };
-  } catch {
-    return { success: false, error: "El servicio no está disponible en este momento." };
-  }
+  const cookieStore = await cookies();
+  cookieStore.set("d_token", res.data.token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+  });
+  return { success: true };
 }

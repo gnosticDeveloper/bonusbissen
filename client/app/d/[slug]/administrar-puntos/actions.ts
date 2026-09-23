@@ -5,6 +5,7 @@ import { Customer } from "@/lib/types/customer";
 import { PointAction } from "../../types";
 import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
 import { ActionResult } from "@/lib/action-result";
+// import { updateTag } from "next/cache";
 
 interface UserPointsAwardResponse {
   userName: string;
@@ -18,6 +19,33 @@ export const grantPointsTo = async (id: string, points: number, note?: string): 
     headers: { "Content-Type": "application/json" },
   });
 };
+
+export interface UpdateGrantRequest {
+  points: number;
+  note?: string;
+}
+
+export async function updateGrant(id: string, values: UpdateGrantRequest) {
+  const res = await dashboardRequest<PointAction>(`/users/grant/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...values }),
+  });
+
+  // updateTag("point-action-list");
+
+  return res;
+}
+
+export async function deleteGrant(id: string) {
+  const res = await dashboardRequest(`/users/grant/${id}`, {
+    method: "DELETE",
+  });
+
+  // updateTag("point-action-list");
+
+  return res;
+}
 
 export const getAllCustomers: PagedRequestFunction<Customer> = async ({ search, page, size }) => {
   const params = new URLSearchParams();
