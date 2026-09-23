@@ -56,7 +56,7 @@ export default async function MemberOnlyHomePage({ params }: { params: Promise<{
         </section>
       )}
 
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-3 pb-18">
         <h2 className="text-lg font-semibold tracking-[-0.03em] text-foreground">Recompensas destacadas</h2>
 
         {business.rewards.length > 0 ? (

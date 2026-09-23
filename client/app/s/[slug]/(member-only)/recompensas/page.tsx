@@ -2,12 +2,20 @@ import { Gift, RotateCcw } from "lucide-react";
 import { getRewards } from "./actions";
 import { MemberOnlyRewardCard } from "@/components/member-only-reward-card";
 import { EmptyRewardsState } from "@/components/empty-reward-state";
+import { RewardsPaginationControls } from "@/components/rewards-pagination-controls";
 
-export default async function MemberOnlyRewardsPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function MemberOnlyRewardsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ page?: string }>;
+}) {
   const { slug: storefrontId } = await params;
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(0, Number(pageParam) || 0);
 
-  // TODO: the controller should filter by storefrontId.
-  const result = await getRewards(storefrontId);
+  const result = await getRewards(storefrontId, { page });
 
   if (!result.ok) {
     return (
@@ -23,10 +31,9 @@ export default async function MemberOnlyRewardsPage({ params }: { params: Promis
           </div>
 
           <p className="text-sm font-semibold text-foreground">No pudimos cargar las recompensas</p>
+          <p className="mx-auto mt-2 max-w-55 text-xs leading-5 text-muted">Probá de nuevo en un rato.</p>
 
-          <p className="mx-auto mt-2 max-w-55 text-xs leading-5 text-muted-foreground">Probá de nuevo en un rato.</p>
-
-          <div className="mx-auto mt-5 flex w-fit items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-[11px] font-medium text-muted-foreground">
+          <div className="mx-auto mt-5 flex w-fit items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-[11px] font-medium text-muted">
             <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
             Reintentar más tarde
           </div>
@@ -35,7 +42,8 @@ export default async function MemberOnlyRewardsPage({ params }: { params: Promis
     );
   }
 
-  const rewards = result.data.filter((reward) => reward.active);
+  const rewards = result.data.items.filter((reward) => reward.active);
+  const { totalPages } = result.data;
 
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-107.5 flex-col px-4 pb-12 pt-6">
@@ -55,6 +63,8 @@ export default async function MemberOnlyRewardsPage({ params }: { params: Promis
           ))}
         </ul>
       )}
+
+      {totalPages > 1 && <RewardsPaginationControls page={page} totalPages={totalPages} />}
     </main>
   );
 }

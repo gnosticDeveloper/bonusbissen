@@ -2,7 +2,6 @@
 
 import { ActionResult } from "@/lib/action-result";
 import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
-import { Organization } from "@/lib/types/organization";
 import { cookies } from "next/headers";
 
 export const publicRequest = async <T>(path: string, init?: RequestInit): Promise<ActionResult<T>> => {

@@ -1,11 +1,23 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RewardCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse;
@@ -16,23 +28,12 @@ import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class RewardServiceTest {
 
     @Mock
     private RewardRepository rewardRepository;
+
     @Mock
     private PointProgramRepository pointProgramRepository;
 
@@ -104,18 +105,22 @@ class RewardServiceTest {
     @Test
     void listActiveNormalizesBlankSearchToNull() {
         UUID organizationId = UUID.randomUUID();
-        rewardService.listActive("   ", organizationId, null);
+        Pageable pageable = PageRequest.of(0, 10);
 
-        verify(rewardRepository).findByActiveTrue(isNull(), eq(organizationId), isNull());
+        rewardService.listActive("   ", organizationId, null, null, pageable);
+
+        verify(rewardRepository).findByActiveTrue(isNull(), eq(organizationId), isNull(), eq(pageable));
     }
 
     @Test
     void listActiveTrimsSearchTerm() {
         UUID organizationId = UUID.randomUUID();
         UUID programId = UUID.randomUUID();
-        rewardService.listActive("  coffee  ", organizationId, programId);
+        Pageable pageable = PageRequest.of(0, 10);
 
-        verify(rewardRepository).findByActiveTrue(eq("coffee"), eq(organizationId), eq(programId));
+        rewardService.listActive("  coffee  ", organizationId, programId, null, pageable);
+
+        verify(rewardRepository).findByActiveTrue(eq("coffee"), eq(organizationId), eq(programId), eq(pageable));
     }
 
     @Test

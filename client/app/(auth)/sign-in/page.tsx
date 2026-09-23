@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { SubmitEvent, useState } from "react";
 import { signIn } from "@/app/(auth)/sign-in/actions";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
 import Link from "next/link";
@@ -14,16 +14,24 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
     setLoading(true);
     setError("");
-    const result = await signIn(formData);
-    if (!result.ok) {
-      setError(result.error);
+    try {
+      const result = await signIn(formData);
+      if (!result.ok) {
+        setError(result.error);
+        setLoading(false);
+        return;
+      }
+      router.push("/b");
+    } catch {
+      setError("Hubo un problema al iniciar sesión");
+    } finally {
       setLoading(false);
-      return;
     }
-    router.push("/b");
   }
 
   return (
@@ -38,7 +46,7 @@ export default function SignInPage() {
 
       <p className="mb-8.5 max-w-72.5 text-[13px] leading-[1.55] text-muted">Sumá puntos, descubrí recompensas y disfrutá más cada visita.</p>
 
-      <form action={handleSubmit} className="grid gap-3">
+      <form onSubmit={handleSubmit} className="grid gap-3">
         <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-muted">
           <UserRound size={17} />
           <input

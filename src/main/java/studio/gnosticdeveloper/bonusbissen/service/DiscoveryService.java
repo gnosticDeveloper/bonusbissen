@@ -1,9 +1,9 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,14 +13,13 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.RewardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.StorefrontDiscoverResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
-import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 
-/** Public "negocios cerca" feed: active storefronts, each with its cheapest rewards. */
+/** Public "negocios cerca" feed: active storefronts, each with its latest rewards. */
 @Service
 public class DiscoveryService {
 
@@ -90,13 +89,12 @@ public class DiscoveryService {
             if (viewerUserId != null) {
                 points = pointTransactionRepository.calculateBalance(viewerUserId, program.getId());
             }
+
+            // I've not encounter a scenario where we need to send the cheapest rewards here. Using the latest seems ok to me.
             rewards = rewardRepository
-                .findByActiveTrue(null, null, program.getId())
-                .stream()
-                .sorted(Comparator.comparingInt(Reward::getCostPoints))
-                .limit(MAX_REWARDS_PER_CARD)
+                .findByActiveTrue(null, null, program.getId(), PageRequest.of(0, MAX_REWARDS_PER_CARD))
                 .map(RewardResponse::from)
-                .toList();
+                .getContent();
         }
 
         return new BusinessResponse(

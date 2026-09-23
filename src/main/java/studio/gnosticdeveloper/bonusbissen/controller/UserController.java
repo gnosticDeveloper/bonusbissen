@@ -15,6 +15,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.PasswordUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.AdminUserInfoResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.ClaimRewardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MembershipResponse;
@@ -234,12 +235,15 @@ public class UserController {
     /**
      * Claim a reward for the user
      *
-     * @param request The information needed to create a record on both the exchanges table and the exchange_codes table
+     * @param request The information needed to create a record on both the point_transactions and the exchange_codes tables
      * @return The code of the reward that was claimed.
      */
     @PostMapping("/claim-reward")
     @PreAuthorize("hasRole('USER')")
-    public String claimReward(@Valid @RequestBody ClaimRewardRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+    public ClaimRewardResponse claimReward(
+        @Valid @RequestBody ClaimRewardRequest request,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
         if (!principal.id().equals(request.userId())) {
             throw new AccessDeniedException("No podés canjear recompensas en nombre de otro cliente.");
         }

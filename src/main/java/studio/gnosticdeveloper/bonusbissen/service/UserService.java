@@ -18,6 +18,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.AdminUserInfoResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.ClaimRewardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HistoricalExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
@@ -337,7 +338,7 @@ public class UserService {
     }
 
     @Transactional
-    public String claimReward(ClaimRewardRequest request) {
+    public ClaimRewardResponse claimReward(ClaimRewardRequest request) {
         PointTransaction tx = new PointTransaction();
         User user = userRepository
             .findById(request.userId())
@@ -368,7 +369,7 @@ public class UserService {
         exchangeCode.setUser(user);
         exchangeCode.setCode(generateExchangeCode());
         exchangeCodeRepository.save(exchangeCode);
-        return exchangeCode.getCode();
+        return new ClaimRewardResponse(exchangeCode.getCode());
     }
 
     private String generateExchangeCode() {

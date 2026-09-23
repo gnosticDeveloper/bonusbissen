@@ -10,8 +10,10 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,10 +22,11 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.RewardUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
+import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
-import org.springframework.security.access.AccessDeniedException;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 
 @Service
 public class RewardService {
@@ -32,6 +35,7 @@ public class RewardService {
 
     private final RewardRepository rewardRepository;
     private final PointProgramRepository pointProgramRepository;
+    private final StorefrontRepository storefrontRepository;
 
     private static final long MAX_BYTES = 2 * 1024 * 1024; // 2MB
     // private static final int MAX_WIDTH = 1000;
@@ -40,15 +44,35 @@ public class RewardService {
     @Value("${app.uploads.dir}")
     private String uploadsDir;
 
-    public RewardService(RewardRepository rewardRepository, PointProgramRepository pointProgramRepository) {
+    public RewardService(
+        RewardRepository rewardRepository,
+        PointProgramRepository pointProgramRepository,
+        StorefrontRepository storefrontRepository
+    ) {
         this.rewardRepository = rewardRepository;
         this.pointProgramRepository = pointProgramRepository;
+        this.storefrontRepository = storefrontRepository;
     }
 
     @Transactional(readOnly = true)
-    public List<Reward> listActive(String search, UUID organizationId, UUID programId) {
+    public Page<Reward> listActive(String search, UUID organizationId, UUID programId, UUID storefrontId, Pageable pageable) {
         String term = search == null || search.isBlank() ? null : search.trim();
-        return rewardRepository.findByActiveTrue(term, organizationId, programId);
+
+        // La query nativa trae su propio ORDER BY fijo; un Pageable con Sort
+        // rompe en runtime contra queries nativas (InvalidJpaQueryMethodException),
+        // así que solo dejamos pasar page/size y descartamos el sort del cliente.
+        Pageable safePageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+
+        if (storefrontId != null) {
+            Storefront sf = storefrontRepository.findById(storefrontId).orElse(null);
+            PointProgram program = sf != null ? sf.getPointProgram() : null;
+
+            if (program == null) return Page.empty(safePageable);
+
+            return rewardRepository.findByActiveTrue(term, null, program.getId(), safePageable);
+        }
+
+        return rewardRepository.findByActiveTrue(term, organizationId, programId, safePageable);
     }
 
     @Transactional(readOnly = true)

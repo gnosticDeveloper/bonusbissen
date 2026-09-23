@@ -120,7 +120,7 @@ export function MemberOnlyHeader({ storefront }: { storefront: StorefrontDiscove
               su contenido intrínseco y un nombre largo desborda el row.
               wrap-break-word como red de seguridad extra para nombres sin espacios. */}
         <div className="min-w-0 flex-1 text-left">
-          <h1 className="wrap-break-word text-3xl font-bold uppercase leading-tight text-foreground">{storefront.orgName}</h1>
+          <h1 className="text-2xl font-bold uppercase leading-tight text-foreground">{storefront.orgName}</h1>
           <p className="truncate text-xs text-muted">{storefront.name}</p>
         </div>
       </div>

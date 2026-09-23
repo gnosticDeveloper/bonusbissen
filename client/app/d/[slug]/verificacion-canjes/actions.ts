@@ -4,23 +4,19 @@ import { dashboardRequest } from "@/lib/api";
 
 export interface Redemption {
   id: string;
-  code: string;
+  userId: string;
+  userName: string;
+  username: string;
+  employeeName: string;
+  rewardId: string;
+  rewardTitle: string;
+  rewardDescription: string;
+  rewardImagePath: string;
+  rewardDiscountValue: number;
+  rewardCostPoints: number;
   state: "pending" | "delivered" | "cancelled";
-  reward: {
-    title: string;
-    description: string;
-    pointsRequired: number;
-    imagePath?: string;
-    discountValue: string;
-  };
-  customer: {
-    phone: string;
-    name: string;
-    id: string;
-  };
-  resolvedAt?: string;
-  resolvedBy?: string;
-  redeemedAt: string;
+  points: number;
+  formattedCreatedAt: string;
 }
 
 export async function getResolvedExchanges() {

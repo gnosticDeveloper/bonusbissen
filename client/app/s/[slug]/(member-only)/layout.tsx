@@ -16,7 +16,7 @@ export default async function MemberOnlyLayout({ children, params }: { children:
   if (!storefront) redirect("/b"); // sin storefront no hay con qué armar el header
 
   return (
-    <div className="min-h-svh bg-background pb-26 overflow-x-clip">
+    <div className="min-h-svh bg-background overflow-x-clip">
       <MemberOnlyHeader storefront={storefront} />
 
       {/* relative + overflow-hidden: contiene el blur decorativo, que antes

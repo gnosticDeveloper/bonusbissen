@@ -1,14 +1,34 @@
+"use client";
+
 import { Gift } from "lucide-react";
 import type { Reward } from "@/lib/types/reward";
+import { resolveAssetUrl } from "@/lib/helpers/assets";
+import { useModal } from "@/components/modal";
+import { RewardClaimModal } from "@/components/modals/rewards/claim-reward-modal";
 
 export function MemberOnlyRewardCard({ reward }: { reward: Reward }) {
+  const { open } = useModal();
+
+  const handleOpen = () => {
+    open(<RewardClaimModal reward={reward} />, {
+      title: reward.title,
+      description: `${reward.costPoints.toLocaleString("es-AR")} pts para canjear`,
+    });
+  };
+
+  const imageUrl = resolveAssetUrl(reward.imagePath);
+
   return (
-    <article className="overflow-hidden rounded-3xl border border-border bg-card shadow-[0_12px_30px_rgba(20,16,25,0.05)]">
+    <button
+      type="button"
+      onClick={handleOpen}
+      className="w-full overflow-hidden rounded-3xl border border-border bg-card text-left shadow-[0_12px_30px_rgba(20,16,25,0.05)] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
+    >
       <div className="flex gap-3 p-3.5">
         <div className="relative h-19 w-19 shrink-0 overflow-hidden rounded-[18px] bg-muted/20">
-          {reward.imagePath ? (
+          {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={reward.imagePath} alt={reward.title} className="h-full w-full object-cover" />
+            <img src={imageUrl} alt={reward.title} className="h-full w-full object-cover" />
           ) : (
             <div className="grid h-full w-full place-items-center text-muted-foreground">
               <Gift className="h-6 w-6" aria-hidden="true" />
@@ -35,6 +55,6 @@ export function MemberOnlyRewardCard({ reward }: { reward: Reward }) {
           </div>
         </div>
       </div>
-    </article>
+    </button>
   );
 }

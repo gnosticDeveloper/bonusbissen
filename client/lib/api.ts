@@ -31,6 +31,7 @@ export const request = async <T>(path: string, init?: RequestInit): Promise<Acti
       },
       cache: "no-store",
     });
+    console.info("💘 result from api:", response.status);
     if (!response.ok) return { ok: false, error: "No pudimos completar la solicitud." };
     return { ok: true, data: (await response.json()) as T };
   } catch {
