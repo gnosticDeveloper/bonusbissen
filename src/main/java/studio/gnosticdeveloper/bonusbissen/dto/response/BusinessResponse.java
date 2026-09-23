@@ -7,6 +7,7 @@ import java.util.UUID;
 public record BusinessResponse(
     UUID id,
     String name,
+    String orgName,
     String category,
     String description,
     String color,

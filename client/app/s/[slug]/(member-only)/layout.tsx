@@ -16,21 +16,27 @@ export default async function MemberOnlyLayout({ children, params }: { children:
   if (!storefront) redirect("/b"); // sin storefront no hay con qué armar el header
 
   return (
-    <div className="min-h-svh bg-background pb-26">
+    <div className="min-h-svh bg-background pb-26 overflow-x-clip">
       <MemberOnlyHeader storefront={storefront} />
 
-      <div className="mx-auto w-full max-w-107.5 px-4 pt-5">
+      {/* relative + overflow-hidden: contiene el blur decorativo, que antes
+              no tenía ancestro posicionado y se escapaba del viewport (causa
+              del overflow-x) */}
+      <div className="relative isolate mx-auto w-full max-w-107.5 overflow-x-clip px-4 pt-5">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-24 -top-28 size-72 rounded-full opacity-60 blur-3xl"
+          className="pointer-events-none absolute -right-24 -top-28 z-1 size-72 rounded-full blur-3xl"
           style={{ backgroundColor: `${storefront.color}14` }}
         />
-        <UserPointsCard storefrontId={storefrontId} pointLabel={storefront.pointLabel} />
+
+        <div className="relative z-0">
+          <UserPointsCard storefrontId={storefrontId} pointLabel={storefront.pointLabel} />
+        </div>
       </div>
 
       {children}
 
-      <SideMenu />
+      <SideMenu backHref="/b" backLabel="Volver a mis comercios" color={storefront.color} />
       <MemberOnlyBottomNav slug={storefrontId} color={storefront.color} />
     </div>
   );

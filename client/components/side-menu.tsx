@@ -3,14 +3,14 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Moon, Sun, LogOut, X, ChevronRight, UserRound } from "lucide-react";
+import { LogOut, X, ChevronRight, UserRound, ArrowLeft, Home } from "lucide-react";
 import { signOut } from "@/app/b/actions";
 import { useUserStore } from "@/lib/user-store";
 import { useUIStore } from "@/lib/ui-store";
 import { BrandLockup } from "@/components/brand";
 import { ThemeToggle } from "./theme-toggle";
 
-export function SideMenu() {
+export function SideMenu({ backHref, backLabel, color }: { backHref?: string; backLabel?: string; color?: string }) {
   const pathname = usePathname();
   const menuOpen = useUIStore((state) => state.menuOpen);
   const closeMenu = useUIStore((state) => state.closeMenu);
@@ -47,9 +47,14 @@ export function SideMenu() {
         className={`fixed right-0 top-0 z-50 flex h-full w-[85%] max-w-[320px] flex-col bg-card shadow-2xl transition-transform duration-300 ease-out motion-reduce:transition-none ${
           menuOpen ? "translate-x-0" : "translate-x-full"
         }`}
+        style={
+          {
+            "--side-menu-accent": color || "var(--primary)",
+          } as React.CSSProperties
+        }
       >
         <div className="flex items-center justify-between px-5 pt-5">
-          <BrandLockup />
+          <BrandLockup color={color} />
           <button
             aria-label="Cerrar menú"
             onClick={closeMenu}
@@ -59,12 +64,23 @@ export function SideMenu() {
           </button>
         </div>
 
+        {backHref && (
+          <Link
+            onClick={closeMenu}
+            href="/b"
+            className="mx-4 bg-background mt-6 transition-colors flex items-center gap-3 rounded-2xl hover:bg-(--side-menu-accent)/10 p-4 text-sm font-bold hover:text-(--side-menu-accent)"
+          >
+            <Home size={18} />
+            Volver al inicio
+          </Link>
+        )}
+
         <Link
           href="/b/perfil"
           onClick={closeMenu}
-          className="mx-4 mt-6 flex items-center gap-3 rounded-2xl bg-background p-4 transition-colors hover:bg-border/40"
+          className="mx-4 mt-4 flex items-center gap-3 rounded-2xl bg-background p-4 transition-colors hover:bg-border/40"
         >
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-primary-foreground">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-(--side-menu-accent) text-primary-foreground">
             <UserRound size={20} />
           </div>
           <div className="min-w-0 flex-1">
@@ -74,7 +90,7 @@ export function SideMenu() {
           <ChevronRight size={16} className="shrink-0 text-muted" />
         </Link>
 
-        <ThemeToggle />
+        <ThemeToggle color={color} />
 
         <button
           onClick={handleSignOut}

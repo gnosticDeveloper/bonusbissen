@@ -51,9 +51,11 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
               </div>
 
               <div className="min-w-0 flex-1">
-                <h3 className="truncate text-sm font-semibold tracking-[-0.02em] text-foreground">{storefront.name}</h3>
+                <h3 className="truncate text-sm font-semibold tracking-[-0.02em] text-foreground">
+                  {storefront.orgName} • {storefront.name}
+                </h3>
                 <p className="truncate text-[11px] text-muted">
-                  {storefront.address.street} · {storefront.address.city}
+                  {storefront.address.street} • {storefront.address.city}
                 </p>
               </div>
 
@@ -66,6 +68,7 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
             </header>
 
             <Carousel
+              autoSlideInterval={30000}
               className="w-full"
               items={rewards}
               renderItem={(reward) => <RewardCard reward={reward} pointsLabel={storefront.pointLabel} color={storefront.color} />}
@@ -90,7 +93,9 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
           <span className="text-muted relative text-xs text-center bg-background z-30 text-shadow-lg shadow-black">
             llegaste al final de la lista (￣o￣) . z Z
           </span>
-          <img src="/final.png" alt="little sleepy cat" className="absolute -top-1.75 w-auto h-50 grayscale" />
+          <div className="absolute -top-1.75 h-25 overflow-hidden">
+            <img src="/final.png" alt="little sleepy cat" className="h-50 w-auto grayscale" />
+          </div>
         </footer>
       ) : null}
     </section>

@@ -1,6 +1,9 @@
-import { CARD_PALETTES, pickCardVariant } from "@/lib/helpers/color";
+"use client";
+
 import { resolveAssetUrl } from "@/lib/helpers/assets";
 import type { StorefrontDiscoverInfo } from "@/lib/types/storefront";
+import { useUIStore } from "@/lib/ui-store";
+import { Menu } from "lucide-react";
 
 const HEADER_PARTICLE_SEEDS = Array.from({ length: 14 }, (_, index) => index);
 
@@ -31,8 +34,9 @@ function formatCssNumber(value: number, unit: string, decimals = 3) {
 }
 
 export function MemberOnlyHeader({ storefront }: { storefront: StorefrontDiscoverInfo }) {
+  const openMenu = useUIStore((state) => state.openMenu); // ver pregunta sobre el nombre del método
+
   const iconUrl = resolveAssetUrl(storefront.iconUrl);
-  const palette = CARD_PALETTES[pickCardVariant(storefront.color)];
   const storefrontSeed = hashString(storefront.id);
 
   const particles = HEADER_PARTICLE_SEEDS.map((index) => {
@@ -95,61 +99,73 @@ export function MemberOnlyHeader({ storefront }: { storefront: StorefrontDiscove
         ))}
       </div>
 
-      <div className="relative z-10 mx-auto justify-center flex max-w-107.5 items-center gap-x-3">
+      <button
+        type="button"
+        onClick={openMenu}
+        aria-label="Abrir menú"
+        className="absolute right-4 top-4 z-20 grid size-10 place-items-center rounded-full text-foreground transition-colors hover:bg-foreground/5"
+      >
+        <Menu size={20} aria-hidden="true" />
+      </button>
+
+      <div className="relative z-10 mx-auto flex max-w-107.5 items-center justify-center gap-x-3">
         <div
-          className="grid size-16 place-items-center overflow-hidden rounded-2xl border bg-card text-3xl font-bold shadow-[0_16px_40px_rgba(25,24,23,0.1)]"
+          className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl border bg-card text-3xl font-bold shadow-[0_16px_40px_rgba(25,24,23,0.1)]"
           style={{ borderColor: "var(--storefront-border)" }}
         >
           {iconUrl ? <img src={iconUrl} alt={storefront.name} className="size-full object-cover" /> : storefront.orgName.charAt(0).toUpperCase()}
         </div>
 
-        <div>
-          <h1 className="text-3xl font-bold uppercase text-foreground">{storefront.orgName}</h1>
-          <p className="text-xs text-muted">{storefront.name}</p>
+        {/* min-w-0: sin esto el flex item no puede encogerse por debajo de
+              su contenido intrínseco y un nombre largo desborda el row.
+              wrap-break-word como red de seguridad extra para nombres sin espacios. */}
+        <div className="min-w-0 flex-1 text-left">
+          <h1 className="wrap-break-word text-3xl font-bold uppercase leading-tight text-foreground">{storefront.orgName}</h1>
+          <p className="truncate text-xs text-muted">{storefront.name}</p>
         </div>
       </div>
 
       <style>{`
-        .member-only-header-particle {
-          position: absolute;
-          display: block;
-          border-radius: 999px;
-          background: var(--storefront-color);
-          box-shadow: 0 0 8px var(--storefront-color);
-          opacity: 0;
-          filter: blur(0.25px);
-          will-change: transform, opacity;
-          animation: member-only-header-fire linear infinite;
-        }
-
-        @keyframes member-only-header-fire {
-          0% {
-            opacity: 0;
-            transform: translate3d(0, 0, 0) scale(0.55) rotate(0deg);
-          }
-
-          14% {
-            opacity: 0.5;
-          }
-
-          78% {
-            opacity: 0.16;
-          }
-
-          100% {
-            opacity: 0;
-            transform: translate3d(var(--particle-drift), var(--particle-rise), 0)
-              scale(0.12) rotate(var(--particle-rotate));
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
           .member-only-header-particle {
-            animation: none;
+            position: absolute;
+            display: block;
+            border-radius: 999px;
+            background: var(--storefront-color);
+            box-shadow: 0 0 8px var(--storefront-color);
             opacity: 0;
+            filter: blur(0.25px);
+            will-change: transform, opacity;
+            animation: member-only-header-fire linear infinite;
           }
-        }
-      `}</style>
+
+          @keyframes member-only-header-fire {
+            0% {
+              opacity: 0;
+              transform: translate3d(0, 0, 0) scale(0.55) rotate(0deg);
+            }
+
+            14% {
+              opacity: 0.5;
+            }
+
+            78% {
+              opacity: 0.16;
+            }
+
+            100% {
+              opacity: 0;
+              transform: translate3d(var(--particle-drift), var(--particle-rise), 0)
+                scale(0.12) rotate(var(--particle-rotate));
+            }
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .member-only-header-particle {
+              animation: none;
+              opacity: 0;
+            }
+          }
+        `}</style>
     </header>
   );
 }

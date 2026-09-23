@@ -8,7 +8,7 @@ function persistTheme(theme: "light" | "dark") {
   document.cookie = `theme=${theme}; path=/; max-age=31536000; SameSite=Lax`;
 }
 
-export function ThemeToggle() {
+export function ThemeToggle({ color }: { color?: string }) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
@@ -23,7 +23,10 @@ export function ThemeToggle() {
   };
 
   return (
-    <div className="mx-4 mt-4 flex items-center justify-between rounded-2xl bg-background p-4">
+    <div
+      className="mx-4 mt-4 flex items-center justify-between rounded-2xl bg-background p-4"
+      style={{ "--theme-toggle-accent": color || "var(--primary)" } as React.CSSProperties}
+    >
       <div className="flex items-center gap-3">
         {theme === "dark" ? <Moon size={18} className="text-foreground" /> : <Sun size={18} className="text-foreground" />}
         <span className="text-sm font-medium text-foreground">Modo oscuro</span>
@@ -34,7 +37,7 @@ export function ThemeToggle() {
         aria-label="Cambiar tema"
         onClick={toggle}
         className={`relative h-6 w-11 shrink-0 rounded-full transition-colors motion-reduce:transition-none ${
-          theme === "dark" ? "bg-primary" : "bg-muted/40"
+          theme === "dark" ? "bg-(--theme-toggle-accent)" : "bg-muted/40"
         }`}
       >
         <span

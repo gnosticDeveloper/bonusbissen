@@ -102,6 +102,7 @@ public class DiscoveryService {
         return new BusinessResponse(
             storefront.getId(),
             storefront.getName(),
+            storefront.getOrganization().getName(),
             storefront.getCategory(),
             storefront.getDescription(),
             storefront.getColor() != null ? storefront.getColor() : DEFAULT_COLOR,

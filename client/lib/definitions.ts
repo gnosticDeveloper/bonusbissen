@@ -42,6 +42,7 @@ export type PointsResponse = {
 export type Business = {
   id: string;
   name: string;
+  orgName: string;
   category: string;
   description: string;
   color: string;
@@ -49,7 +50,7 @@ export type Business = {
   pointLabel: string;
   points: number;
   rewards: Reward[];
-  address: { street: string; city: string, province: string };
+  address: { street: string; city: string; province: string };
 };
 
 export type Location = {

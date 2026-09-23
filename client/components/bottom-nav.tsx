@@ -84,7 +84,7 @@ export function MemberOnlyBottomNav({ slug, color }: { slug: string; color?: str
                 className="grid place-items-center rounded-full transition-shadow"
                 style={active ? { boxShadow: "0 4px 14px var(--nav-active-soft)" } : undefined}
               >
-                <Icon size={24} />
+                <Icon size={22} />
               </span>
               <span>{label}</span>
             </Link>
