@@ -3,8 +3,10 @@
 import { ActionResult } from "@/lib/action-result";
 import { request } from "@/lib/api";
 import { Location, Business, PagedResponse, PointsResponse } from "@/lib/definitions";
+import { UserInfo } from "@/lib/types/customer";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 /**
  *
@@ -36,6 +38,10 @@ export async function getBusinesses({ page = 0, size = 10, city }: GetBusinesses
 export async function getLocations(): Promise<ActionResult<Location[]>> {
   return request<Location[]>("/discover/cities");
 }
+
+export const getMe = cache(async () => {
+  return request<UserInfo>("/users/me");
+});
 
 export async function signOut() {
   const cookieStore = await cookies();

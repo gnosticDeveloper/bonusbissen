@@ -4,16 +4,16 @@ import { useEffect, useState } from "react";
 import { Menu, UserRound } from "lucide-react";
 import { PointsCard } from "@/components/points-card";
 import { BusinessList } from "@/components/business-list";
-import { useUserStore } from "@/lib/user-store";
 import { useUIStore } from "@/lib/ui-store";
 import { PointsResponse } from "@/lib/definitions";
 import { getPoints } from "@/app/b/actions";
 import { CitySelect } from "@/components/city-select";
 import { useBusinesses } from "@/hooks/use-businesses";
+import { useUser } from "@/providers/user-provider";
 
 export default function MainHomePage() {
-  const user = useUserStore((state) => state.user);
   const openMenu = useUIStore((state) => state.openMenu);
+  const user = useUser();
 
   const [points, setPoints] = useState<PointsResponse | null>(null);
   const [pointsError, setPointsError] = useState(false);
@@ -38,11 +38,6 @@ export default function MainHomePage() {
       <header className="relative z-1 px-5 mb-6.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="grid h-10 w-10 place-items-center rounded-full border-2 border-background bg-primary text-white shadow-[0_0_0_1px_var(--primary)]">
-            {/*{user?.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={user.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
-            ) : (
-            )}*/}
             <UserRound size={17} />
           </div>
           <div>

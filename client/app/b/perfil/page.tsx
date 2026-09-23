@@ -4,15 +4,15 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog } from "@base-ui/react/dialog";
-import { useUserStore } from "@/lib/user-store";
 import { deleteAccount, resendVerificationEmail } from "./actions";
+import { useUser } from "@/providers/user-provider";
 
 type VerifyState = "idle" | "sending" | "sent" | "error";
 type DeleteState = "idle" | "deleting" | "error";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const user = useUserStore((state) => state.user);
+  const user = useUser();
   const emailVerified = user?.emailVerified ?? false;
 
   const [verifyState, setVerifyState] = useState<VerifyState>("idle");

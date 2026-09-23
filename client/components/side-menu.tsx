@@ -3,20 +3,19 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, X, ChevronRight, UserRound, ArrowLeft, Home } from "lucide-react";
+import { LogOut, X, ChevronRight, UserRound, Home } from "lucide-react";
 import { signOut } from "@/app/b/actions";
-import { useUserStore } from "@/lib/user-store";
 import { useUIStore } from "@/lib/ui-store";
 import { BrandLockup } from "@/components/brand";
 import { ThemeToggle } from "./theme-toggle";
+import { useUser } from "@/providers/user-provider";
 
 export function SideMenu({ backHref, backLabel, color }: { backHref?: string; backLabel?: string; color?: string }) {
   const pathname = usePathname();
   const menuOpen = useUIStore((state) => state.menuOpen);
   const closeMenu = useUIStore((state) => state.closeMenu);
 
-  const user = useUserStore((state) => state.user);
-  const resetUser = useUserStore((state) => state.reset);
+  const user = useUser();
 
   useEffect(() => {
     closeMenu();
@@ -25,7 +24,6 @@ export function SideMenu({ backHref, backLabel, color }: { backHref?: string; ba
 
   const handleSignOut = async () => {
     closeMenu();
-    resetUser();
     await signOut();
   };
 
