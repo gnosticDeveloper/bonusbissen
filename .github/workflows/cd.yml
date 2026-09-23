@@ -32,12 +32,18 @@ jobs:
             echo "::error::.env is missing on this VPS. Copy .env.example to .env and fill in real values before deploying."
             exit 1
           fi
-          set -a
-          source .env
-          set +a
+
+          # .env is a Docker Compose env file, not a shell script -- values
+          # like a cron expression ("0 0 5 * * *") are valid there but break
+          # `source` (bash tries to run "0" as a command). Read each KEY=VALUE
+          # literally instead, matching Compose's own env-file semantics.
+          get_env_value() {
+            grep -E "^$1=" .env | tail -n1 | cut -d'=' -f2-
+          }
+
           missing=""
           for var in $(grep -oE '\$\{[A-Z_]+:\?' docker-compose.yml | sed -E 's/\$\{([A-Z_]+):\?/\1/' | sort -u); do
-            if [ -z "${!var}" ]; then
+            if [ -z "$(get_env_value "$var")" ]; then
               missing="${missing} ${var}"
             fi
           done
@@ -55,7 +61,7 @@ jobs:
           # doesn't go unnoticed either.
           mail_missing=""
           for var in MAIL_USERNAME MAIL_PASSWORD; do
-            if [ -z "${!var}" ]; then
+            if [ -z "$(get_env_value "$var")" ]; then
               mail_missing="${mail_missing} ${var}"
             fi
           done
@@ -65,7 +71,7 @@ jobs:
 
           backup_missing=""
           for var in DR_BACKUP_S3_ENDPOINT DR_BACKUP_S3_BUCKET DR_BACKUP_S3_ACCESS_KEY DR_BACKUP_S3_SECRET_KEY; do
-            if [ -z "${!var}" ]; then
+            if [ -z "$(get_env_value "$var")" ]; then
               backup_missing="${backup_missing} ${var}"
             fi
           done
