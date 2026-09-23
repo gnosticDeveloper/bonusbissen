@@ -100,8 +100,8 @@ export async function selectStorefront(storefrontId: string) {
     });
 
     if (!response.ok) {
-      if (response.status === 401) return { ok: false, error: "Error buscando una sucursal." };
-      return { ok: false, error: "No pudimos completar el inicio de sesión." };
+      if (response.status === 401) return { success: false, error: "Error buscando una sucursal." };
+      return { success: false, error: "No pudimos completar el inicio de sesión." };
     }
 
     const { token } = (await response.json()) as { token: string };
@@ -115,9 +115,9 @@ export async function selectStorefront(storefrontId: string) {
     });
 
     return {
-      ok: true,
+      success: true,
     };
   } catch {
-    return { ok: false, error: "El servicio no está disponible en este momento." };
+    return { success: false, error: "El servicio no está disponible en este momento." };
   }
 }

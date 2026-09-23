@@ -1,6 +1,5 @@
 "use client";
 
-// import { useUserStore } from "@/lib/user-store";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { getAllOrganizations, OrganizationOption, selectStorefront, signIn } from "@/app/d/sign-in/actions";
@@ -9,10 +8,12 @@ import Link from "next/link";
 import { BrandLockup } from "@/components/brand";
 import { Spinner } from "@/components/spinner";
 import { Autocomplete } from "@/components/autocomplete-input";
+import { useModal } from "@/components/modal";
+import { SelectStorefrontModal } from "@/components/modals/sign-in/select-storefront-modal";
 
 export default function DashboardSignInPage() {
   const router = useRouter();
-  // const setUser = useUserStore((state) => state.setUser);
+  const { open } = useModal();
   const [org, setOrg] = useState<OrganizationOption | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,13 +28,17 @@ export default function DashboardSignInPage() {
       setLoading(false);
       return;
     }
-
+    console.info("🐟 got signIn data:", result.data);
     if (result.data.storefronts.length === 1) {
       await selectStorefront(result.data.storefronts[0].id);
       router.push(`/d/${result.data.storefronts[0].id}/inicio`);
     }
 
-    // TODO: navigate to a selection page.
+    open(<SelectStorefrontModal storefronts={result.data.storefronts} />, {
+      title: "Selecciona un local donde entrar",
+      description: "Antes de entrar al panel, debes seleccionar un local para entrar.",
+    });
+
     setLoading(false);
   }
 
