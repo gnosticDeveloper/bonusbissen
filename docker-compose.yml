@@ -17,6 +17,12 @@ services:
 
   backend:
     build: .
+    container_name: backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-bonusbissen}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
@@ -48,14 +54,28 @@ services:
 
   frontend:
     build: ./client
+    container_name: frontend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     environment:
+      # Docker injects its own HOSTNAME (the container id) into every container;
+      # Next's standalone server.js reads that same var for its bind address, so
+      # without this override it silently binds to the container's own IP
+      # instead of 0.0.0.0 -- works by luck via Docker DNS, breaks loopback
+      # healthchecks and anything else hitting it directly.
+      HOSTNAME: "0.0.0.0"
       BACKEND_URL: http://backend:8080
       ASSETS_URL: ${ASSETS_URL:-https://localhost/}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
   nginx:
     image: nginx:alpine
+    container_name: nginx
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/certbot/conf:/etc/letsencrypt:ro
@@ -65,8 +85,10 @@ services:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"
     depends_on:
-      - frontend
-      - grafana
+      frontend:
+        condition: service_healthy
+      grafana:
+        condition: service_started
 
   # Not started by `docker compose up`; invoked directly via
   # nginx/certbot-init.sh (issuance) and cron (renewal). See that script.
