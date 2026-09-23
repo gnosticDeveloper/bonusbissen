@@ -8,13 +8,12 @@ import { signOut } from "@/app/b/actions";
 import { useUserStore } from "@/lib/user-store";
 import { useUIStore } from "@/lib/ui-store";
 import { BrandLockup } from "@/components/brand";
+import { ThemeToggle } from "./theme-toggle";
 
 export function SideMenu() {
   const pathname = usePathname();
   const menuOpen = useUIStore((state) => state.menuOpen);
   const closeMenu = useUIStore((state) => state.closeMenu);
-  const theme = useUIStore((state) => state.theme);
-  const toggleTheme = useUIStore((state) => state.toggleTheme);
 
   const user = useUserStore((state) => state.user);
   const resetUser = useUserStore((state) => state.reset);
@@ -75,27 +74,7 @@ export function SideMenu() {
           <ChevronRight size={16} className="shrink-0 text-muted" />
         </Link>
 
-        <div className="mx-4 mt-4 flex items-center justify-between rounded-2xl bg-background p-4">
-          <div className="flex items-center gap-3">
-            {theme === "dark" ? <Moon size={18} className="text-foreground" /> : <Sun size={18} className="text-foreground" />}
-            <span className="text-sm font-medium text-foreground">Modo oscuro</span>
-          </div>
-          <button
-            role="switch"
-            aria-checked={theme === "dark"}
-            aria-label="Cambiar tema"
-            onClick={toggleTheme}
-            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors motion-reduce:transition-none ${
-              theme === "dark" ? "bg-primary" : "bg-muted/40"
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform motion-reduce:transition-none ${
-                theme === "dark" ? "-translate-x-5" : "translate-x-0.5"
-              }`}
-            />
-          </button>
-        </div>
+        <ThemeToggle />
 
         <button
           onClick={handleSignOut}

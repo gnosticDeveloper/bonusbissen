@@ -26,14 +26,31 @@ export const viewport: Viewport = {
   ],
 };
 
+// Corre de forma síncrona durante el parseo del <head>, antes del primer paint.
+// No usa next/script porque queremos el control exacto de placement que describe
+// la doc (script plano en <head>), no la abstracción de Script.
 const THEME_INIT_SCRIPT = `
 (function () {
   try {
-    var stored = localStorage.getItem("bb-theme");
-    var theme = stored === "light" || stored === "dark"
-      ? stored
-      : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    if (theme === "dark") document.documentElement.classList.add("dark");
+    var m = document.cookie.match(/(?:^|; )theme=([^;]*)/);
+    var theme = m ? decodeURIComponent(m[1]) : null;
+
+    if (!theme) {
+      // migración one-time desde el localStorage viejo (bb-theme).
+      // Se puede borrar este bloque una vez que asumamos que ya no queda
+      // nadie con el localStorage viejo sin cookie todavía.
+      var legacy = localStorage.getItem("bb-theme");
+      if (legacy === "light" || legacy === "dark") {
+        theme = legacy;
+        document.cookie = "theme=" + theme + "; path=/; max-age=31536000; SameSite=Lax";
+      }
+    }
+
+    if (theme === "light" || theme === "dark") {
+      document.documentElement.setAttribute("data-theme", theme);
+    }
+    // si no hay cookie ni legacy: no seteamos nada, el CSS con
+    // prefers-color-scheme se encarga del default.
   } catch (e) {}
 })();
 `;
@@ -41,10 +58,10 @@ const THEME_INIT_SCRIPT = `
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={instrumentSans.variable} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="font-sans antialiased">
-        <Script id="theme-init" strategy="beforeInteractive">
-          {THEME_INIT_SCRIPT}
-        </Script>
         <ModalProvider>
           <ToastProvider>{children}</ToastProvider>
         </ModalProvider>

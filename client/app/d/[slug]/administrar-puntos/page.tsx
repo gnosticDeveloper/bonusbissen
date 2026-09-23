@@ -126,7 +126,7 @@ export default function PointsManagerPage() {
                 onClear={clearSelection}
                 fetchFn={getAllCustomers}
                 getId={(c) => c.id}
-                displayKeys={["username", "email"]}
+                displayKeys={["name", "email"]}
                 // Note: the backend threw me a null points here. I used the ?? operator to avoid null errors when calling formatPoints. I should check the workflow better.
                 badge={(c) => `${formatPoints(c.points ?? 0)} pts`}
                 placeholder="Buscar por nombre o email…"
