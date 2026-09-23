@@ -17,7 +17,6 @@ export const getStorefrontDiscoverInfo = cache(async (storefrontId: string): Pro
 export async function joinStorefront(storefrontId: string): Promise<ActionResult<void> | void> {
   const result = await request<void>(`/users/me/storefronts/${storefrontId}/point-programs`, { method: "POST" });
   if (!result.ok) return result;
-
   revalidatePath(`/s/${storefrontId}`);
   redirect(`/s/${storefrontId}/inicio`);
 }

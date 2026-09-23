@@ -32,7 +32,8 @@ export const request = async <T>(path: string, init?: RequestInit): Promise<Acti
       cache: "no-store",
     });
     if (!response.ok) return { ok: false, error: "No pudimos completar la solicitud." };
-    return { ok: true, data: (await response.json()) as T };
+    const text = await response.text();
+    return { ok: true, data: (text ? JSON.parse(text) : undefined) as T };
   } catch {
     return { ok: false, error: "El servicio no está disponible en este momento." };
   }
