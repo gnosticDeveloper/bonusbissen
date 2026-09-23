@@ -1,6 +1,6 @@
 "use client";
 
-import { annulateExchange, confirmRedemption, Redemption, validateCode } from "@/app/d/[slug]/verificacion-canjes/actions";
+import { annulateExchange, confirmRedemption, ExchangeResponse, validateCode } from "@/app/d/[slug]/verificacion-canjes/actions";
 import { useToast } from "@/components/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,7 @@ export default function RedemptionValidator() {
   const notify = useToast();
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [found, setFound] = useState<Redemption | null>(null);
+  const [found, setFound] = useState<ExchangeResponse | null>(null);
   const [showCancel, setShowCancel] = useState(false);
   const [refund, setRefund] = useState(true);
 
@@ -45,12 +45,12 @@ export default function RedemptionValidator() {
     setError(null);
     setFound(null);
     setShowCancel(false);
-    const normalized = code.trim().toUpperCase();
+    const normalized = code.trim().toLowerCase();
     if (!normalized) {
       setError("Ingresá un código de canje para validar.");
       return;
     }
-    const match = await validateCode(code);
+    const match = await validateCode(normalized);
     if (!match) {
       setError("No encontramos ningún canje con ese código. Revisá que esté bien escrito.");
       return;
@@ -175,7 +175,7 @@ export default function RedemptionValidator() {
                   <Button
                     className="h-11 rounded-xl bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
                     onClick={async () => {
-                      await annulateExchange(found.id);
+                      await annulateExchange(found.id, refund);
                       notify(refund ? "Canje anulado y puntos devueltos al cliente." : "Canje anulado sin devolver puntos.", "info");
                       reset();
                     }}

@@ -2,7 +2,7 @@
 
 import { dashboardRequest } from "@/lib/api";
 
-export interface Redemption {
+export interface ExchangeResponse {
   id: string;
   userId: string;
   userName: string;
@@ -20,7 +20,7 @@ export interface Redemption {
 }
 
 export async function getResolvedExchanges() {
-  const res = await dashboardRequest<Redemption[]>("/exchanges/resolved");
+  const res = await dashboardRequest<ExchangeResponse[]>("/exchanges/resolved");
 
   if (!res.ok) return [];
 
@@ -28,7 +28,8 @@ export async function getResolvedExchanges() {
 }
 
 export async function validateCode(code: string) {
-  const res = await dashboardRequest<Redemption>("/exchanges/verify", {
+  const res = await dashboardRequest<ExchangeResponse>("/exchanges/verify", {
+    method: "POST",
     body: JSON.stringify({ code }),
     headers: {
       "Content-Type": "application/json",
@@ -41,7 +42,7 @@ export async function validateCode(code: string) {
 }
 
 export async function confirmRedemption(id: string) {
-  const res = await dashboardRequest("/exchanges/approve", {
+  const res = await dashboardRequest<void>("/exchanges/approve", {
     method: "POST",
     body: JSON.stringify({ id }),
     headers: {

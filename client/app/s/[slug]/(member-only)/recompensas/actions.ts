@@ -33,7 +33,5 @@ export async function claimReward(rewardId: string) {
     body: JSON.stringify({ userId, rewardId }),
   });
 
-  console.info("🐟 result:", res.ok ? res.data : res.error);
-
   return res;
 }

@@ -388,6 +388,6 @@ public class UserService {
         // Sixth character: digit
         code.append(random.nextInt(10));
 
-        return code.toString();
+        return code.toString().toLowerCase();
     }
 }

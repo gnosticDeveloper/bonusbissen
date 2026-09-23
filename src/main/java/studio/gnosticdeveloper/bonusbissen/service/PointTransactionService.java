@@ -3,9 +3,9 @@ package studio.gnosticdeveloper.bonusbissen.service;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
@@ -13,19 +13,17 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeReviewResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointsSummaryResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
+import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
-import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
-
-import org.springframework.security.access.AccessDeniedException;
 
 @Service
 public class PointTransactionService {
@@ -110,13 +108,14 @@ public class PointTransactionService {
 
     @Transactional
     public ExchangeResponse verifyExchange(String code, UUID organizationId, UUID storefrontId) {
+        String normalized = code == null ? "" : code.trim().toLowerCase();
         ExchangeCode exchangeCode = exchangeCodeRepository
-            .findActiveByCodeAndOrganizationId(code, organizationId)
-            .orElseThrow(() -> new NotFoundException("No pudimos encontrar el código de intercambio: " + code));
+            .findActiveByCodeAndOrganizationId(normalized, organizationId)
+            .orElseThrow(() -> new NotFoundException("No pudimos encontrar el código de intercambio: " + normalized));
 
         PointTransaction pointTransaction = exchangeCode.getPointTransaction();
         if (pointTransaction == null) {
-            throw new NotFoundException("El código de intercambio no tiene una transacción de puntos hecha: " + code);
+            throw new NotFoundException("El código de intercambio no tiene una transacción de puntos hecha: " + normalized);
         }
 
         if (storefrontId == null) {
@@ -177,7 +176,6 @@ public class PointTransactionService {
             refundTransaction(pointTransaction);
         }
     }
-
 
     private void requireOwnership(PointTransaction pointTransaction, UUID organizationId) {
         if (!pointTransaction.getOrganization().getId().equals(organizationId)) {

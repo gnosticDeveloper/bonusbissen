@@ -28,8 +28,6 @@ export default function DashboardSignInPage() {
       return;
     }
 
-    console.info("🐟 got data:", result.data);
-
     if (result.data.storefronts.length === 1) {
       await selectStorefront(result.data.storefronts[0].id);
       router.push(`/d/${result.data.storefronts[0].id}/inicio`);
