@@ -37,6 +37,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
+import studio.gnosticdeveloper.bonusbissen.exception.IncorrectPasswordException;
 import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
@@ -82,11 +83,27 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    /** Resets the password of a currently-active staff account. */
+    /** Resets the password of a currently-active staff account -- scoped to the calling admin's own organization. */
     @Transactional
-    public void resetPassword(UUID userId, String newPassword) {
-        organizationStaffRepository.findByUserIdAndActiveTrue(userId).orElseThrow(() -> new NotFoundException("Employee not found: " + userId));
+    public void resetPassword(UUID userId, String newPassword, UUID callerOrganizationId) {
+        OrganizationStaff staff = organizationStaffRepository
+            .findByUserIdAndActiveTrue(userId)
+            .orElseThrow(() -> new NotFoundException("Employee not found: " + userId));
+        if (!staff.getOrganization().getId().equals(callerOrganizationId)) {
+            throw new NotFoundException("Employee not found: " + userId);
+        }
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("Employee not found: " + userId));
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    /** Self-service password change: any authenticated account, own password only, current password required. */
+    @Transactional
+    public void changeOwnPassword(UUID userId, String currentPassword, String newPassword) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("No se pudo encontrar un usuario con el ID " + userId + "."));
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new IncorrectPasswordException("La contraseña actual es incorrecta.");
+        }
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
     }

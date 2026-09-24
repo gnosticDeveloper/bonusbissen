@@ -3,7 +3,8 @@ package studio.gnosticdeveloper.bonusbissen.dto.request;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
-public record PasswordUpdateRequest(
+public record SelfPasswordUpdateRequest(
+    @NotBlank String currentPassword,
     @NotBlank
     @Pattern(
         regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,72}$",

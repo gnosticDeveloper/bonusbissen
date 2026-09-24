@@ -33,6 +33,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
+import studio.gnosticdeveloper.bonusbissen.exception.IncorrectPasswordException;
 import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
@@ -566,5 +567,81 @@ class UserServiceTest {
         userService.update(id, new UserUpdateRequest("Someone New", "same@example.com"));
 
         verify(userRepository, never()).findByEmail(any());
+    }
+
+    @Test
+    void resetPasswordUpdatesTheHashWhenTargetBelongsToCallersOrganization() {
+        UUID organizationId = UUID.randomUUID();
+        UUID targetUserId = UUID.randomUUID();
+
+        Organization organization = new Organization();
+        organization.setId(organizationId);
+        OrganizationStaff staff = new OrganizationStaff();
+        staff.setOrganization(organization);
+
+        User user = new User();
+        user.setId(targetUserId);
+        user.setPasswordHash("old-hash");
+
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(targetUserId)).thenReturn(Optional.of(staff));
+        when(userRepository.findById(targetUserId)).thenReturn(Optional.of(user));
+        when(passwordEncoder.encode("newpassword123")).thenReturn("new-hash");
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.resetPassword(targetUserId, "newpassword123", organizationId);
+
+        assertThat(user.getPasswordHash()).isEqualTo("new-hash");
+    }
+
+    @Test
+    void resetPasswordRejectsATargetInADifferentOrganization() {
+        UUID callerOrganizationId = UUID.randomUUID();
+        UUID targetUserId = UUID.randomUUID();
+
+        Organization otherOrganization = new Organization();
+        otherOrganization.setId(UUID.randomUUID());
+        OrganizationStaff staff = new OrganizationStaff();
+        staff.setOrganization(otherOrganization);
+
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(targetUserId)).thenReturn(Optional.of(staff));
+
+        assertThatThrownBy(() -> userService.resetPassword(targetUserId, "newpassword123", callerOrganizationId))
+            .isInstanceOf(NotFoundException.class);
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void changeOwnPasswordUpdatesTheHashWhenCurrentPasswordMatches() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        user.setPasswordHash("old-hash");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("current-password", "old-hash")).thenReturn(true);
+        when(passwordEncoder.encode("newpassword123")).thenReturn("new-hash");
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.changeOwnPassword(userId, "current-password", "newpassword123");
+
+        assertThat(user.getPasswordHash()).isEqualTo("new-hash");
+    }
+
+    @Test
+    void changeOwnPasswordRejectsAnIncorrectCurrentPassword() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        user.setPasswordHash("old-hash");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong-password", "old-hash")).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.changeOwnPassword(userId, "wrong-password", "newpassword123"))
+            .isInstanceOf(IncorrectPasswordException.class);
+
+        verify(userRepository, never()).save(any());
+        assertThat(user.getPasswordHash()).isEqualTo("old-hash");
     }
 }

@@ -13,6 +13,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.PasswordUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.SelfPasswordUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.AdminUserInfoResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.ClaimRewardResponse;
@@ -62,8 +63,8 @@ public class UserController {
     @PatchMapping("/{id}/password")
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void resetPassword(@PathVariable UUID id, @Valid @RequestBody PasswordUpdateRequest request) {
-        userService.resetPassword(id, request.newPassword());
+    public void resetPassword(@PathVariable UUID id, @Valid @RequestBody PasswordUpdateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        userService.resetPassword(id, request.newPassword(), principal.organizationId());
     }
 
     @GetMapping("/home-stats")
@@ -88,6 +89,13 @@ public class UserController {
     @PreAuthorize("hasRole('USER')")
     public UserResponse updateSelf(@Valid @RequestBody UserUpdateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return UserResponse.from(userService.update(principal.id(), request));
+    }
+
+    @PatchMapping("/me/password")
+    @PreAuthorize("hasRole('USER')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changeOwnPassword(@Valid @RequestBody SelfPasswordUpdateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        userService.changeOwnPassword(principal.id(), request.currentPassword(), request.newPassword());
     }
 
     /** Self-service join: the logged-in user opts in to a point program (issue #20). */
