@@ -51,6 +51,13 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
     )
     List<String> findDistinctActiveCities();
 
+    /** Storefronts whose point program the user has joined -- for the "/me" self profile. */
+    @Query(
+        "select s.id from Storefront s where s.pointProgram.id in "
+            + "(select upp.pointProgram.id from UserPointProgram upp where upp.user.id = :userId)"
+    )
+    List<UUID> findIdsByMemberUserId(@Param("userId") UUID userId);
+
     @Query(
         value = """
             SELECT

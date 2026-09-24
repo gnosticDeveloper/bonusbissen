@@ -28,6 +28,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsBalanceResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UserSelfResponse;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
 import studio.gnosticdeveloper.bonusbissen.service.PointProgramService;
 import studio.gnosticdeveloper.bonusbissen.service.UserService;
@@ -81,8 +82,8 @@ public class UserController {
 
     @GetMapping("/me")
     @PreAuthorize("hasRole('USER')")
-    public UserResponse getSelf(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return UserResponse.from(userService.getById(principal.id()));
+    public UserSelfResponse getSelf(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return UserSelfResponse.from(userService.getById(principal.id()), userService.getJoinedStorefrontIds(principal.id()));
     }
 
     @PatchMapping("/me")

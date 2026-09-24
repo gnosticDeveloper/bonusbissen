@@ -130,6 +130,11 @@ public class UserService {
         return userRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
     }
 
+    @Transactional(readOnly = true)
+    public List<UUID> getJoinedStorefrontIds(UUID userId) {
+        return storefrontRepository.findIdsByMemberUserId(userId);
+    }
+
     /**
      * A user edits their own profile: display name plus an optional email.
      * Changing the email (or clearing it) drops the verified flag; when a new
