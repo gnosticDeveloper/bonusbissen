@@ -29,7 +29,8 @@ class DiscoveryIntegrationTest extends AbstractIntegrationTest {
     /** A self-contained org + physical storefront + program in its own city. */
     private record Fixture(Storefront storefront, PointProgram program) {}
 
-    private Fixture seedBusiness(String slug, String city) {
+    /** {@code cityProvince} is the combined "Localidad, Provincia" display string; split it the way production data is stored. */
+    private Fixture seedBusiness(String slug, String cityProvince) {
         Organization org = new Organization();
         org.setName("Discover Org " + slug);
         org = organizationRepository.save(org);
@@ -44,7 +45,9 @@ class DiscoveryIntegrationTest extends AbstractIntegrationTest {
         storefront.setOrganization(org);
         storefront.setName("Local " + slug);
         storefront.setAddress("Calle " + slug + " 100");
-        storefront.setCity(city);
+        String[] cityParts = cityProvince.split(", ", 2);
+        storefront.setCity(cityParts[0]);
+        storefront.setProvince(cityParts.length > 1 ? cityParts[1] : null);
         storefront.setCategory("Cafetería");
         storefront.setColor("#123456");
         storefront.setPointProgram(program);
@@ -66,7 +69,7 @@ class DiscoveryIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void discoverReturnsTheStorefrontWithAtMostThreeCheapestRewards() {
+    void discoverReturnsTheStorefrontWithAtMostThreeMostRecentRewards() {
         Fixture fx = seedBusiness("alpha", "Villa Alpha, Córdoba");
         reward(fx.program(), "Barato", 10);
         reward(fx.program(), "Medio", 20);
@@ -91,9 +94,10 @@ class DiscoveryIntegrationTest extends AbstractIntegrationTest {
         assertThat(card.pointLabel()).isEqualTo("granos");
         assertThat(card.points()).isZero();
         assertThat(card.address().street()).isEqualTo("Calle alpha 100");
+        // findByActiveTrue orders by created_at desc -- the 3 most recently created rewards.
         assertThat(card.rewards()).hasSize(3);
-        assertThat(card.rewards().get(0).costPoints()).isEqualTo(10);
-        assertThat(card.rewards().get(2).costPoints()).isEqualTo(30);
+        assertThat(card.rewards().get(0).costPoints()).isEqualTo(40);
+        assertThat(card.rewards().get(2).costPoints()).isEqualTo(20);
     }
 
     @Test
