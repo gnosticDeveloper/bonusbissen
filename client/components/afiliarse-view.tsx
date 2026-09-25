@@ -2,12 +2,15 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StorefrontDiscoverInfo } from "@/lib/types/storefront";
 import { joinStorefront } from "@/app/s/[slug]/afiliarse/actions";
 import { resolveAssetUrl } from "@/lib/helpers/assets";
 import { CARD_PALETTES, pickCardVariant } from "@/lib/helpers/color";
+import { useRouter } from "next/navigation";
+import { Spinner } from "./spinner";
+import { useToast } from "./toast";
 
 const particleSeeds = Array.from({ length: 18 }, (_, index) => index);
 
@@ -39,11 +42,17 @@ function formatCssNumber(value: number, unit: string, decimals = 3) {
   return `${formatNumber(value, decimals)}${unit}`;
 }
 
-export function AfiliarseView({ storefront }: { storefront: StorefrontDiscoverInfo }) {
+export function AfiliarseView({ storefront, isLoggedIn }: { storefront: StorefrontDiscoverInfo; isLoggedIn: boolean; joinError?: string }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   function handleJoin() {
+    if (!isLoggedIn) {
+      router.push(`/sign-in?joinTo=${storefront.id}`);
+      return;
+    }
+
     setError(null);
     startTransition(async () => {
       const result = await joinStorefront(storefront.id);
@@ -170,8 +179,8 @@ export function AfiliarseView({ storefront }: { storefront: StorefrontDiscoverIn
           >
             {pending ? (
               <>
-                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                Uniéndote...
+                <Spinner />
+                {" Uniéndote..."}
               </>
             ) : (
               "Quiero sumarme"

@@ -1,38 +1,60 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { SubmitEvent, useState } from "react";
+import { SubmitEvent, Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "@/app/(auth)/sign-in/actions";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
 import Link from "next/link";
 import { BrandLockup } from "@/components/brand";
 import { Spinner } from "@/components/spinner";
+import { buildAuthQueryString, completeAuthRedirect } from "@/lib/helpers/auth-redirect";
 
 export default function SignInPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignInForm />
+    </Suspense>
+  );
+}
+
+function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
-    const formData = new FormData(e.target);
+    const formData = new FormData();
+    formData.set("identifier", identifier);
+    formData.set("password", password);
+
     setLoading(true);
     setError("");
+
+    let result;
     try {
-      const result = await signIn(formData);
-      if (!result.ok) {
-        setError(result.error);
-        setLoading(false);
-        return;
-      }
-      router.push("/b");
+      result = await signIn(formData);
     } catch {
       setError("Hubo un problema al iniciar sesión");
-    } finally {
       setLoading(false);
+      return;
     }
+
+    if (!result.ok) {
+      setError(result.error);
+      setLoading(false);
+      return;
+    }
+
+    // Fuera del try/catch: puede lanzar un redirect interno.
+    await completeAuthRedirect(router, searchParams);
   }
+
+  const authQuery = buildAuthQueryString(searchParams);
 
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-107.5 flex-col bg-background px-6.5 pt-13.5 pb-8 text-foreground">
@@ -51,6 +73,8 @@ export default function SignInPage() {
           <UserRound size={17} />
           <input
             name="identifier"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             placeholder="Usuario o email"
             autoComplete="username"
             required
@@ -63,6 +87,8 @@ export default function SignInPage() {
           <input
             name="password"
             type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             placeholder="Contraseña"
             autoComplete="current-password"
             required
@@ -101,7 +127,7 @@ export default function SignInPage() {
 
       <p className="mt-6.25 mb-2 text-center text-sm leading-normal text-muted">
         ¿Aún no eres parte de BonusBissen?{" "}
-        <Link href="/sign-up" className="font-bold text-primary no-underline">
+        <Link href={`/sign-up${authQuery}`} className="font-bold text-primary no-underline">
           Registrate
         </Link>
       </p>

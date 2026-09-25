@@ -18,15 +18,12 @@ export async function signIn(formData: FormData): Promise<ActionResult<SignInUse
   }
 
   const { identifier, password } = parsed.data;
-
   const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
 
   try {
     const response = await fetch(`${backendUrl}/auth/user-login`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ identifier, password }),
     });
 
@@ -40,13 +37,7 @@ export async function signIn(formData: FormData): Promise<ActionResult<SignInUse
       path: "/",
       maxAge: 60 * 60 * 24 * 30,
     });
-    return {
-      ok: true,
-      data: {
-        name: identifier,
-        avatarUrl: null,
-      },
-    };
+    return { ok: true, data: { name: identifier, avatarUrl: null } };
   } catch {
     return { ok: false, error: "El servicio no está disponible en este momento." };
   }

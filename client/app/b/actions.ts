@@ -1,7 +1,7 @@
 "use server";
 
 import { ActionResult } from "@/lib/action-result";
-import { request } from "@/lib/api";
+import { publicRequest, request } from "@/lib/api";
 import { Location, Business, PagedResponse, PointsResponse } from "@/lib/definitions";
 import { UserInfo } from "@/lib/types/customer";
 import { cookies } from "next/headers";
@@ -32,7 +32,7 @@ export async function getBusinesses({ page = 0, size = 10, city }: GetBusinesses
   params.append("size", size.toString());
   if (city) params.append("city", city);
 
-  return request<PagedResponse<Business>>(`/discover/storefronts?${params.toString()}`);
+  return publicRequest<PagedResponse<Business>>(`/discover/storefronts?${params.toString()}`);
 }
 
 export async function getLocations(): Promise<ActionResult<Location[]>> {

@@ -1,30 +1,66 @@
+// app/(auth)/sign-up/page.tsx
 "use client";
 
+import { SubmitEvent, Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signUp } from "@/app/(auth)/sign-up/actions";
 import { BrandLockup } from "@/components/brand";
 import { ArrowRight, CircleUserRound, Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
 import { Spinner } from "@/components/spinner";
+import { buildAuthQueryString, completeAuthRedirect } from "@/lib/helpers/auth-redirect";
 
 export default function SignUpPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignUpForm />
+    </Suspense>
+  );
+}
+
+function SignUpForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  async function handleSubmit(formData: FormData) {
+  // onSubmit + preventDefault en vez de action={fn}: así no depende del
+  // reset automático de forms de React 19 para los campos controlados.
+  async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.set("name", name);
+    formData.set("username", username);
+    formData.set("email", email);
+    formData.set("password", password);
+
     setLoading(true);
     setError("");
-    const result = await signUp(formData);
+
+    let result;
+    try {
+      result = await signUp(formData);
+    } catch {
+      setError("Hubo un problema al crear la cuenta");
+      setLoading(false);
+      return;
+    }
+
     if (!result.ok) {
       setError(result.error);
       setLoading(false);
       return;
     }
-    router.push("/b");
+
+    await completeAuthRedirect(router, searchParams);
   }
+
+  const authQuery = buildAuthQueryString(searchParams);
 
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-107.5 flex-col bg-background px-6.5 pt-13.5 pb-8 text-foreground">
@@ -38,11 +74,13 @@ export default function SignUpPage() {
 
       <p className="mb-8.5 max-w-72.5 text-[13px] leading-[1.55] text-muted">Sumá puntos, descubrí recompensas y disfrutá más cada visita.</p>
 
-      <form action={handleSubmit} className="grid gap-3">
+      <form onSubmit={handleSubmit} className="grid gap-3">
         <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-muted">
           <CircleUserRound size={17} />
           <input
             name="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             placeholder="Nombre público: Juan Perez"
             autoComplete="off"
             required
@@ -53,6 +91,8 @@ export default function SignUpPage() {
           <UserRound size={17} />
           <input
             name="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             placeholder="Nombre de usuario: juanperez123"
             autoComplete="off"
             required
@@ -63,6 +103,8 @@ export default function SignUpPage() {
           <UserRound size={17} />
           <input
             name="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             placeholder="Correo electrónico"
             autoComplete="email"
             required
@@ -74,8 +116,10 @@ export default function SignUpPage() {
           <input
             name="password"
             type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             placeholder="Contraseña"
-            autoComplete="current-password"
+            autoComplete="new-password"
             required
             className="h-13 w-full border-0 bg-transparent text-[13px] text-foreground outline-none"
           />
@@ -112,7 +156,7 @@ export default function SignUpPage() {
 
       <p className="mt-6.25 mb-2 text-center text-sm leading-normal text-muted">
         ¿Ya tenés una cuenta?{" "}
-        <Link href="/sign-in" className="font-bold text-primary no-underline">
+        <Link href={`/sign-in${authQuery}`} className="font-bold text-primary no-underline">
           Inicia sesión
         </Link>
       </p>

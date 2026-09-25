@@ -94,7 +94,7 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
             llegaste al final de la lista (￣o￣) . z Z
           </span>
           <div className="absolute -top-1.75 h-25 overflow-hidden">
-            <img src="/final.png" alt="little sleepy cat" className="h-50 w-auto grayscale" />
+            <img src="/final.webp" alt="little sleepy cat" className="h-50 w-auto grayscale select-none pointer-events-none" />
           </div>
         </footer>
       ) : null}
