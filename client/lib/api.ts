@@ -62,3 +62,24 @@ export const dashboardRequest = async <T>(path: string, init?: RequestInit): Pro
     return { ok: false, error: "El servicio no está disponible en este momento." };
   }
 };
+
+export const publicRequest = async <T>(path: string, init?: RequestInit): Promise<ActionResult<T>> => {
+  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
+
+  try {
+    const response = await fetch(`${backendUrl}${path}`, {
+      ...init,
+      headers: {
+        ...init?.headers,
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) return { ok: false, error: "No pudimos completar la solicitud." };
+
+    const text = await response.text();
+    return { ok: true, data: (text ? JSON.parse(text) : undefined) as T };
+  } catch {
+    return { ok: false, error: "El servicio no está disponible en este momento." };
+  }
+};

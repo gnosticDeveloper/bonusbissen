@@ -1,30 +1,9 @@
 "use server";
 
 import { ActionResult } from "@/lib/action-result";
-import { dashboardRequest } from "@/lib/api";
+import { dashboardRequest, publicRequest } from "@/lib/api";
 import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
 import { cookies } from "next/headers";
-
-export const publicRequest = async <T>(path: string, init?: RequestInit): Promise<ActionResult<T>> => {
-  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
-
-  try {
-    const response = await fetch(`${backendUrl}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...init?.headers,
-      },
-      cache: "no-store",
-    });
-
-    if (!response.ok) return { ok: false, error: "No pudimos completar la solicitud." };
-
-    return { ok: true, data: (await response.json()) as T };
-  } catch {
-    return { ok: false, error: "El servicio no está disponible en este momento." };
-  }
-};
 
 export type OrganizationOption = { id: string; name: string };
 
