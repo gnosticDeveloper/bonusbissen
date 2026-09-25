@@ -41,7 +41,13 @@ management:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:dev-only-secret-change-me-please-01234567890123456789xdxdxdxdxdddxd123dx213dx123xd123xd12x3d1x23dx1d23x1d23x1d23x}
+    # ECDSA (ES256, P-256) keypair, required — no default. Values are base64-encoded
+    # DER: private-key is PKCS8, public-key is X.509/SPKI. Generate with:
+    #   openssl ecparam -genkey -name prime256v1 -noout -out ec-private.pem
+    #   openssl pkcs8 -topk8 -nocrypt -in ec-private.pem -outform DER | base64 -w0
+    #   openssl ec -in ec-private.pem -pubout -outform DER | base64 -w0
+    private-key: ${JWT_PRIVATE_KEY}
+    public-key: ${JWT_PUBLIC_KEY}
     expiration-minutes: 480
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}

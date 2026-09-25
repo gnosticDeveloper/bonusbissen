@@ -3,6 +3,7 @@ package studio.gnosticdeveloper.bonusbissen.controller;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,7 +17,9 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.UserLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserRegisterRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.VerifyEmailRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.LoginResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.PublicKeyResponse;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
+import studio.gnosticdeveloper.bonusbissen.security.JwtService;
 import studio.gnosticdeveloper.bonusbissen.service.AuthService;
 import studio.gnosticdeveloper.bonusbissen.service.EmailVerificationService;
 
@@ -28,10 +31,21 @@ public class AuthController {
 
     private final AuthService authService;
     private final EmailVerificationService emailVerificationService;
+    private final JwtService jwtService;
 
-    public AuthController(AuthService authService, EmailVerificationService emailVerificationService) {
+    public AuthController(AuthService authService, EmailVerificationService emailVerificationService, JwtService jwtService) {
         this.authService = authService;
         this.emailVerificationService = emailVerificationService;
+        this.jwtService = jwtService;
+    }
+
+    /**
+     * Public verification key for the JWTs this service issues, so other
+     * services/consumers can validate a bearer token without sharing a secret.
+     */
+    @GetMapping("/public-key")
+    public PublicKeyResponse publicKey() {
+        return PublicKeyResponse.of(jwtService.publicKeyBase64());
     }
 
     @PostMapping("/dashboard/sign-in")
