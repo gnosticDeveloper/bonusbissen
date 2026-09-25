@@ -20,8 +20,8 @@ export function PointProgramCard({ pointProgram, onEdit }: { pointProgram: Point
             </p>
           </div>
         </div>
-        <Button type="button" variant="ghost" size="icon" onClick={onEdit} aria-label={`Editar ${pointProgram.name}`}>
-          <Pencil className="size-4" />
+        <Button type="button" variant="ghost" onClick={onEdit} aria-label={`Editar ${pointProgram.name}`}>
+          <Pencil className="size-4" /> Editar
         </Button>
       </div>
 

@@ -33,7 +33,7 @@ export default async function ResolvedRedemptionsList() {
   if (!resolved) return null;
 
   return (
-    <Card className="overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]">
+    <Card className="flex min-h-0 max-h-[calc(100dvh-13rem)] flex-col overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)] sm:max-h-[calc(100dvh-11rem)]">
       <CardHeader className="flex-row items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-6">
         <div>
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary"> Historial </p>
@@ -44,13 +44,13 @@ export default async function ResolvedRedemptionsList() {
           {resolved.length}
         </Badge>
       </CardHeader>
-      <CardContent className="px-4 py-4 sm:px-6">
+      <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-4 sm:px-6">
         {resolved.length === 0 ? (
           <div className="flex min-h-48 items-center justify-center rounded-2xl border border-dashed border-border bg-background/50 px-5 text-center">
             <p className="max-w-xs text-sm leading-5 text-muted">Todavía no hay canjes resueltos.</p>
           </div>
         ) : (
-          <ul className="flex flex-col gap-2.5">
+          <ul className="mt-4 min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain pr-1 scrollbar-gutter-stable">
             {resolved.map((r) => {
               return (
                 <li key={r.id} className="grid gap-2 rounded-2xl border border-border bg-background/60 p-3.5 transition-colors hover:bg-background">

@@ -21,14 +21,14 @@ export function PointsCard({ points }: { points: PointsResponse | null }) {
       <div className="min-w-0">
         <span className="block text-[10px] font-bold tracking-[0.08em] text-white/70 uppercase">Tu mundo BonusBissen</span>
         <h1 className="mt-1 text-xl font-semibold tracking-[-0.5px]">
-          Sumá puntos, <em className="text-[#ffb0d1] not-italic">disfrutá más</em>
+          Sumá puntos, <em className="text-[#ef5d5d] not-italic">disfrutá más</em>
         </h1>
         <p className="mt-1 line-clamp-2 max-w-42.5 text-[11px] leading-snug text-white/75">Tenés recompensas esperándote en tus lugares favoritos.</p>
       </div>
       <div className="shrink-0 text-right">
         <span className="block text-[9px] text-white/65">puntos totales</span>
         <strong className="mt-0.5 block text-2xl font-bold tracking-[-1px]">{formatPoints(points.summary.totalPoints)}</strong>
-        <div className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2 py-1 text-[8px] text-[#ffafd0]">
+        <div className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2 py-1 text-[8px] text-[#ef5d5d]">
           <Sparkles size={11} /> Acumulados
         </div>
       </div>

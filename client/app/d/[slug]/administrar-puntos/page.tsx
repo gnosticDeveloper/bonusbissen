@@ -24,7 +24,6 @@ export default function PointsManagerPage() {
 
   const [selected, setSelected] = useState<Customer | null>(null);
   const [granting, setGranting] = useState(false);
-  // TODO: Notes are not implemented yet in the backend database.
   const [note, setNote] = useState("");
   const [spend, setSpend] = useState("");
   const [manual, setManual] = useState("");
@@ -49,46 +48,61 @@ export default function PointsManagerPage() {
     setGranting(true);
     setError(null);
 
-    if (mode === "spend") {
-      const amount = parsePositiveInt(spend, { max: MAX_SPEND });
-      if (amount == null) {
-        setError("Ingresá un monto gastado válido (número mayor a 0, sin decimales).");
-        return;
-      }
-      const points = Math.floor(amount / POINTS_PER_CURRENCY);
-      if (points <= 0) {
-        setError(`El monto es muy bajo para sumar puntos (mínimo $${POINTS_PER_CURRENCY}).`);
-        return;
-      }
+    try {
+      if (mode === "spend") {
+        const amount = parsePositiveInt(spend, { max: MAX_SPEND });
 
-      // TODO: get the programPointId here.
-      const result = await grantPointsTo(selected.id, points, note);
-      if (result.ok) {
-        const { pointsGranted, userName } = result.data;
-        notify(`Se sumaron ${formatPoints(pointsGranted)} puntos a ${userName}.`, "success");
-        setRefreshKey((k) => k + 1);
-        setSpend("");
+        if (amount == null) {
+          setError("Ingresá un monto gastado válido (número mayor a 0, sin decimales).");
+          return;
+        }
+
+        const points = Math.floor(amount / POINTS_PER_CURRENCY);
+
+        if (points <= 0) {
+          setError(`El monto es muy bajo para sumar puntos (mínimo $${POINTS_PER_CURRENCY}).`);
+          return;
+        }
+
+        const result = await grantPointsTo(selected.id, points, note);
+
+        if (result.ok) {
+          const { pointsGranted, userName } = result.data;
+
+          notify(`Se sumaron ${formatPoints(pointsGranted)} puntos a ${userName}.`, "success");
+
+          setRefreshKey((k) => k + 1);
+          setSpend("");
+        } else {
+          setError(result.error);
+        }
       } else {
-        setError(result.error);
+        const points = parsePositiveInt(manual, { max: MAX_POINTS });
+
+        if (points == null) {
+          setError("Sumar puntos manualmente solo admite de cantidades de 1 a 1000.");
+          return;
+        }
+
+        const result = await grantPointsTo(selected.id, points, note);
+
+        if (result.ok) {
+          const { pointsGranted, userName } = result.data;
+
+          notify(`Se sumaron ${formatPoints(pointsGranted)} puntos a ${userName}.`, "success");
+
+          setRefreshKey((k) => k + 1);
+          setManual("");
+        } else {
+          setError(result.error);
+          notify("Ocurrió un error inesperado al intentar sumar los puntos", "error");
+        }
       }
-    } else {
-      const points = parsePositiveInt(manual, { max: MAX_POINTS });
-      if (points == null) {
-        setError("Ingresá una cantidad de puntos válida (número entero mayor a 0).");
-        return;
-      }
-      const result = await grantPointsTo(selected.id, points, note);
-      if (result.ok) {
-        const { pointsGranted, userName } = result.data;
-        notify(`Se sumaron ${formatPoints(pointsGranted)} puntos a ${userName}.`, "success");
-        setRefreshKey((k) => k + 1);
-        setManual("");
-      } else {
-        setError(result.error);
-        notify("Ocurrió un error inesperado al intentar sumar los puntos", "error");
-      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Ocurrió un error inesperado al intentar sumar los puntos.");
+    } finally {
+      setGranting(false);
     }
-    setGranting(false);
   }
 
   const isNotValidAmount =
@@ -96,14 +110,14 @@ export default function PointsManagerPage() {
     ((Number(manual) <= 0 || Number(manual) > MAX_SPEND) && mode === "manual");
 
   return (
-    <main className="mx-auto w-full text-foreground min-h-full">
-      <header className="mb-7">
+    <main className="mx-auto min-h-0 w-full text-foreground">
+      <header className="mb-7 lg:mb-3">
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Programa de fidelización</p>
         <h1 className="text-3xl font-semibold tracking-tighter sm:text-4xl">Otorgar puntos</h1>
         <p className="mt-2 text-sm leading-6 text-muted">Sumá puntos a la cuenta de un cliente según su compra o ingresá una cantidad manualmente.</p>
       </header>
 
-      <div className="grid gap-5 lg:grid-cols-5">
+      <div className="grid min-h-0 gap-5 lg:grid-cols-5">
         <Card className="overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)] lg:col-span-2">
           <CardHeader className="border-b border-border px-5 py-5 sm:px-6">
             <CardTitle className="flex items-center gap-3 text-base tracking-[-0.02em]">
@@ -126,7 +140,7 @@ export default function PointsManagerPage() {
                 onClear={clearSelection}
                 fetchFn={getAllCustomers}
                 getId={(c) => c.id}
-                displayKeys={["name", "email"]}
+                displayKeys={["name", "username"]}
                 // Note: the backend threw me a null points here. I used the ?? operator to avoid null errors when calling formatPoints. I should check the workflow better.
                 badge={(c) => `${formatPoints(c.points ?? 0)} pts`}
                 placeholder="Buscar por nombre o email…"

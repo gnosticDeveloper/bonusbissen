@@ -65,8 +65,8 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
   }
 
   return (
-    <div className="lg:col-span-3">
-      <Card className="flex h-full flex-col overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]">
+    <div className="min-h-0 lg:col-span-3">
+      <Card className="flex max-h-[calc(100dvh-12rem)] min-h-0 flex-col overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)] sm:max-h-[calc(100dvh-10rem)]">
         <CardHeader className="border-b border-border px-5 py-5 sm:px-6">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -87,7 +87,7 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
           </div>
         </CardHeader>
 
-        <CardContent className="flex-1 px-4 py-4 sm:px-6">
+        <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-4 sm:px-6">
           {isPending && visibleActions.length === 0 ? (
             <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-center">
               <span className="size-5 animate-spin rounded-full border-2 border-primary/25 border-t-primary" />
@@ -100,7 +100,7 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
               </p>
             </div>
           ) : (
-            <ul className="flex flex-col gap-2.5 mt-4">
+            <ul className="mt-4 min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain pr-1 scrollbar-gutter-stable">
               {visibleActions.map((a) => {
                 const isPositive = a.amount >= 0;
 
