@@ -13,6 +13,8 @@ export type AdminUserInfo = {
   username: string;
   name: string;
   role: UserRole;
+  email: string;
+  emailVerified: string;
 };
 
 export interface NavItem {

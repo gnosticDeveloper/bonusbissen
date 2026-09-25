@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { LogOut } from "lucide-react";
 import { AdminUserInfo, UserRole } from "@/lib/definitions";
 import { signOut } from "@/app/d/[slug]/actions";
+import Link from "next/link";
 
 const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.ADMIN]: "Administrador",
@@ -13,13 +14,14 @@ const ROLE_LABELS: Record<UserRole, string> = {
 
 type UserMenuProps = {
   user: AdminUserInfo | null;
+  slug: string;
 };
 
-export function UserMenu({ user }: UserMenuProps) {
+export function UserMenu({ user, slug }: UserMenuProps) {
   const [isPending, startTransition] = useTransition();
   const displayName = user?.name ?? user?.username ?? "Usuario";
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
+    <Link href={`/d/${slug}/perfil`} className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
       <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
         {displayName.charAt(0).toUpperCase()}
       </div>
@@ -40,6 +42,6 @@ export function UserMenu({ user }: UserMenuProps) {
           <LogOut className="size-4" />
         )}
       </button>
-    </div>
+    </Link>
   );
 }
