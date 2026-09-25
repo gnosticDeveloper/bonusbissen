@@ -56,10 +56,13 @@ public class Storefront {
     @Column(length = 9)
     private String color;
 
-    @Column(length = 255)
+    @Column()
     private String hours;
 
-    @Column(name = "icon_path", length = 255)
+    @Column(length = 30)
+    private String phone;
+
+    @Column(name = "icon_path")
     private String iconPath;
 
     @Column(columnDefinition = "text")

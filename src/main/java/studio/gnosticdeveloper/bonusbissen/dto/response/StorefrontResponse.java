@@ -13,6 +13,7 @@ public record StorefrontResponse(
     String category,
     String color,
     String hours,
+    String phone,
     String iconUrl,
     String description,
     boolean active
@@ -28,6 +29,7 @@ public record StorefrontResponse(
             s.getCategory(),
             s.getColor(),
             s.getHours(),
+            s.getPhone(),
             s.getIconPath(),
             s.getDescription(),
             s.isActive()

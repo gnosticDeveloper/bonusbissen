@@ -11,6 +11,7 @@ public record StorefrontCreateRequest(
     String category,
     String color,
     String hours,
+    String phone,
     String icon,
     String description
 ) {}
