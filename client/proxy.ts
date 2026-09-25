@@ -1,68 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isSessionValid } from "@/lib/auth/session";
 
-const EMPLOYEE_ROUTES = ["/", "/canjes", "/recompensas", "/administrar-puntos"];
-const CUSTOMER_PUBLIC_ROUTES = ["/mis-puntos/login"];
-
-enum UserRole {
-  ADMIN = "ADMIN",
-  CASHIER = "CASHIER",
-  CUSTOMER = "CUSTOMER",
-}
-
-type Payload = {
-  sub: string;
-  username: string;
-  role: UserRole;
-  iat: number;
-  exp: number;
-}
-
-function decodePayload(token: string): Payload | null {
-  try {
-    const payloadB64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    return JSON.parse(atob(payloadB64));
-  } catch {
-    return null;
-  }
-}
-
-function isExpired(payload: Payload | null) {
-  return !payload?.exp || payload.exp * 1000 < Date.now();
-}
+// Rutas públicas que se dejan pasar siempre, tenga o no sesión válida
+const PUBLIC_PATHS = ["/d/sign-in", "/verify-email"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const isEmployeeRoute = EMPLOYEE_ROUTES.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`)
-  );
-
-  if (isEmployeeRoute) {
-    const token = request.cookies.get("employee_token")?.value;
-    const payload = token ? decodePayload(token) : null;
-    const hasExpired = isExpired(payload);
-    const validRole = payload?.role === UserRole.ADMIN || payload?.role === UserRole.CASHIER;
-    console.log({ token, payload, hasExpired, validRole, role: payload?.role })
-
-    if (!token || isExpired(payload) || !validRole) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
-
+  // El sign-in del dashboard siempre se deja pasar, tenga o no sesión válida
+  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     return NextResponse.next();
   }
 
-  const isCustomerRoute =
-    pathname.startsWith("/mis-puntos") &&
-    !CUSTOMER_PUBLIC_ROUTES.includes(pathname);
+  // El dashboard (/d/*) usa su propia cookie; la app de clientes usa access_token.
+  const isDashboard = pathname.startsWith("/d");
+  const signInUrl = isDashboard ? "/d/sign-in" : "/sign-in";
+  const token = request.cookies.get(isDashboard ? "d_token" : "access_token")?.value;
+  const hasValidSession = isSessionValid(token);
 
-  if (isCustomerRoute) {
-    const token = request.cookies.get("customer_token")?.value;
-    const payload = token ? decodePayload(token) : null;
-
-    if (!token || isExpired(payload)) {
-      return NextResponse.redirect(new URL("/mis-puntos/login", request.url));
-    }
+  // Rutas de auth (sign-in, sign-up): si ya hay sesión válida, no tiene sentido mostrarlas
+  if (pathname.startsWith("/sign-")) {
+    if (hasValidSession) return NextResponse.redirect(new URL("/", request.url));
     return NextResponse.next();
+  }
+
+  // Cualquier otra ruta: requiere sesión válida
+  if (!hasValidSession) {
+    return NextResponse.redirect(new URL(signInUrl, request.url));
   }
 
   return NextResponse.next();
@@ -70,10 +34,7 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/",
-    "/verificar-canjes/:path*",
-    "/recompensas/:path*",
-    "/administrar-puntos/:path*",
-    "/mis-puntos/:path*",
+    // Exclude API routes, static files, image optimizations, and .png files
+    "/((?!api|_next/static|_next/image|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|avif|css|js|woff|woff2|ttf|map)$).*)",
   ],
 };

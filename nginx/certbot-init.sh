@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# One-time bootstrap: gets the first real Let's Encrypt cert for DOMAIN.
-# Requires nginx.conf's YOUR_DOMAIN placeholders to already be replaced,
-# and DOMAIN's DNS A record to already point at this host.
+# One-time bootstrap: gets the first real Let's Encrypt cert for DOMAIN,
+# with grafana.DOMAIN included as a SAN (nginx.conf's grafana server block
+# reuses this same cert -- see nginx.conf.example). Requires nginx.conf's
+# YOUR_DOMAIN placeholders to already be replaced, and both DOMAIN's and
+# grafana.DOMAIN's DNS A records to already point at this host.
 set -euo pipefail
 
 DOMAIN="${1:?Usage: certbot-init.sh <domain> <email>}"
 EMAIL="${2:?Usage: certbot-init.sh <domain> <email>}"
+GRAFANA_DOMAIN="grafana.$DOMAIN"
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_DIR"
@@ -41,16 +44,33 @@ fi
 
 docker compose up -d nginx
 
+# `up -d` returns as soon as the container is created, not once nginx has
+# actually finished its entrypoint sequence and loaded the dummy cert below
+# into memory. Without this wait, the rm -rf can race ahead of that and
+# delete the cert file before nginx ever reads it -- nginx then fails to
+# start with a spurious "No such file or directory" on the cert path.
+for attempt in $(seq 1 15); do
+  if curl -sS -o /dev/null http://localhost/; then
+    break
+  fi
+  if [ "$attempt" -eq 15 ]; then
+    echo "nginx did not come up in time; not deleting the dummy cert." >&2
+    docker compose logs nginx --tail=50
+    exit 1
+  fi
+  sleep 1
+done
+
 rm -rf "nginx/certbot/conf/live/$DOMAIN" \
        "nginx/certbot/conf/archive/$DOMAIN" \
        "nginx/certbot/conf/renewal/$DOMAIN.conf"
 
 docker compose run --rm certbot certonly \
   --webroot -w /var/www/certbot \
-  -d "$DOMAIN" \
+  -d "$DOMAIN" -d "$GRAFANA_DOMAIN" \
   --email "$EMAIL" --agree-tos --no-eff-email
 
 docker compose exec nginx nginx -s reload
 install_cron
 
-echo "Done. $DOMAIN is now serving a real Let's Encrypt cert."
+echo "Done. $DOMAIN and $GRAFANA_DOMAIN are now serving a real Let's Encrypt cert."

@@ -7,39 +7,72 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RewardCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RewardUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse;
+import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
+import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
+import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 
 @Service
 public class RewardService {
 
+    private static final Logger log = LoggerFactory.getLogger(RewardService.class);
+
     private final RewardRepository rewardRepository;
+    private final PointProgramRepository pointProgramRepository;
+    private final StorefrontRepository storefrontRepository;
 
     private static final long MAX_BYTES = 2 * 1024 * 1024; // 2MB
     // private static final int MAX_WIDTH = 1000;
-    private static final Set<String> TYPES_ALLOWED = Set.of("image/jpeg", "image/png", "image/webp");
+    private static final Set<String> TYPES_ALLOWED = Set.of("image/jpeg", "image/png", "image/webp", "image/jpg");
 
     @Value("${app.uploads.dir}")
     private String uploadsDir;
 
-    public RewardService(RewardRepository rewardRepository) {
+    public RewardService(
+        RewardRepository rewardRepository,
+        PointProgramRepository pointProgramRepository,
+        StorefrontRepository storefrontRepository
+    ) {
         this.rewardRepository = rewardRepository;
+        this.pointProgramRepository = pointProgramRepository;
+        this.storefrontRepository = storefrontRepository;
     }
 
     @Transactional(readOnly = true)
-    public List<Reward> listActive(String search) {
+    public Page<Reward> listActive(String search, UUID organizationId, UUID programId, UUID storefrontId, Pageable pageable) {
         String term = search == null || search.isBlank() ? null : search.trim();
-        return rewardRepository.findByActiveTrue(term);
+
+        // La query nativa trae su propio ORDER BY fijo; un Pageable con Sort
+        // rompe en runtime contra queries nativas (InvalidJpaQueryMethodException),
+        // así que solo dejamos pasar page/size y descartamos el sort del cliente.
+        Pageable safePageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+
+        if (storefrontId != null) {
+            Storefront sf = storefrontRepository.findById(storefrontId).orElse(null);
+            PointProgram program = sf != null ? sf.getPointProgram() : null;
+
+            if (program == null) return Page.empty(safePageable);
+
+            return rewardRepository.findByActiveTrue(term, null, program.getId(), safePageable);
+        }
+
+        return rewardRepository.findByActiveTrue(term, organizationId, programId, safePageable);
     }
 
     @Transactional(readOnly = true)
@@ -48,26 +81,31 @@ public class RewardService {
     }
 
     @Transactional(readOnly = true)
-    public List<TopRewardResponse> getTopRewards() {
+    public List<TopRewardResponse> getTopRewards(UUID organizationId) {
         Pageable topTen = PageRequest.of(0, 10);
-        return rewardRepository.getTopRewards(topTen);
+        return rewardRepository.getTopRewards(organizationId, topTen);
     }
 
     @Transactional
-    public Reward create(RewardCreateRequest request) {
+    public Reward create(RewardCreateRequest request, UUID organizationId) {
         String imagePath = null;
 
         if (request.image() != null && !request.image().isEmpty()) {
             try {
                 imagePath = saveImage(request.image());
             } catch (IOException e) {
-                // Note: we catch the exception so the app doesn't crash if the image can't be saved.
-                // Personally, I prefer to keep it like this since if the image doesn't save, the app should still work.
-                System.err.println("Error al guardar la imagen: " + e.getMessage());
+                // Caught so the app doesn't crash if the image can't be saved -- the reward
+                // is still created, just without an image.
+                log.warn("Error al guardar la imagen", e);
             }
         }
 
+        PointProgram program = pointProgramRepository
+            .findByIdAndOrganizationId(request.pointProgramId(), organizationId)
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar el programa de puntos con ID " + request.pointProgramId() + "."));
+
         Reward reward = new Reward();
+        reward.setPointProgram(program);
         reward.setTitle(request.title());
         reward.setDescription(request.description());
         reward.setCostPoints(request.costPoints());
@@ -77,10 +115,17 @@ public class RewardService {
     }
 
     @Transactional
-    public void delete(UUID id) {
+    public void delete(UUID id, UUID organizationId) {
         Reward reward = rewardRepository.findById(id).orElseThrow(() -> new NotFoundException("No se encontró la recompensa con id: " + id));
+        requireOwnership(reward, organizationId);
         reward.setActive(false);
         rewardRepository.save(reward);
+    }
+
+    private void requireOwnership(Reward reward, UUID organizationId) {
+        if (!reward.getPointProgram().getOrganization().getId().equals(organizationId)) {
+            throw new AccessDeniedException("No podés modificar recompensas de otra organización.");
+        }
     }
 
     private String saveImage(MultipartFile file) throws IOException {
@@ -103,8 +148,9 @@ public class RewardService {
     }
 
     @Transactional
-    public Reward update(UUID id, RewardUpdateRequest request) {
+    public Reward update(UUID id, RewardUpdateRequest request, UUID organizationId) {
         Reward reward = rewardRepository.findById(id).orElseThrow(() -> new NotFoundException("Reward not found: " + id));
+        requireOwnership(reward, organizationId);
 
         reward.setTitle(request.title());
         reward.setDescription(request.description());
@@ -126,7 +172,7 @@ public class RewardService {
                 // Mismo criterio que en el alta: si la imagen no se pudo guardar,
                 // la app sigue funcionando con el resto de los campos actualizados,
                 // conservando la imagen anterior.
-                System.err.println("Error al guardar la imagen: " + e.getMessage());
+                log.warn("Error al guardar la imagen", e);
                 reward = rewardRepository.save(reward);
             }
         } else if (Boolean.TRUE.equals(request.removeImage())) {
@@ -153,8 +199,7 @@ public class RewardService {
             // archivo huérfano en disco, molesto pero no corrompe datos. La
             // fila de la base ya quedó correcta en cualquiera de los dos
             // casos que llaman a este método.
-            // Nota: un capo claudio codo.
-            System.err.println("Error al borrar la imagen anterior: " + e.getMessage());
+            log.warn("Error al borrar la imagen anterior", e);
         }
     }
 }

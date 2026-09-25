@@ -1,61 +1,62 @@
 @import "tailwindcss";
 
-@theme {
-    --color-cream: #060606;
-    --color-cream-dark: #171512;
-    --color-ink: #ffffff;
-    --color-ink-soft: #a39c92;
+@custom-variant dark (&:is([data-theme="dark"] *));
 
-    --color-amber: #d6336c;
-    --color-amber-dark: #f783ac;
-
-    --color-sage: #4f9662;
-    --color-sage-dark: #8ce6a3;
-
-    --color-rust: #d1453a;
-    --color-rust-dark: #ff8a80;
-
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-card: var(--card);
+    --color-border: var(--border);
+    --color-muted: var(--muted);
     --font-sans: var(--font-instrument-sans), sans-serif;
-
-    --color-background: var(--color-cream);
-    --color-foreground: var(--color-ink);
-
-    --color-card: var(--color-cream-dark);
-    --color-card-foreground: var(--color-ink);
-    --color-popover: var(--color-cream-dark);
-    --color-popover-foreground: var(--color-ink);
-
-    --color-primary: var(--color-amber);
-    --color-primary-foreground: var(--color-ink);
-
-    --color-secondary: var(--color-cream-dark);
-    --color-secondary-foreground: var(--color-ink);
-
-    --color-muted: var(--color-cream-dark);
-    --color-muted-foreground: var(--color-ink-soft);
-
-    --color-accent: var(--color-cream-dark);
-    --color-accent-foreground: var(--color-ink);
-
-    --color-destructive: var(--color-rust);
-    --color-destructive-foreground: var(--color-ink);
-
-    --color-success: var(--color-sage);
-    --color-success-foreground: var(--color-ink);
-
-    /* Sin color dedicado en tu paleta — uso amber-dark como placeholder */
-    --color-warning: var(--color-amber-dark);
-    --color-warning-foreground: var(--color-cream);
-
-    --color-border: color-mix(in srgb, var(--color-ink-soft) 20%, transparent);
-    --color-input: color-mix(in srgb, var(--color-ink-soft) 20%, transparent);
-    --color-ring: var(--color-amber);
 }
 
-html,
+:root {
+    --background: #f6f5f3;
+    --foreground: #191817;
+    --primary: #ef5d5d;
+    --primary-foreground: #fff;
+    --card: #fff;
+    --border: #e6e2df;
+    --muted: #989298;
+}
+
+[data-theme="dark"] {
+    --background: #141316;
+    --foreground: #f8f5f4;
+    --primary: #ef5d5d;
+    --primary-foreground: #fff;
+    --card: #211e23;
+    --border: #343037;
+    --muted: #99939b;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+        --background: #141316;
+        --foreground: #f8f5f4;
+        --primary: #ef5d5d;
+        --primary-foreground: #fff;
+        --card: #211e23;
+        --border: #343037;
+        --muted: #99939b;
+    }
+}
+
+html {
+    background: var(--background);
+}
 body {
-    background-color: var(--color-cream);
-    color: var(--color-ink);
+    margin: 0;
+    min-width: 320px;
+    background: var(--background);
+    color: var(--foreground);
+}
+button {
+    font: inherit;
+    cursor: pointer;
 }
 
 /*custom scrollbar styles for dark mode */
@@ -84,4 +85,18 @@ body {
 
 *::-webkit-scrollbar-thumb:hover {
     background-color: rgb(120 113 108 / 0.6);
+}
+
+/* Modal styles for starting animation */
+.modal_content {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    transition:
+        transform 0.25s ease,
+        opacity 0.25s ease;
+
+    @starting-style {
+        transform: translateY(12px) scale(0.97);
+        opacity: 0;
+    }
 }

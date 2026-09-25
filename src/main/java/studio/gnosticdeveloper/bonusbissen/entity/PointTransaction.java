@@ -20,16 +20,28 @@ public class PointTransaction {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "customer_id", nullable = false)
-    private Customer customer;
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "point_program_id", nullable = false)
+    private PointProgram pointProgram;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "storefront_id", nullable = true)
+    private Storefront storefront;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reward_id", nullable = true)
     private Reward reward;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id", nullable = true)
-    private Employee employee;
+    private OrganizationStaff employee;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "refunded_transaction_id", nullable = true)
+    private PointTransaction refundedTransaction;
 
     @Convert(converter = TransactionTypeConverter.class)
     @Column(name = "transaction_type", nullable = false)
@@ -37,6 +49,9 @@ public class PointTransaction {
 
     @Column(name = "points", nullable = false)
     private int points;
+
+    @Column(columnDefinition = "text")
+    private String note;
 
     @Convert(converter = TransactionStateConverter.class)
     @Column(nullable = false)
@@ -53,5 +68,10 @@ public class PointTransaction {
         if (createdAt == null) {
             createdAt = OffsetDateTime.now();
         }
+    }
+
+
+    public Organization getOrganization() {
+        return pointProgram != null ? pointProgram.getOrganization() : null;
     }
 }

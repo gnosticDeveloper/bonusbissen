@@ -6,13 +6,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface ExchangeCodeRepository extends JpaRepository<ExchangeCode, UUID> {
-    @Query("select ec from ExchangeCode ec where ec.code = :code and ec.active = true")
-    Optional<ExchangeCode> findActiveByCode(@Param("code") String code);
+    @Query(value = "select * from exchange_codes where code = :code and organization_id = :organizationId and active = true", nativeQuery = true)
+    Optional<ExchangeCode> findActiveByCodeAndOrganizationId(@Param("code") String code, @Param("organizationId") UUID organizationId);
 
     Optional<ExchangeCode> findByPointTransactionId(UUID pointTransactionId);
 
+    List<ExchangeCode> findByPointTransactionIdIn(Collection<UUID> pointTransactionIds);
 }

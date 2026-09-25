@@ -1,0 +1,87 @@
+# Copy to nginx.conf and replace YOUR_DOMAIN with your real domain before
+# running docker compose up. nginx.conf itself is gitignored so an edited,
+# domain-specific copy never ends up committed.
+
+worker_processes auto;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+    sendfile      on;
+
+    client_max_body_size 2m;
+
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ""      close;
+    }
+
+    server {
+        listen 80;
+        server_name _;
+
+        location /.well-known/acme-challenge/ {
+            root /var/www/certbot;
+        }
+
+        location / {
+            return 301 https://$host$request_uri;
+        }
+    }
+
+    server {
+        listen 443 ssl;
+        http2 on;
+
+        # Replace YOUR_DOMAIN below with the real domain before running
+        # nginx/certbot-init.sh, which bootstraps a dummy cert at this path
+        # so nginx can start, then swaps in the real certbot-issued one.
+        ssl_certificate     /etc/letsencrypt/live/YOUR_DOMAIN/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/YOUR_DOMAIN/privkey.pem;
+
+        # Reward images are written by the backend to a shared volume and
+        # served here directly, since imagePath ("rewards/<uuid>.jpg") is
+        # exposed to the browser as ASSETS_URL + imagePath.
+        location ~ ^/rewards/(?<filename>[^/]+\.(?:jpg|jpeg|png|webp))$ {
+            alias /uploads/rewards/$filename;
+        }
+
+        location / {
+            proxy_pass http://frontend:3000;
+            proxy_http_version 1.1;
+            proxy_set_header Host $http_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Host $http_host;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+
+    server {
+        listen 443 ssl;
+        http2 on;
+        server_name grafana.YOUR_DOMAIN;
+
+        # Same cert as the main domain -- certbot-init.sh issues it with both
+        # YOUR_DOMAIN and grafana.YOUR_DOMAIN as SANs, so this path still applies.
+        ssl_certificate     /etc/letsencrypt/live/YOUR_DOMAIN/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/YOUR_DOMAIN/privkey.pem;
+
+        location / {
+            proxy_pass http://grafana:3000;
+            proxy_http_version 1.1;
+            proxy_set_header Host $http_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Host $http_host;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            # Grafana Live (dashboards, alerting) uses a websocket connection.
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+        }
+    }
+}

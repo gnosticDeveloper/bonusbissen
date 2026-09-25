@@ -2,11 +2,12 @@ package studio.gnosticdeveloper.bonusbissen.controller;
 
 import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.CustomerCancelExchangeRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeReviewResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.PointsSummaryResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
 import studio.gnosticdeveloper.bonusbissen.service.PointTransactionService;
@@ -14,6 +15,7 @@ import studio.gnosticdeveloper.bonusbissen.service.PointTransactionService;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -38,13 +40,26 @@ public class PointTransactionController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
-    public List<ExchangeResponse> getAllExchanges() {
-        return pointTransactionService.getAll();
+    public List<ExchangeResponse> getAllExchanges(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return pointTransactionService.getAll(principal.organizationId());
+    }
+
+    /** Points carousel for the logged-in customer: total + per-program balances. */
+    @GetMapping("/summary")
+    @PreAuthorize("hasRole('USER')")
+    public PointsSummaryResponse getSummary(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return pointTransactionService.getSummary(principal.id());
+    }
+
+    @GetMapping("/resolved")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
+    public List<ExchangeResponse> getResolvedExchanges(Pageable pageable, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return pointTransactionService.getResolved(principal.organizationId(), pageable);
     }
 
     @GetMapping("/pending/{id}")
-    public List<PendingExchangeResponse> getAllPendingExchangesByCustomerId(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        if ("CUSTOMER".equals(principal.role()) && !principal.id().equals(id)) {
+    public List<PendingExchangeResponse> getAllPendingExchangesByUserId(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        if ("USER".equals(principal.role()) && !principal.id().equals(id)) {
             throw new AccessDeniedException("No podés acceder a los canjes de otro cliente.");
         }
         return pointTransactionService.getAllPendingExchangesById(id);
@@ -52,40 +67,40 @@ public class PointTransactionController {
 
     @GetMapping("/pending")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
-    public List<PendingExchangeReviewResponse> getAllPendingExchanges() {
-        return pointTransactionService.getAllByState(TransactionState.PENDING);
+    public List<PendingExchangeReviewResponse> getAllPendingExchanges(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return pointTransactionService.getAllByState(TransactionState.PENDING, principal.organizationId());
     }
 
     @GetMapping("/pending-count")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
-    public int getPendingExchangesCount() {
-        return pointTransactionService.countByState(TransactionState.PENDING);
+    public int getPendingExchangesCount(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return pointTransactionService.countByState(TransactionState.PENDING, principal.organizationId());
     }
 
     @PostMapping("/verify")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
-    public ExchangeResponse verifyExchange(@RequestBody ExchangeVerifyRequest request) {
-        return pointTransactionService.verifyExchange(request.code());
+    public ExchangeResponse verifyExchange(@RequestBody ExchangeVerifyRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return pointTransactionService.verifyExchange(request.code(), principal.organizationId(), principal.storefrontId());
     }
 
     @PostMapping("/cancel")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     @ResponseStatus(code = HttpStatus.OK)
-    public void cancelExchange(@RequestBody CancelExchangeRequest request) {
-        pointTransactionService.cancelExchange(request);
+    public void cancelExchange(@RequestBody CancelExchangeRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        pointTransactionService.cancelExchange(request, principal.organizationId(), principal.id());
     }
 
     @PostMapping("/approve")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     @ResponseStatus(code = HttpStatus.OK)
-    public void approveExchange(@RequestBody ApproveExchangeRequest request) {
-        pointTransactionService.approveExchange(request);
+    public void approveExchange(@RequestBody ApproveExchangeRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        pointTransactionService.approveExchange(request, principal.organizationId(), principal.id());
     }
 
-    @PostMapping("/customer-cancel")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PostMapping("/user-cancel")
+    @PreAuthorize("hasRole('USER')")
     @ResponseStatus(code = HttpStatus.OK)
-    public void customerCancelExchange(@RequestBody CustomerCancelExchangeRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        pointTransactionService.customerCancelExchange(request, principal.id());
+    public void userCancelExchange(@RequestBody UserCancelExchangeRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        pointTransactionService.userCancelExchange(request, principal.id());
     }
 }

@@ -9,6 +9,14 @@ const nextConfig: NextConfig = {
     // frontend container itself. Skip optimization instead of fighting it.
     unoptimized: true,
   },
+  // DEV ONLY, do not uncomment this since it is not stable on production.
+  // https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopackRustReactCompiler
+  // // Enable the React Compiler
+  // reactCompiler: true,
+  // experimental: {
+  //   // Use the Rust port instead of the Babel transform
+  //   turbopackRustReactCompiler: true,
+  // },
 };
 
 export default nextConfig;

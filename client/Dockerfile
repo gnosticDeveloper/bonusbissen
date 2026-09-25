@@ -5,6 +5,8 @@ RUN bun install --frozen-lockfile
 
 FROM oven/bun:1-alpine AS build
 WORKDIR /app
+ARG NEXT_PUBLIC_ASSETS_URL
+ENV NEXT_PUBLIC_ASSETS_URL=$NEXT_PUBLIC_ASSETS_URL
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN bun run build
