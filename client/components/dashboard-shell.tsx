@@ -7,6 +7,7 @@ import { cn } from "@/lib/helpers/utils";
 import Sidebar, { NAV } from "./sidebar";
 import { UserMenu } from "./user-menu";
 import { BrandLockup } from "./brand";
+import { ThemeToggleButton } from "./theme-toggle";
 
 type DashboardShellProps = {
   orgId: string;
@@ -39,10 +40,13 @@ export function DashboardShell({ orgId, role, children, currentUser }: Dashboard
     <div className="flex h-svh flex-col lg:flex-row">
       {/* Sidebar fija en desktop */}
       <aside className="hidden w-64 shrink-0 flex-col gap-6 border-r border-border bg-card p-4 lg:flex">
-        <BrandLockup />
+        <div className="flex items-center justify-between">
+          <BrandLockup />
+          <ThemeToggleButton />
+        </div>
         <Sidebar orgId={orgId} items={items} onNavigate={() => {}} />
         <div className="mt-auto">
-          <UserMenu user={currentUser} />
+          <UserMenu slug={orgId} user={currentUser} />
         </div>
       </aside>
 
@@ -93,7 +97,7 @@ export function DashboardShell({ orgId, role, children, currentUser }: Dashboard
         </div>
         <Sidebar orgId={orgId} items={items} onNavigate={() => setIsDrawerOpen(false)} />
         <div className="mt-auto">
-          <UserMenu user={currentUser} />
+          <UserMenu slug={orgId} user={currentUser} />
         </div>
       </div>
 
