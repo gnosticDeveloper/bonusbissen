@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Compass, Gift, User2, RotateCcwClock } from "lucide-react";
+import { Home, Gift, User2, RotateCcwClock } from "lucide-react";
 
 const HOME_ITEMS = [
   { href: "/b", label: "Inicio", icon: Home },
   { href: "/b/resumen", label: "Mis canjes", icon: Gift },
-  { href: "/b/descubrir", label: "Descubrir", icon: Compass },
+  // { href: "/descubrir", label: "Descubrir", icon: Compass },
   { href: "/b/perfil", label: "Perfil", icon: User2 },
 ] as const;
 
