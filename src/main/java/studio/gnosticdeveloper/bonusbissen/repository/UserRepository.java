@@ -20,7 +20,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Query(
         value = """
-        SELECT u.username, u.name, os.role
+        SELECT u.username, u.name, os.role, u.email, u.email_verified
         FROM users u
         JOIN organization_staff os ON os.user_id = u.id
         WHERE u.id = :userId

@@ -81,19 +81,19 @@ public class UserController {
     }
 
     @GetMapping("/me")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("isAuthenticated()")
     public UserSelfResponse getSelf(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return UserSelfResponse.from(userService.getById(principal.id()), userService.getJoinedStorefrontIds(principal.id()));
     }
 
     @PatchMapping("/me")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("isAuthenticated()")
     public UserResponse updateSelf(@Valid @RequestBody UserUpdateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return UserResponse.from(userService.update(principal.id(), request));
     }
 
     @PatchMapping("/me/password")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("isAuthenticated()")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void changeOwnPassword(@Valid @RequestBody SelfPasswordUpdateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         userService.changeOwnPassword(principal.id(), request.currentPassword(), request.newPassword());

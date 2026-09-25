@@ -47,6 +47,7 @@ public class StorefrontService {
         storefront.setCategory(blankToNull(request.category()));
         storefront.setColor(blankToNull(request.color()));
         storefront.setHours(blankToNull(request.hours()));
+        storefront.setPhone(blankToNull(request.phone()));
         storefront.setIconPath(blankToNull(request.icon()));
         storefront.setDescription(blankToNull(request.description()));
         applyLocation(storefront, request.online(), request.address(), request.city(), request.province());
@@ -61,6 +62,7 @@ public class StorefrontService {
         storefront.setCategory(blankToNull(request.category()));
         storefront.setColor(blankToNull(request.color()));
         storefront.setHours(blankToNull(request.hours()));
+        storefront.setPhone(blankToNull(request.phone()));
         storefront.setIconPath(blankToNull(request.icon()));
         storefront.setDescription(blankToNull(request.description()));
         applyLocation(storefront, request.online(), request.address(), request.city(), request.province());
