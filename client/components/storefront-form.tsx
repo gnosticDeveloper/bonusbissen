@@ -9,6 +9,7 @@ import { useToast } from "@/components/toast";
 import { Storefront } from "@/lib/types/storefront";
 import { FormState } from "@/app/d/types";
 import { createStorefront, updateStorefront } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
+import { AddressSelector } from "./address-selector";
 
 const initialState: FormState = { message: null, status: null };
 
@@ -63,17 +64,11 @@ export function StorefrontForm({ storefront, onDone }: { storefront?: Storefront
       </div>
 
       {!online && (
-        <div className="grid grid-cols-3 gap-1 rounded-2xl border border-border bg-card p-2">
-          <Field label="Dirección" htmlFor="sf-address" required>
-            <Input defaultValue={storefront?.address ?? ""} id="sf-address" name="address" placeholder="Av. Siempreviva 742" />
-          </Field>
-          <Field label="Ciudad" htmlFor="sf-city" required>
-            <Input defaultValue={storefront?.city ?? ""} id="sf-city" name="city" placeholder="Rosario" />
-          </Field>
-          <Field label="Provincia" htmlFor="sf-province" required>
-            <Input defaultValue={storefront?.province ?? ""} id="sf-province" name="province" placeholder="Santa Fe, Córdoba" />
-          </Field>
-        </div>
+        <AddressSelector
+          initialProvince={storefront?.province ?? undefined}
+          initialCity={storefront?.city ?? undefined}
+          initialAddress={storefront?.address ?? undefined}
+        />
       )}
 
       <div className="grid grid-cols-2 gap-4">

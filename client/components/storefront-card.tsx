@@ -34,11 +34,11 @@ export function StorefrontCard({ storefront, onEdit }: { storefront: Storefront;
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <Button type="button" variant="ghost" size="icon" onClick={onEdit} aria-label={`Editar ${storefront.name}`}>
-          <Pencil className="size-4" />
+        <Button type="button" variant="ghost" onClick={onEdit} aria-label={`Editar ${storefront.name}`}>
+          <Pencil className="size-4" /> Editar
         </Button>
-        <Button type="button" variant="ghost" size="icon" disabled={pending} onClick={handleDeactivate} aria-label={`Desactivar ${storefront.name}`}>
-          <Trash2 className="size-4" />
+        <Button type="button" variant="ghost" disabled={pending} onClick={handleDeactivate} aria-label={`Desactivar ${storefront.name}`}>
+          <Trash2 className="size-4" /> Borrar
         </Button>
       </div>
     </div>

@@ -9,7 +9,6 @@ export default async function MiNegocioPage() {
     getStorefronts(),
     getPointPrograms(),
   ]);
-
   return (
     <main className="mx-auto w-full max-w-2xl text-foreground min-h-full">
       <header className="mb-7">

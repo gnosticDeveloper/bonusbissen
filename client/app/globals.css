@@ -16,7 +16,7 @@
 :root {
     --background: #f6f5f3;
     --foreground: #191817;
-    --primary: #f05b9d;
+    --primary: #ef5d5d;
     --primary-foreground: #fff;
     --card: #fff;
     --border: #e6e2df;
@@ -26,7 +26,7 @@
 [data-theme="dark"] {
     --background: #141316;
     --foreground: #f8f5f4;
-    --primary: #ff70ae;
+    --primary: #ef5d5d;
     --primary-foreground: #fff;
     --card: #211e23;
     --border: #343037;
@@ -37,7 +37,7 @@
     :root:not([data-theme]) {
         --background: #141316;
         --foreground: #f8f5f4;
-        --primary: #ff70ae;
+        --primary: #ef5d5d;
         --primary-foreground: #fff;
         --card: #211e23;
         --border: #343037;

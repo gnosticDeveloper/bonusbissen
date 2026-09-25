@@ -13,6 +13,8 @@ export interface AutocompleteProps<T> {
   selected: T | null;
   onSelect: (item: T) => void;
   onClear: () => void;
+  /** id nativo para el input, para asociar con un <label htmlFor>. */
+  inputId?: string;
   /** Función paginada que trae los resultados, misma firma que getAllCustomers. */
   fetchFn: PagedRequestFunction<T>;
   /** Identificador único de cada item (no todo T tiene necesariamente "id"). */
@@ -24,6 +26,7 @@ export interface AutocompleteProps<T> {
   placeholder?: string;
   minQueryLength?: number;
   debounceMs?: number;
+  showPicture?: boolean;
 }
 
 function getDisplayValue<T>(item: T, key?: keyof T): string {
@@ -61,6 +64,7 @@ export function Autocomplete<T>({
   selected,
   onSelect,
   onClear,
+  inputId,
   fetchFn,
   getId,
   displayKeys,
@@ -68,6 +72,7 @@ export function Autocomplete<T>({
   placeholder = "Buscar…",
   minQueryLength = DEFAULT_MIN_QUERY_LENGTH,
   debounceMs = DEFAULT_DEBOUNCE_MS,
+  showPicture = true,
 }: AutocompleteProps<T>) {
   const [primaryKey, secondaryKey] = displayKeys;
 
@@ -137,9 +142,11 @@ export function Autocomplete<T>({
     return (
       <div className="flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
-            {getInitials(primary)}
-          </span>
+          {showPicture ? (
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
+              {getInitials(primary)}
+            </span>
+          ) : null}
           <div className="flex min-w-0 flex-col">
             <span className="truncate text-sm font-semibold text-foreground">{primary}</span>
             <Meta parts={[secondary, badge?.(selected)]} />
@@ -162,21 +169,17 @@ export function Autocomplete<T>({
   return (
     <div className="relative">
       <div className="relative">
-        <Search
-          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted"
-          aria-hidden="true"
-        />
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden="true" />
         <Input
           className="pl-9 text-base text-foreground placeholder:text-muted/70"
+          id={inputId}
           placeholder={placeholder}
           value={query}
           role="combobox"
           aria-expanded={showDropdown && matches.length > 0}
           aria-autocomplete="list"
           aria-controls={listboxId}
-          aria-activedescendant={
-            showDropdown && activeItem ? `${listboxId}-${getId(activeItem)}` : undefined
-          }
+          aria-activedescendant={showDropdown && activeItem ? `${listboxId}-${getId(activeItem)}` : undefined}
           onChange={(e) => handleQueryChange(e.target.value)}
           onFocus={() => setOpen(true)}
           onBlur={() => {
@@ -213,9 +216,7 @@ export function Autocomplete<T>({
           ) : error ? (
             <li className="px-3 py-2.5 text-sm text-red-500">{error}</li>
           ) : matches.length === 0 ? (
-            <li className="px-3 py-2.5 text-sm text-muted">
-              No se encontraron resultados con &quot;{query.trim()}&quot;.
-            </li>
+            <li className="px-3 py-2.5 text-sm text-muted">No se encontraron resultados con &quot;{query.trim()}&quot;.</li>
           ) : (
             matches.map((item, i) => {
               const id = getId(item);
@@ -240,9 +241,7 @@ export function Autocomplete<T>({
                       <span className="truncate text-sm font-medium text-foreground">{primary}</span>
                       <Meta parts={[secondary]} />
                     </span>
-                    {badge && (
-                      <span className="shrink-0 text-xs font-semibold text-primary">{badge(item)}</span>
-                    )}
+                    {badge && <span className="shrink-0 text-xs font-semibold text-primary">{badge(item)}</span>}
                   </button>
                 </li>
               );
