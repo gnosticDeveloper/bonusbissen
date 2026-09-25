@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isSessionValid } from "@/lib/auth/session";
 
+// Rutas públicas que se dejan pasar siempre, tenga o no sesión válida
+const PUBLIC_PATHS = ["/d/sign-in", "/verify-email"];
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // El sign-in del dashboard siempre se deja pasar, tenga o no sesión válida
-  if (pathname.startsWith("/d/sign-in")) return NextResponse.next();
+  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return NextResponse.next();
+  }
 
   // El dashboard (/d/*) usa su propia cookie; la app de clientes usa access_token.
   const isDashboard = pathname.startsWith("/d");
