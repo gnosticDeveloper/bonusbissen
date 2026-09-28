@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import studio.gnosticdeveloper.bonusbissen.dto.request.DashboardLoginRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.LoginLinkConsumeRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.RequestDashboardLoginLinkRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.RequestUserLoginLinkRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ResendVerificationRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.SelectStorefrontRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserLoginRequest;
@@ -22,6 +25,7 @@ import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
 import studio.gnosticdeveloper.bonusbissen.security.JwtService;
 import studio.gnosticdeveloper.bonusbissen.service.AuthService;
 import studio.gnosticdeveloper.bonusbissen.service.EmailVerificationService;
+import studio.gnosticdeveloper.bonusbissen.service.LoginLinkService;
 
 import java.util.List;
 
@@ -31,11 +35,18 @@ public class AuthController {
 
     private final AuthService authService;
     private final EmailVerificationService emailVerificationService;
+    private final LoginLinkService loginLinkService;
     private final JwtService jwtService;
 
-    public AuthController(AuthService authService, EmailVerificationService emailVerificationService, JwtService jwtService) {
+    public AuthController(
+        AuthService authService,
+        EmailVerificationService emailVerificationService,
+        LoginLinkService loginLinkService,
+        JwtService jwtService
+    ) {
         this.authService = authService;
         this.emailVerificationService = emailVerificationService;
+        this.loginLinkService = loginLinkService;
         this.jwtService = jwtService;
     }
 
@@ -91,5 +102,30 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
         emailVerificationService.resend(request.identifier(), request.password());
+    }
+
+    /** Always 204, whether or not the email is known/verified, so the response can't be used to enumerate accounts. */
+    @PostMapping("/user-login-link/request")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void requestUserLoginLink(@Valid @RequestBody RequestUserLoginLinkRequest request) {
+        loginLinkService.requestUserLink(request.email());
+    }
+
+    @PostMapping("/user-login-link/consume")
+    public LoginResponse consumeUserLoginLink(@Valid @RequestBody LoginLinkConsumeRequest request) {
+        return authService.issueUserToken(loginLinkService.consumeUserLink(request.token()));
+    }
+
+    /** Always 204, whether or not the identifier/org combination is valid, so the response can't be used to enumerate accounts. */
+    @PostMapping("/dashboard/login-link/request")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void requestDashboardLoginLink(@Valid @RequestBody RequestDashboardLoginLinkRequest request) {
+        loginLinkService.requestDashboardLink(request.identifier(), request.organizationId());
+    }
+
+    @PostMapping("/dashboard/login-link/consume")
+    public LoginResponse consumeDashboardLoginLink(@Valid @RequestBody LoginLinkConsumeRequest request) {
+        LoginLinkService.StaffLoginLink link = loginLinkService.consumeDashboardLink(request.token());
+        return authService.issueStaffToken(link.user(), link.staff());
     }
 }

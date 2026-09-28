@@ -5,11 +5,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import studio.gnosticdeveloper.bonusbissen.dto.request.DashboardLoginRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.LoginLinkConsumeRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.RequestDashboardLoginLinkRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.RequestUserLoginLinkRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ResendVerificationRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserRegisterRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.VerifyEmailRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.LoginResponse;
+import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 
@@ -273,6 +277,166 @@ class AuthIntegrationTest extends AbstractIntegrationTest {
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void userLoginLinkRequestForVerifiedUserSendsMailAndConsumeReturnsToken() {
+        recordingEmailSender.clear();
+        register("kim", "S3cret-Password!", "Kim", "kim@example.com");
+        String verifyToken = recordingEmailSender.tokenFromLastLink();
+        restTemplate.postForEntity(baseUrl() + "/auth/verify-email", new VerifyEmailRequest(verifyToken), Void.class);
+
+        recordingEmailSender.clear();
+        ResponseEntity<Void> requested = restTemplate.postForEntity(
+            baseUrl() + "/auth/user-login-link/request",
+            new RequestUserLoginLinkRequest("kim@example.com"),
+            Void.class
+        );
+        assertThat(requested.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        String loginToken = recordingEmailSender.tokenFromLastLink();
+
+        ResponseEntity<LoginResponse> consumed = restTemplate.postForEntity(
+            baseUrl() + "/auth/user-login-link/consume",
+            new LoginLinkConsumeRequest(loginToken),
+            LoginResponse.class
+        );
+        assertThat(consumed.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(consumed.getBody().token()).isNotBlank();
+    }
+
+    @Test
+    void userLoginLinkRequestForUnknownOrUnverifiedEmailStillReturnsNoContentAndSendsNoMail() {
+        register("liam", "S3cret-Password!", "Liam", "liam@example.com"); // email left unverified
+        recordingEmailSender.clear();
+
+        ResponseEntity<Void> unverified = restTemplate.postForEntity(
+            baseUrl() + "/auth/user-login-link/request",
+            new RequestUserLoginLinkRequest("liam@example.com"),
+            Void.class
+        );
+        assertThat(unverified.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+
+        ResponseEntity<Void> unknown = restTemplate.postForEntity(
+            baseUrl() + "/auth/user-login-link/request",
+            new RequestUserLoginLinkRequest("ghost@example.com"),
+            Void.class
+        );
+        assertThat(unknown.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+
+        assertThat(recordingEmailSender.sent()).isEmpty();
+    }
+
+    @Test
+    void userLoginLinkConsumeRejectsUnknownExpiredOrReusedToken() {
+        ResponseEntity<String> unknown = restTemplate.postForEntity(
+            baseUrl() + "/auth/user-login-link/consume",
+            new LoginLinkConsumeRequest("not-a-real-token"),
+            String.class
+        );
+        assertThat(unknown.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+
+        recordingEmailSender.clear();
+        register("mia", "S3cret-Password!", "Mia", "mia@example.com");
+        String verifyToken = recordingEmailSender.tokenFromLastLink();
+        restTemplate.postForEntity(baseUrl() + "/auth/verify-email", new VerifyEmailRequest(verifyToken), Void.class);
+
+        recordingEmailSender.clear();
+        restTemplate.postForEntity(baseUrl() + "/auth/user-login-link/request", new RequestUserLoginLinkRequest("mia@example.com"), Void.class);
+        String loginToken = recordingEmailSender.tokenFromLastLink();
+
+        restTemplate.postForEntity(baseUrl() + "/auth/user-login-link/consume", new LoginLinkConsumeRequest(loginToken), LoginResponse.class);
+
+        ResponseEntity<String> reused = restTemplate.postForEntity(
+            baseUrl() + "/auth/user-login-link/consume",
+            new LoginLinkConsumeRequest(loginToken),
+            String.class
+        );
+        assertThat(reused.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void dashboardLoginLinkRequestAndConsumeReturnsStaffToken() {
+        User staff = createEmployee("cashier-link-ok", "password123", StaffRole.CASHIER);
+        staff.setEmail("cashier-link-ok@example.com");
+        staff.setEmailVerified(true);
+        userRepository.save(staff);
+
+        recordingEmailSender.clear();
+        ResponseEntity<Void> requested = restTemplate.postForEntity(
+            baseUrl() + "/auth/dashboard/login-link/request",
+            new RequestDashboardLoginLinkRequest("cashier-link-ok", defaultOrganization().getId()),
+            Void.class
+        );
+        assertThat(requested.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        String loginToken = recordingEmailSender.tokenFromLastLink();
+
+        ResponseEntity<LoginResponse> consumed = restTemplate.postForEntity(
+            baseUrl() + "/auth/dashboard/login-link/consume",
+            new LoginLinkConsumeRequest(loginToken),
+            LoginResponse.class
+        );
+        assertThat(consumed.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(consumed.getBody().token()).isNotBlank();
+    }
+
+    @Test
+    void dashboardLoginLinkRequestForWrongOrganizationSendsNoMail() {
+        User staff = createEmployee("cashier-link-wrong-org", "password123", StaffRole.CASHIER);
+        staff.setEmail("cashier-link-wrong-org@example.com");
+        staff.setEmailVerified(true);
+        userRepository.save(staff);
+
+        Organization otherOrg = new Organization();
+        otherOrg.setName("Other Org");
+        otherOrg = organizationRepository.save(otherOrg);
+
+        recordingEmailSender.clear();
+        ResponseEntity<Void> requested = restTemplate.postForEntity(
+            baseUrl() + "/auth/dashboard/login-link/request",
+            new RequestDashboardLoginLinkRequest("cashier-link-wrong-org", otherOrg.getId()),
+            Void.class
+        );
+        assertThat(requested.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(recordingEmailSender.sent()).isEmpty();
+    }
+
+    @Test
+    void userLoginLinkCannotBeConsumedAtDashboardEndpointAndViceVersa() {
+        User staff = createEmployee("cashier-link-cross", "password123", StaffRole.CASHIER);
+        staff.setEmail("cashier-link-cross@example.com");
+        staff.setEmailVerified(true);
+        userRepository.save(staff);
+
+        recordingEmailSender.clear();
+        restTemplate.postForEntity(
+            baseUrl() + "/auth/dashboard/login-link/request",
+            new RequestDashboardLoginLinkRequest("cashier-link-cross", defaultOrganization().getId()),
+            Void.class
+        );
+        String dashboardToken = recordingEmailSender.tokenFromLastLink();
+
+        ResponseEntity<String> wrongEndpoint = restTemplate.postForEntity(
+            baseUrl() + "/auth/user-login-link/consume",
+            new LoginLinkConsumeRequest(dashboardToken),
+            String.class
+        );
+        assertThat(wrongEndpoint.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+
+        recordingEmailSender.clear();
+        register("nina", "S3cret-Password!", "Nina", "nina@example.com");
+        String verifyToken = recordingEmailSender.tokenFromLastLink();
+        restTemplate.postForEntity(baseUrl() + "/auth/verify-email", new VerifyEmailRequest(verifyToken), Void.class);
+
+        recordingEmailSender.clear();
+        restTemplate.postForEntity(baseUrl() + "/auth/user-login-link/request", new RequestUserLoginLinkRequest("nina@example.com"), Void.class);
+        String userToken = recordingEmailSender.tokenFromLastLink();
+
+        ResponseEntity<String> wrongEndpoint2 = restTemplate.postForEntity(
+            baseUrl() + "/auth/dashboard/login-link/consume",
+            new LoginLinkConsumeRequest(userToken),
+            String.class
+        );
+        assertThat(wrongEndpoint2.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     private void register(String username, String password, String name, String email) {

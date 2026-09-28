@@ -68,7 +68,7 @@ public class AuthService {
         return issueStaffToken(user, staff);
     }
 
-    private LoginResponse issueStaffToken(User user, OrganizationStaff staff) {
+    public LoginResponse issueStaffToken(User user, OrganizationStaff staff) {
         List<Storefront> storefronts = staff.getStorefronts().stream().toList();
         List<StorefrontSummary> summaries = storefronts.stream().map(StorefrontSummary::from).toList();
         UUID storefrontId = storefronts.size() == 1 ? storefronts.get(0).getId() : null;
@@ -123,8 +123,7 @@ public class AuthService {
             emailVerificationService.sendVerification(user);
         }
 
-        String token = jwtService.generateToken(user.getId(), user.getUsername(), "USER");
-        return LoginResponse.of(token);
+        return issueUserToken(user);
     }
 
     public LoginResponse loginUser(UserLoginRequest request) {
@@ -138,6 +137,11 @@ public class AuthService {
             throw new BadCredentialsException("Invalid credentials");
         }
 
+        return issueUserToken(user);
+    }
+
+    /** Issues a loyalty-account (non-staff) token for an already-authenticated user. */
+    public LoginResponse issueUserToken(User user) {
         String token = jwtService.generateToken(user.getId(), user.getUsername(), "USER");
         return LoginResponse.of(token);
     }

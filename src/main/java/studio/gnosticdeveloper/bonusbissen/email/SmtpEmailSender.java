@@ -60,4 +60,69 @@ public class SmtpEmailSender implements EmailSender {
             Glaux labs
             """.formatted(name, link);
     }
+
+    @Async
+    @Override
+    public void sendUserLoginLinkEmail(String toEmail, String toName, String loginLink, long ttlMinutes) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+            helper.setFrom(from);
+            helper.setTo(toEmail);
+            helper.setSubject("Tu enlace para iniciar sesión en bonusbissen");
+            helper.setText(buildUserLoginLinkBody(toName, loginLink, ttlMinutes), false);
+            mailSender.send(message);
+            log.info("Sent user login link email to {}", toEmail);
+        } catch (Exception e) {
+            log.error("Failed to send user login link email to {}", toEmail, e);
+        }
+    }
+
+    private String buildUserLoginLinkBody(String name, String link, long ttlMinutes) {
+        return """
+            Hola %s,
+
+            Usá este enlace para iniciar sesión en tu cuenta de bonusbissen:
+            %s
+
+            Este enlace vence en %d minutos y sirve una sola vez.
+
+            Si no pediste este enlace, podés ignorar este mensaje.
+
+            Glaux labs
+            """.formatted(name, link, ttlMinutes);
+    }
+
+    @Async
+    @Override
+    public void sendDashboardLoginLinkEmail(String toEmail, String toName, String loginLink, long ttlMinutes) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+            helper.setFrom(from);
+            helper.setTo(toEmail);
+            helper.setSubject("Tu enlace para ingresar al panel de bonusbissen");
+            helper.setText(buildDashboardLoginLinkBody(toName, loginLink, ttlMinutes), false);
+            mailSender.send(message);
+            log.info("Sent dashboard login link email to {}", toEmail);
+        } catch (Exception e) {
+            log.error("Failed to send dashboard login link email to {}", toEmail, e);
+        }
+    }
+
+    private String buildDashboardLoginLinkBody(String name, String link, long ttlMinutes) {
+        return """
+            Hola %s,
+
+            Usá este enlace para ingresar al panel administrativo de tu negocio en bonusbissen:
+            %s
+
+            Este enlace vence en %d minutos y sirve una sola vez.
+
+            Si no pediste este enlace, podés ignorar este mensaje. Si te preocupa que alguien
+            más lo haya pedido, contactá al administrador de tu organización.
+
+            Glaux labs
+            """.formatted(name, link, ttlMinutes);
+    }
 }
