@@ -26,4 +26,26 @@ public class LoggingEmailSender implements EmailSender {
             verificationLink
         );
     }
+
+    @Override
+    public void sendUserLoginLinkEmail(String toEmail, String toName, String loginLink, long ttlMinutes) {
+        log.info(
+            "[mail disabled] user login link email NOT sent to {} ({}). Expires in {} min. Login link: {}",
+            toEmail,
+            toName,
+            ttlMinutes,
+            loginLink
+        );
+    }
+
+    @Override
+    public void sendDashboardLoginLinkEmail(String toEmail, String toName, String loginLink, long ttlMinutes) {
+        log.info(
+            "[mail disabled] dashboard login link email NOT sent to {} ({}). Expires in {} min. Login link: {}",
+            toEmail,
+            toName,
+            ttlMinutes,
+            loginLink
+        );
+    }
 }

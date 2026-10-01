@@ -65,6 +65,11 @@ app:
     # Frontend page that reads ?token= and POSTs it to /auth/verify-email
     verification-url: ${MAIL_VERIFICATION_URL:http://localhost:3000/verify-email}
     token-ttl-hours: ${MAIL_TOKEN_TTL_HOURS:48}
+    # One-time login link (magic link). Short TTL since it grants a live session,
+    # unlike the email-verification link above
+    login-link-ttl-minutes: ${MAIL_LOGIN_LINK_TTL_MINUTES:15}
+    login-link-url: ${MAIL_LOGIN_LINK_URL:http://localhost:3000/login-link}
+    dashboard-login-link-url: ${MAIL_DASHBOARD_LOGIN_LINK_URL:http://localhost:3000/d/login-link}
   backup:
     # DR_BACKUP_* unset (local dev/test): the placeholder endpoint below keeps the
     # S3Client bean constructible; the nightly job just fails harmlessly at

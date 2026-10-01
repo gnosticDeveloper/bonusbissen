@@ -40,6 +40,8 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-bonusbissen <no-reply@bonusbissen.local>}
       MAIL_VERIFICATION_URL: ${MAIL_VERIFICATION_URL:-http://localhost:3000/verify-email}
+      MAIL_LOGIN_LINK_URL: ${MAIL_LOGIN_LINK_URL:-http://localhost:3000/login-link}
+      MAIL_DASHBOARD_LOGIN_LINK_URL: ${MAIL_DASHBOARD_LOGIN_LINK_URL:-http://localhost:3000/d/login-link}
       DR_BACKUP_S3_ENDPOINT: ${DR_BACKUP_S3_ENDPOINT:-}
       DR_BACKUP_S3_BUCKET: ${DR_BACKUP_S3_BUCKET:-}
       DR_BACKUP_S3_ACCESS_KEY: ${DR_BACKUP_S3_ACCESS_KEY:-}
