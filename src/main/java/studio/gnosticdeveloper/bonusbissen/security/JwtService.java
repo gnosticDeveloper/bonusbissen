@@ -39,6 +39,7 @@ public class JwtService {
     public String generateToken(UUID id, String username, String role, UUID storefrontId) {
         Instant now = Instant.now();
         JwtBuilder builder = Jwts.builder()
+            .id(UUID.randomUUID().toString())
             .subject(id.toString())
             .claim("username", username)
             .claim("role", role)

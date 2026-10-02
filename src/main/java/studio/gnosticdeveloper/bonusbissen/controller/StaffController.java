@@ -58,4 +58,11 @@ public class StaffController {
     public void deactivate(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         staffService.deactivate(id, principal.organizationId());
     }
+
+    /** Kills a staff member's sessions without deactivating them (e.g. suspected account compromise). */
+    @PostMapping("/{id}/sessions/revoke")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revokeSessions(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        staffService.revokeSessions(id, principal.organizationId());
+    }
 }

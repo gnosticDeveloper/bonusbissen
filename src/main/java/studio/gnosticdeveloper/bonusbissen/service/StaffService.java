@@ -19,6 +19,7 @@ import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
+import studio.gnosticdeveloper.bonusbissen.security.SessionService;
 
 @Service
 public class StaffService {
@@ -27,17 +28,20 @@ public class StaffService {
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final StorefrontRepository storefrontRepository;
+    private final SessionService sessionService;
 
     public StaffService(
         OrganizationStaffRepository organizationStaffRepository,
         OrganizationRepository organizationRepository,
         UserRepository userRepository,
-        StorefrontRepository storefrontRepository
+        StorefrontRepository storefrontRepository,
+        SessionService sessionService
     ) {
         this.organizationStaffRepository = organizationStaffRepository;
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.storefrontRepository = storefrontRepository;
+        this.sessionService = sessionService;
     }
 
     @Transactional(readOnly = true)
@@ -95,6 +99,18 @@ public class StaffService {
         OrganizationStaff staff = getOwned(staffId, organizationId);
         staff.setActive(false);
         organizationStaffRepository.save(staff);
+        sessionService.revokeAllForUser(staff.getUser().getId());
+    }
+
+    /**
+     * Kills every session (and already-issued access token) for a staff member
+     * without deactivating them -- e.g. a suspected account compromise where the
+     * person should still be able to log back in once they've reset their password.
+     */
+    @Transactional(readOnly = true)
+    public void revokeSessions(UUID staffId, UUID organizationId) {
+        OrganizationStaff staff = getOwned(staffId, organizationId);
+        sessionService.revokeAllForUser(staff.getUser().getId());
     }
 
     private OrganizationStaff getOwned(UUID staffId, UUID organizationId) {

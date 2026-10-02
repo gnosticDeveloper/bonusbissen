@@ -5,6 +5,10 @@ spring:
     url: jdbc:postgresql://localhost:5432/${LOCAL_DB_NAME:bonusbissen}
     username: ${LOCAL_DB_USER:postgres}
     password: ${LOCAL_DB_PASSWORD:local-dev-password}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -48,7 +52,13 @@ app:
     #   openssl ec -in ec-private.pem -pubout -outform DER | base64 -w0
     private-key: ${JWT_PRIVATE_KEY}
     public-key: ${JWT_PUBLIC_KEY}
-    expiration-minutes: 480
+    expiration-minutes: 15
+  refresh-token:
+    ttl-days: ${REFRESH_TOKEN_TTL_DAYS:30}
+  cookie:
+    # Set to false for plain local `mvnw spring-boot:run` over http; the
+    # docker-compose/nginx deployment terminates TLS, so it stays true there.
+    secure: ${COOKIE_SECURE:true}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   uploads:
