@@ -24,6 +24,7 @@ import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 import studio.gnosticdeveloper.bonusbissen.security.JwtService;
+import studio.gnosticdeveloper.bonusbissen.security.SessionService;
 
 @Service
 public class AuthService {
@@ -33,24 +34,30 @@ public class AuthService {
     private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final SessionService sessionService;
 
     public AuthService(
         OrganizationStaffRepository organizationStaffRepository,
         UserRepository userRepository,
         EmailVerificationService emailVerificationService,
         PasswordEncoder passwordEncoder,
-        JwtService jwtService
+        JwtService jwtService,
+        SessionService sessionService
     ) {
         this.organizationStaffRepository = organizationStaffRepository;
         this.userRepository = userRepository;
         this.emailVerificationService = emailVerificationService;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.sessionService = sessionService;
     }
+
+    /** A JWT paired with the raw refresh token for the session just created, so the controller can set the cookie. */
+    public record LoginResult(LoginResponse response, String refreshToken) {}
 
     /** A staff sign-in, guarded by the organization the dashboard is for. */
     @Transactional
-    public LoginResponse dashboardLogin(DashboardLoginRequest request) {
+    public LoginResult dashboardLogin(DashboardLoginRequest request, String userAgent) {
         User user = userRepository
             .findByUsername(request.identifier().trim().toLowerCase(Locale.ROOT))
             .filter(User::isActive)
@@ -65,16 +72,18 @@ public class AuthService {
             .filter(s -> s.getOrganization().getId().equals(request.organizationId()))
             .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
 
-        return issueStaffToken(user, staff);
+        return issueStaffToken(user, staff, userAgent);
     }
 
-    public LoginResponse issueStaffToken(User user, OrganizationStaff staff) {
+    public LoginResult issueStaffToken(User user, OrganizationStaff staff, String userAgent) {
         List<Storefront> storefronts = staff.getStorefronts().stream().toList();
         List<StorefrontSummary> summaries = storefronts.stream().map(StorefrontSummary::from).toList();
         UUID storefrontId = storefronts.size() == 1 ? storefronts.get(0).getId() : null;
 
         String token = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
-        return new LoginResponse(token, summaries);
+        SessionService.NewSession session = sessionService.createSession(
+            user.getId(), staff.getRole().name(), staff.getOrganization().getId(), storefrontId, user.getUsername(), userAgent);
+        return new LoginResult(new LoginResponse(token, summaries), session.rawRefreshToken());
     }
 
     @Transactional
@@ -100,7 +109,7 @@ public class AuthService {
     }
 
     @Transactional
-    public LoginResponse registerUser(UserRegisterRequest request) {
+    public LoginResult registerUser(UserRegisterRequest request, String userAgent) {
         String username = request.username().trim().toLowerCase(Locale.ROOT);
         if (userRepository.existsByUsername(username)) {
             throw new ConflictException("Ese nombre de usuario ya está en uso.");
@@ -123,10 +132,10 @@ public class AuthService {
             emailVerificationService.sendVerification(user);
         }
 
-        return issueUserToken(user);
+        return issueUserToken(user, userAgent);
     }
 
-    public LoginResponse loginUser(UserLoginRequest request) {
+    public LoginResult loginUser(UserLoginRequest request, String userAgent) {
         String identifier = request.identifier().trim().toLowerCase(Locale.ROOT);
 
         User user = resolveLoginIdentifier(identifier)
@@ -137,13 +146,15 @@ public class AuthService {
             throw new BadCredentialsException("Invalid credentials");
         }
 
-        return issueUserToken(user);
+        return issueUserToken(user, userAgent);
     }
 
     /** Issues a loyalty-account (non-staff) token for an already-authenticated user. */
-    public LoginResponse issueUserToken(User user) {
+    public LoginResult issueUserToken(User user, String userAgent) {
         String token = jwtService.generateToken(user.getId(), user.getUsername(), "USER");
-        return LoginResponse.of(token);
+        SessionService.NewSession session = sessionService.createSession(
+            user.getId(), "USER", null, null, user.getUsername(), userAgent);
+        return new LoginResult(LoginResponse.of(token), session.rawRefreshToken());
     }
 
     private Optional<User> resolveLoginIdentifier(String identifier) {

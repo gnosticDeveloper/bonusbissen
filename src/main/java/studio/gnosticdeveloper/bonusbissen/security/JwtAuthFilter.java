@@ -26,10 +26,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final PrincipalResolver principalResolver;
+    private final SessionService sessionService;
 
-    public JwtAuthFilter(JwtService jwtService, PrincipalResolver principalResolver) {
+    public JwtAuthFilter(JwtService jwtService, PrincipalResolver principalResolver, SessionService sessionService) {
         this.jwtService = jwtService;
         this.principalResolver = principalResolver;
+        this.sessionService = sessionService;
     }
 
     @Override
@@ -51,6 +53,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             String role = claims.get("role", String.class);
             String sf = claims.get("sf", String.class);
             UUID storefrontId = sf != null ? UUID.fromString(sf) : null;
+
+            // A stateless JWT can't be un-issued, so logout
+            // blacklists this exact token by jti, and revoking all of a user's
+            // sessions (manually, or on refresh-token reuse detection) sets a
+            // per-user cutoff that rejects every token issued before it.
+            if (claims.getId() != null && sessionService.isBlacklisted(claims.getId())) {
+                SecurityContextHolder.clearContext();
+                filterChain.doFilter(request, response);
+                return;
+            }
+            if (sessionService.isRevoked(id, claims.getIssuedAt().toInstant())) {
+                SecurityContextHolder.clearContext();
+                filterChain.doFilter(request, response);
+                return;
+            }
 
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
                 principalResolver.resolve(id, role, storefrontId).ifPresent(principal -> {
