@@ -78,6 +78,8 @@ class UserServiceTest {
     private EmailVerificationService emailVerificationService;
     @Mock
     private PasswordEncoder passwordEncoder;
+    @Mock
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @InjectMocks
     private UserService userService;

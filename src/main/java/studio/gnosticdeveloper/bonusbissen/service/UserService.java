@@ -9,6 +9,8 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementCallback;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -60,6 +62,7 @@ public class UserService {
     private final UserPointProgramRepository userPointProgramRepository;
     private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
+    private final JdbcTemplate jdbcTemplate;
 
     public UserService(
         UserRepository userRepository,
@@ -70,7 +73,8 @@ public class UserService {
         StorefrontRepository storefrontRepository,
         UserPointProgramRepository userPointProgramRepository,
         EmailVerificationService emailVerificationService,
-        PasswordEncoder passwordEncoder
+        PasswordEncoder passwordEncoder,
+        JdbcTemplate jdbcTemplate
     ) {
         this.userRepository = userRepository;
         this.pointTransactionRepository = pointTransactionRepository;
@@ -81,6 +85,7 @@ public class UserService {
         this.userPointProgramRepository = userPointProgramRepository;
         this.emailVerificationService = emailVerificationService;
         this.passwordEncoder = passwordEncoder;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     /** Resets the password of a currently-active staff account -- scoped to the calling admin's own organization. */
@@ -374,6 +379,12 @@ public class UserService {
         tx.setReward(reward);
         tx.setPointProgram(reward.getPointProgram());
 
+        // Balance is a SUM() over point_transactions, not a row we can SELECT ... FOR UPDATE,
+        // so concurrent claims racing the same check-then-insert can all see the same
+        // pre-redemption balance and all pass. Serialize per (user, program) with a
+        // transaction-scoped advisory lock instead -- released automatically on commit/rollback.
+        lockBalance(user.getId(), reward.getPointProgram().getId());
+
         if (getBalance(user.getId(), reward.getPointProgram().getId()) < reward.getCostPoints()) {
             throw new InsufficientPointsException("El cliente no tiene puntos suficientes para canjear \"" + reward.getTitle() + "\".");
         }
@@ -392,6 +403,16 @@ public class UserService {
         exchangeCode.setCode(generateExchangeCode());
         exchangeCodeRepository.save(exchangeCode);
         return new ClaimRewardResponse(exchangeCode.getCode());
+    }
+
+    /** Serializes balance-affecting reads/writes for one (user, program) pair for the rest of the current transaction. */
+    private void lockBalance(UUID userId, UUID programId) {
+        jdbcTemplate.execute("SELECT pg_advisory_xact_lock(?, ?)", (PreparedStatementCallback<Void>) ps -> {
+            ps.setInt(1, userId.hashCode());
+            ps.setInt(2, programId.hashCode());
+            ps.execute();
+            return null;
+        });
     }
 
     private String generateExchangeCode() {
