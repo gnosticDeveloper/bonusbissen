@@ -79,6 +79,8 @@ class UserServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
     @Mock
+    private TraceabilityService traceabilityService;
+    @Mock
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @InjectMocks

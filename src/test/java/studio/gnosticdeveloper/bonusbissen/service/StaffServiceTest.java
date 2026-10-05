@@ -43,6 +43,8 @@ class StaffServiceTest {
     private StorefrontRepository storefrontRepository;
     @Mock
     private SessionService sessionService;
+    @Mock
+    private TraceabilityService traceabilityService;
 
     @InjectMocks
     private StaffService staffService;
@@ -51,6 +53,7 @@ class StaffServiceTest {
     private static final UUID ORGANIZATION_ID = UUID.randomUUID();
     private static final UUID STOREFRONT_ID = UUID.randomUUID();
     private static final UUID STAFF_ID = UUID.randomUUID();
+    private static final UUID ACTING_USER_ID = UUID.randomUUID();
 
     private User activeUser() {
         User user = new User();
@@ -80,7 +83,7 @@ class StaffServiceTest {
         when(organizationStaffRepository.saveAndFlush(org.mockito.ArgumentMatchers.any())).thenAnswer(inv -> inv.getArgument(0));
 
         StaffCreateRequest request = new StaffCreateRequest(USER_ID, StaffRole.CASHIER, STOREFRONT_ID);
-        OrganizationStaff created = staffService.create(request, ORGANIZATION_ID);
+        OrganizationStaff created = staffService.create(request, ORGANIZATION_ID, ACTING_USER_ID);
 
         assertThat(created.getUser().getId()).isEqualTo(USER_ID);
         assertThat(created.getOrganization().getId()).isEqualTo(ORGANIZATION_ID);
@@ -96,7 +99,7 @@ class StaffServiceTest {
 
         StaffCreateRequest request = new StaffCreateRequest(USER_ID, StaffRole.ADMIN, null);
 
-        assertThatThrownBy(() -> staffService.create(request, ORGANIZATION_ID)).isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> staffService.create(request, ORGANIZATION_ID, ACTING_USER_ID)).isInstanceOf(ConflictException.class);
 
         verify(organizationStaffRepository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
     }
@@ -107,7 +110,7 @@ class StaffServiceTest {
 
         StaffCreateRequest request = new StaffCreateRequest(USER_ID, StaffRole.ADMIN, null);
 
-        assertThatThrownBy(() -> staffService.create(request, ORGANIZATION_ID)).isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> staffService.create(request, ORGANIZATION_ID, ACTING_USER_ID)).isInstanceOf(NotFoundException.class);
     }
 
     @Test
@@ -119,7 +122,7 @@ class StaffServiceTest {
 
         StaffCreateRequest request = new StaffCreateRequest(USER_ID, StaffRole.CASHIER, STOREFRONT_ID);
 
-        assertThatThrownBy(() -> staffService.create(request, ORGANIZATION_ID)).isInstanceOf(BadRequestException.class);
+        assertThatThrownBy(() -> staffService.create(request, ORGANIZATION_ID, ACTING_USER_ID)).isInstanceOf(BadRequestException.class);
     }
 
     @Test
@@ -159,7 +162,7 @@ class StaffServiceTest {
         staff.setUser(activeUser());
         when(organizationStaffRepository.findByIdAndOrganizationId(STAFF_ID, ORGANIZATION_ID)).thenReturn(Optional.of(staff));
 
-        staffService.revokeSessions(STAFF_ID, ORGANIZATION_ID);
+        staffService.revokeSessions(STAFF_ID, ORGANIZATION_ID, ACTING_USER_ID);
 
         verify(sessionService).revokeAllForUser(USER_ID);
         verify(organizationStaffRepository, never()).save(org.mockito.ArgumentMatchers.any());

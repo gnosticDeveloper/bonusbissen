@@ -1,5 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,6 +30,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
+import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
@@ -62,6 +64,7 @@ public class UserService {
     private final UserPointProgramRepository userPointProgramRepository;
     private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
+    private final TraceabilityService traceabilityService;
     private final JdbcTemplate jdbcTemplate;
 
     public UserService(
@@ -74,6 +77,7 @@ public class UserService {
         UserPointProgramRepository userPointProgramRepository,
         EmailVerificationService emailVerificationService,
         PasswordEncoder passwordEncoder,
+        TraceabilityService traceabilityService,
         JdbcTemplate jdbcTemplate
     ) {
         this.userRepository = userRepository;
@@ -85,6 +89,7 @@ public class UserService {
         this.userPointProgramRepository = userPointProgramRepository;
         this.emailVerificationService = emailVerificationService;
         this.passwordEncoder = passwordEncoder;
+        this.traceabilityService = traceabilityService;
         this.jdbcTemplate = jdbcTemplate;
     }
 
@@ -334,6 +339,15 @@ public class UserService {
         tx.setTransactionType(TransactionType.EARN);
         tx.setState(TransactionState.DELIVERED);
         tx = pointTransactionRepository.save(tx);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("points", request.points());
+        payload.put("storefrontId", storefrontId);
+        payload.put("programId", program.getId());
+        if (request.note() != null) {
+            payload.put("note", request.note());
+        }
+        traceabilityService.record(OperationType.POINTS_GRANT, employeeId, request.userId(), payload);
         return new UserPointsAwardResponse(tx.getUser().getName(), request.points());
     }
 
@@ -402,6 +416,13 @@ public class UserService {
         exchangeCode.setUser(user);
         exchangeCode.setCode(generateExchangeCode());
         exchangeCodeRepository.save(exchangeCode);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("rewardId", reward.getId());
+        payload.put("costPoints", reward.getCostPoints());
+        payload.put("programId", reward.getPointProgram().getId());
+        traceabilityService.record(OperationType.REWARD_CLAIM, user.getId(), user.getId(), payload);
+
         return new ClaimRewardResponse(exchangeCode.getCode());
     }
 
