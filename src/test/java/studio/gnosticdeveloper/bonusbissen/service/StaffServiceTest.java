@@ -22,6 +22,7 @@ import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
+import studio.gnosticdeveloper.bonusbissen.security.SessionService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -40,6 +41,8 @@ class StaffServiceTest {
     private UserRepository userRepository;
     @Mock
     private StorefrontRepository storefrontRepository;
+    @Mock
+    private SessionService sessionService;
 
     @InjectMocks
     private StaffService staffService;
@@ -137,6 +140,7 @@ class StaffServiceTest {
         OrganizationStaff staff = new OrganizationStaff();
         staff.setId(STAFF_ID);
         staff.setActive(true);
+        staff.setUser(activeUser());
         when(organizationStaffRepository.findByIdAndOrganizationId(STAFF_ID, ORGANIZATION_ID)).thenReturn(Optional.of(staff));
 
         staffService.deactivate(STAFF_ID, ORGANIZATION_ID);
@@ -144,5 +148,20 @@ class StaffServiceTest {
         ArgumentCaptor<OrganizationStaff> captor = ArgumentCaptor.forClass(OrganizationStaff.class);
         verify(organizationStaffRepository).save(captor.capture());
         assertThat(captor.getValue().isActive()).isFalse();
+        verify(sessionService).revokeAllForUser(USER_ID);
+    }
+
+    @Test
+    void revokeSessionsRevokesTargetUsersSessionsWithoutDeactivating() {
+        OrganizationStaff staff = new OrganizationStaff();
+        staff.setId(STAFF_ID);
+        staff.setActive(true);
+        staff.setUser(activeUser());
+        when(organizationStaffRepository.findByIdAndOrganizationId(STAFF_ID, ORGANIZATION_ID)).thenReturn(Optional.of(staff));
+
+        staffService.revokeSessions(STAFF_ID, ORGANIZATION_ID);
+
+        verify(sessionService).revokeAllForUser(USER_ID);
+        verify(organizationStaffRepository, never()).save(org.mockito.ArgumentMatchers.any());
     }
 }
