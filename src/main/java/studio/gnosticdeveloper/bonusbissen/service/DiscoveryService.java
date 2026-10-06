@@ -55,7 +55,12 @@ public class DiscoveryService {
         BusinessResponse business = storefrontRepository
             .findById(storefrontId)
             .map(storefront -> toBusiness(storefront, viewerUserId))
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la sucursal con ID " + storefrontId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar la sucursal con ID " + storefrontId + ".",
+                    "No pudimos encontrar la sucursal seleccionada."
+                )
+            );
         return business;
     }
 
@@ -72,7 +77,9 @@ public class DiscoveryService {
     public StorefrontDiscoverResponse getStorefrontBasicInfoById(UUID id) {
         return storefrontRepository
             .getBasicInfoById(id)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la sucursal con ID " + id + "."));
+            .orElseThrow(() ->
+                new NotFoundException("No se pudo encontrar la sucursal con ID " + id + ".", "No pudimos encontrar la sucursal seleccionada.")
+            );
     }
 
     private BusinessResponse toBusiness(Storefront storefront, UUID viewerUserId) {

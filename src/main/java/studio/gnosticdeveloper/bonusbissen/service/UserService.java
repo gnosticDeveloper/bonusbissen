@@ -88,11 +88,29 @@ public class UserService {
     public void resetPassword(UUID userId, String newPassword, UUID callerOrganizationId) {
         OrganizationStaff staff = organizationStaffRepository
             .findByUserIdAndActiveTrue(userId)
-            .orElseThrow(() -> new NotFoundException("Employee not found: " + userId));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "Active staff membership not found for user ID " + userId + ".",
+                    "No pudimos encontrar al empleado seleccionado."
+                )
+            );
+
         if (!staff.getOrganization().getId().equals(callerOrganizationId)) {
-            throw new NotFoundException("Employee not found: " + userId);
+            throw new NotFoundException(
+                "Staff member with user ID " + userId + " does not belong to organization " + callerOrganizationId + ".",
+                "No pudimos encontrar al empleado seleccionado."
+            );
         }
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("Employee not found: " + userId));
+
+        User user = userRepository
+            .findById(userId)
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "User with ID " + userId + " was not found while resetting staff password.",
+                    "No pudimos encontrar al empleado seleccionado."
+                )
+            );
+
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
     }
@@ -100,9 +118,14 @@ public class UserService {
     /** Self-service password change: any authenticated account, own password only, current password required. */
     @Transactional
     public void changeOwnPassword(UUID userId, String currentPassword, String newPassword) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("No se pudo encontrar un usuario con el ID " + userId + "."));
+        User user = userRepository
+            .findById(userId)
+            .orElseThrow(() ->
+                new NotFoundException("User with ID " + userId + " was not found while changing password.", "No pudimos encontrar tu usuario.")
+            );
+
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
-            throw new IncorrectPasswordException("La contraseña actual es incorrecta.");
+            throw new IncorrectPasswordException("User provided an incorrect current password.", "La contraseña actual es incorrecta.");
         }
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
@@ -122,12 +145,19 @@ public class UserService {
     public AdminUserInfoResponse getAdminUserInfo(UUID userId, UUID organizationId) {
         return userRepository
             .findAdminUserInfo(userId, organizationId)
-            .orElseThrow(() -> new NotFoundException("Staff membership not found or inactive"));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "Active staff membership was not found for user ID " + userId + " in organization " + organizationId + ".",
+                    "No pudimos encontrar al empleado seleccionado."
+                )
+            );
     }
 
     @Transactional(readOnly = true)
     public User getById(UUID id) {
-        return userRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
+        return userRepository
+            .findById(id)
+            .orElseThrow(() -> new NotFoundException("User with ID " + id + " was not found.", "No pudimos encontrar al cliente seleccionado."));
     }
 
     @Transactional(readOnly = true)
@@ -142,7 +172,11 @@ public class UserService {
      */
     @Transactional
     public User update(UUID id, UserUpdateRequest request) {
-        User user = userRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
+        User user = userRepository
+            .findById(id)
+            .orElseThrow(() ->
+                new NotFoundException("User with ID " + id + " was not found while updating profile.", "No pudimos encontrar tu usuario.")
+            );
 
         user.setName(request.name().trim());
 
@@ -156,7 +190,10 @@ public class UserService {
                     .findByEmail(newEmail)
                     .filter(other -> !other.getId().equals(id))
                     .ifPresent(other -> {
-                        throw new ConflictException("Ese email ya está registrado.");
+                        throw new ConflictException(
+                            "User attempted to change email to an address already associated with another account.",
+                            "Ese email ya está registrado."
+                        );
                     });
             }
             user.setEmail(newEmail);
@@ -175,19 +212,38 @@ public class UserService {
     public void resendOwnVerification(UUID userId) {
         User user = userRepository
             .findById(userId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + userId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "User with ID " + userId + " was not found while resending email verification.",
+                    "No pudimos encontrar tu usuario."
+                )
+            );
+
         if (user.getEmail() == null) {
-            throw new BadRequestException("Tu cuenta no tiene un email asociado.");
+            throw new BadRequestException(
+                "Email verification resend requested for an account without an email address.",
+                "Tu cuenta no tiene un email asociado."
+            );
         }
         if (user.isEmailVerified()) {
-            throw new BadRequestException("Tu email ya está verificado.");
+            throw new BadRequestException(
+                "Email verification resend requested for an already verified email address.",
+                "Tu email ya está verificado."
+            );
         }
         emailVerificationService.sendVerification(user);
     }
 
     @Transactional
     public User reactivate(UUID id) {
-        User user = userRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
+        User user = userRepository
+            .findById(id)
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "User with ID " + id + " was not found while reactivating account.",
+                    "No pudimos encontrar al cliente seleccionado."
+                )
+            );
 
         user.setActive(true);
         return userRepository.save(user);
@@ -195,7 +251,14 @@ public class UserService {
 
     @Transactional
     public void deleteById(UUID id) {
-        User user = userRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
+        User user = userRepository
+            .findById(id)
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "User with ID " + id + " was not found while deactivating account.",
+                    "No pudimos encontrar al cliente seleccionado."
+                )
+            );
 
         user.setActive(false);
         userRepository.save(user);
@@ -211,17 +274,34 @@ public class UserService {
     public int getBalanceByStorefront(UUID userId, UUID storefrontId) {
         Storefront storefront = storefrontRepository
             .findById(storefrontId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la sucursal con ID " + storefrontId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "Storefront with ID " + storefrontId + " was not found while resolving user balance.",
+                    "No pudimos encontrar el local seleccionado."
+                )
+            );
+
         PointProgram program = storefront.getPointProgram();
         if (program == null || !program.isActive()) {
-            throw new NotFoundException("Esta sucursal no tiene un programa de puntos activo.");
+            throw new NotFoundException(
+                "Storefront with ID " + storefrontId + " has no active point program.",
+                "Esta sucursal no tiene un programa de puntos activo."
+            );
         }
         return getBalance(userId, program.getId());
     }
 
     @Transactional(readOnly = true)
     public UserPointsResponse getUserPointsById(UUID id, UUID programId) {
-        User user = userRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + id + "."));
+        User user = userRepository
+            .findById(id)
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "User with ID " + id + " was not found while retrieving points.",
+                    "No pudimos encontrar al cliente seleccionado."
+                )
+            );
+
         Integer points = programId != null ? getBalance(id, programId) : null;
         return UserPointsResponse.from(user, points);
     }
@@ -253,7 +333,12 @@ public class UserService {
         return storefrontRepository
             .findById(storefrontId)
             .map(storefront -> storefront.getOrganization().getId())
-            .orElseThrow(() -> new NotFoundException("Storefront no encontrado: " + storefrontId));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "Storefront with ID " + storefrontId + " was not found while resolving organization.",
+                    "No pudimos encontrar el local seleccionado."
+                )
+            );
     }
 
     private Map<UUID, String> loadPendingExchangeCodes(List<PointTransaction> exchanges) {
@@ -296,27 +381,49 @@ public class UserService {
     @Transactional
     public UserPointsAwardResponse grantPoints(GrantPointsRequest request, UUID employeeId, UUID storefrontId) {
         if (storefrontId == null) {
-            throw new BadRequestException("Elegí un local antes de sumar puntos.");
+            throw new BadRequestException("Point grant attempted without a storefront.", "Elegí un local antes de sumar puntos.");
         }
 
         OrganizationStaff employee = organizationStaffRepository
             .findByUserIdAndActiveTrue(employeeId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + employeeId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "Active staff membership not found for employee user ID " + employeeId + ".",
+                    "No pudimos encontrar al empleado que intenta realizar la operación."
+                )
+            );
 
         User user = userRepository
             .findById(request.userId())
             .filter(User::isActive)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.userId() + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "Active customer with ID " + request.userId() + " was not found while granting points.",
+                    "No pudimos encontrar al cliente seleccionado."
+                )
+            );
 
         Storefront storefront = storefrontRepository
             .findById(storefrontId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar el local con el ID " + storefrontId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "Storefront with ID " + storefrontId + " was not found while granting points.",
+                    "No pudimos encontrar el local seleccionado."
+                )
+            );
+
         PointProgram program = storefront.getPointProgram();
         if (program == null || !program.isActive()) {
-            throw new BadRequestException("Este local no tiene un programa de puntos activo.");
+            throw new BadRequestException(
+                "Point grant attempted for storefront without an active point program.",
+                "Este local no tiene un programa de puntos activo."
+            );
         }
         if (!userPointProgramRepository.existsByUser_IdAndPointProgram_Id(request.userId(), program.getId())) {
-            throw new ConflictException("El cliente todavía no se unió a este programa de puntos.");
+            throw new ConflictException(
+                "Point grant attempted for a user who is not enrolled in the point program.",
+                "El cliente todavía no se unió a este programa de puntos."
+            );
         }
 
         PointTransaction tx = new PointTransaction();
@@ -350,10 +457,15 @@ public class UserService {
         PointTransaction tx = pointTransactionRepository
             .findById(transactionId)
             .filter(t -> t.getTransactionType() == TransactionType.EARN && t.getEmployee() != null)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un movimiento de puntos con el ID " + transactionId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "Point grant transaction with ID " + transactionId + " was not found or is not a valid employee grant.",
+                    "No pudimos encontrar el movimiento de puntos seleccionado."
+                )
+            );
 
         if (!tx.getEmployee().getOrganization().getId().equals(organizationId)) {
-            throw new AccessDeniedException("No podés operar sobre un movimiento de puntos de otra organización.");
+            throw new AccessDeniedException("Attempted to access point grant transaction " + transactionId + " from another organization.");
         }
 
         return tx;
@@ -365,17 +477,32 @@ public class UserService {
         User user = userRepository
             .findById(request.userId())
             .filter(User::isActive)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + request.userId() + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "Active customer with ID " + request.userId() + " was not found while claiming reward.",
+                    "No pudimos encontrar al cliente seleccionado."
+                )
+            );
+
         tx.setUser(user);
         Reward reward = rewardRepository
             .findById(request.rewardId())
             .filter(Reward::isActive)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar una recompensa con el ID " + request.rewardId() + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "Active reward with ID " + request.rewardId() + " was not found while processing claim.",
+                    "No pudimos encontrar la recompensa seleccionada."
+                )
+            );
+
         tx.setReward(reward);
         tx.setPointProgram(reward.getPointProgram());
 
         if (getBalance(user.getId(), reward.getPointProgram().getId()) < reward.getCostPoints()) {
-            throw new InsufficientPointsException("El cliente no tiene puntos suficientes para canjear \"" + reward.getTitle() + "\".");
+            throw new InsufficientPointsException(
+                "User with ID " + user.getId() + " has insufficient points to redeem reward with ID " + reward.getId() + ".",
+                "No tenés suficientes puntos para canjear \"" + reward.getTitle() + "\"."
+            );
         }
 
         int negativePoints = reward.getCostPoints() * -1;

@@ -55,15 +55,28 @@ public class StaffService {
         User user = userRepository
             .findById(request.userId())
             .filter(User::isActive)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un usuario con el ID " + request.userId() + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar un usuario con el ID " + request.userId() + ".",
+                    "No pudimos encontrar el usuario que ingresaste. Por favor, ingresa de nuevo."
+                )
+            );
 
         if (organizationStaffRepository.findByUserIdAndActiveTrue(user.getId()).isPresent()) {
-            throw new ConflictException("Este usuario ya es parte del staff de una organización.");
+            throw new ConflictException(
+                "Este usuario ya es parte del staff de una organización.",
+                "El usuario ya es parte del staff de una organización."
+            );
         }
 
         Organization organization = organizationRepository
             .findById(organizationId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la organización con ID " + organizationId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar la organización con ID " + organizationId + ".",
+                    "No pudimos encontrar la organización que ingresaste. Por favor, ingresa de nuevo."
+                )
+            );
 
         OrganizationStaff staff = new OrganizationStaff();
         staff.setUser(user);
@@ -116,13 +129,23 @@ public class StaffService {
     private OrganizationStaff getOwned(UUID staffId, UUID organizationId) {
         return organizationStaffRepository
             .findByIdAndOrganizationId(staffId, organizationId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + staffId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar un empleado con el ID " + staffId + ".",
+                    "No pudimos encontrar el empleado que ingresaste. Por favor, ingresa de nuevo."
+                )
+            );
     }
 
     private Storefront resolveOwnedStorefront(UUID storefrontId, UUID organizationId) {
         return storefrontRepository
             .findByIdAndOrganizationId(storefrontId, organizationId)
-            .orElseThrow(() -> new BadRequestException("El local " + storefrontId + " no pertenece a esta organización."));
+            .orElseThrow(() ->
+                new BadRequestException(
+                    "El local " + storefrontId + " no pertenece a esta organización.",
+                    "El local no pertenece a esta organización. Por favor, ingresa de nuevo."
+                )
+            );
     }
 
     private Set<Storefront> resolveOwnedStorefronts(List<UUID> storefrontIds, UUID organizationId) {
@@ -134,7 +157,12 @@ public class StaffService {
             resolved.add(
                 storefrontRepository
                     .findByIdAndOrganizationId(storefrontId, organizationId)
-                    .orElseThrow(() -> new BadRequestException("El local " + storefrontId + " no pertenece a esta organización."))
+                    .orElseThrow(() ->
+                        new BadRequestException(
+                            "El local " + storefrontId + " no pertenece a esta organización.",
+                            "El local no pertenece a esta organización. Por favor, ingresa de nuevo."
+                        )
+                    )
             );
         }
         return resolved;
@@ -144,7 +172,10 @@ public class StaffService {
         try {
             return organizationStaffRepository.saveAndFlush(staff);
         } catch (DataIntegrityViolationException e) {
-            throw new ConflictException("Este usuario ya es parte del staff de una organización.");
+            throw new ConflictException(
+                "Este usuario ya es parte del staff de una organización.",
+                "El usuario ya es parte del staff de una organización."
+            );
         }
     }
 }

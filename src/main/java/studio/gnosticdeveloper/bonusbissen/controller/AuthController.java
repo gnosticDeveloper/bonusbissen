@@ -213,7 +213,7 @@ public class AuthController {
     public void revokeSession(@PathVariable UUID sessionId, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         requireAuthenticated(principal);
         if (!sessionService.revokeSession(principal.id(), sessionId)) {
-            throw new NotFoundException("No se pudo encontrar esa sesión.");
+            throw new NotFoundException("No se pudo encontrar esa sesión.", "No pudimos encontrar la sesión que ingresaste. Por favor, ingresa de nuevo.");
         }
     }
 
@@ -238,7 +238,7 @@ public class AuthController {
 
     private void requireCsrfHeader(HttpServletRequest req) {
         if (!CSRF_HEADER_VALUE.equals(req.getHeader(CSRF_HEADER))) {
-            throw new BadRequestException("Solicitud inválida.");
+            throw new BadRequestException("Solicitud inválida.", "La solicitud no es válida. Por favor, ingresa de nuevo.");
         }
     }
 

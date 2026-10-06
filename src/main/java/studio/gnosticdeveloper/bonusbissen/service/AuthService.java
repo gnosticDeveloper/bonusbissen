@@ -91,11 +91,11 @@ public class AuthService {
         User user = userRepository
             .findById(userId)
             .filter(User::isActive)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un usuario con el ID " + userId + "."));
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un usuario con el ID " + userId + ".", "No pudimos encontrar el usuario que ingresaste. Por favor, ingresa de nuevo."));
 
         OrganizationStaff staff = organizationStaffRepository
             .findByUserIdAndActiveTrue(userId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + userId + "."));
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + userId + ".", "No pudimos encontrar a ese empleado en el local."));
 
         boolean assigned = staff.getStorefronts().stream()
             .anyMatch(s -> s.getId().equals(storefrontId) && s.getOrganization().getId().equals(staff.getOrganization().getId()));
@@ -112,12 +112,12 @@ public class AuthService {
     public LoginResult registerUser(UserRegisterRequest request, String userAgent) {
         String username = request.username().trim().toLowerCase(Locale.ROOT);
         if (userRepository.existsByUsername(username)) {
-            throw new ConflictException("Ese nombre de usuario ya está en uso.");
+            throw new ConflictException("Username " + username + " is already being used.", "El nombre de usuario " + username + " ya está ocupado. Por favor elige otro.");
         }
 
         String email = EmailVerificationService.normalizeEmail(request.email());
         if (email != null && userRepository.existsByEmail(email)) {
-            throw new ConflictException("Ese email ya está registrado.");
+            throw new ConflictException("Email " + email + " is already registered.", "El email " + email + " ya está registrado en nuestro sistema. Por favor, usa otro correo.");
         }
 
         User user = new User();
