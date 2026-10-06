@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { getDashboardSessionToken } from "./auth/session";
+import { ProblemDetail } from "./definitions";
 
 export class ApiError extends Error {
   code?: string;
@@ -29,9 +31,17 @@ export const request = async <T>(path: string, init?: RequestInit): Promise<Acti
         ...init?.headers,
         Authorization: `Bearer ${token}`,
       },
-      cache: "no-store",
     });
-    if (!response.ok) return { ok: false, error: "No pudimos completar la solicitud." };
+    if (!response.ok) {
+      const rawResponse = await response.text();
+      let problemDetail: ProblemDetail | null;
+      try {
+        problemDetail = JSON.parse(rawResponse);
+      } catch {
+        problemDetail = null;
+      }
+      return { ok: false, error: problemDetail?.detail ?? "No pudimos completar la solicitud." };
+    }
     const text = await response.text();
     return { ok: true, data: (text ? JSON.parse(text) : undefined) as T };
   } catch {
@@ -40,10 +50,9 @@ export const request = async <T>(path: string, init?: RequestInit): Promise<Acti
 };
 
 export const dashboardRequest = async <T>(path: string, init?: RequestInit): Promise<ActionResult<T>> => {
-  const cookiesStore = await cookies();
-  const token = cookiesStore.get("d_token")?.value;
+  const token = await getDashboardSessionToken();
 
-  if (!token) redirect("/sign-in");
+  if (!token) redirect("/d/sign-in");
 
   const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
   try {
@@ -53,9 +62,17 @@ export const dashboardRequest = async <T>(path: string, init?: RequestInit): Pro
         ...init?.headers,
         Authorization: `Bearer ${token}`,
       },
-      cache: "no-store",
     });
-    if (!response.ok) return { ok: false, error: "No pudimos completar la solicitud." };
+    if (!response.ok) {
+      const rawResponse = await response.text();
+      let problemDetail: ProblemDetail | null;
+      try {
+        problemDetail = JSON.parse(rawResponse);
+      } catch {
+        problemDetail = null;
+      }
+      return { ok: false, error: problemDetail?.detail ?? "No pudimos completar la solicitud." };
+    }
     const text = await response.text();
     return { ok: true, data: (text ? JSON.parse(text) : undefined) as T };
   } catch {
