@@ -123,12 +123,15 @@ public class AuthController {
     @PostMapping("/storefront")
     public LoginResponse selectStorefront(
         @Valid @RequestBody SelectStorefrontRequest request,
-        @AuthenticationPrincipal AuthenticatedPrincipal principal
+        @AuthenticationPrincipal AuthenticatedPrincipal principal,
+        HttpServletRequest req
     ) {
         if (principal == null || !List.of("ADMIN", "CASHIER").contains(principal.role())) {
             throw new AccessDeniedException("Necesitás iniciar sesión como empleado.");
         }
-        return authService.selectStorefront(principal.id(), request.storefrontId());
+        LoginResponse response = authService.selectStorefront(principal.id(), request.storefrontId());
+        readCookie(req).ifPresent(raw -> sessionService.updateStorefront(raw, request.storefrontId()));
+        return response;
     }
 
     @PostMapping("/verify-email")

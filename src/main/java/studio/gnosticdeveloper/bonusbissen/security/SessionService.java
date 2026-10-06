@@ -155,6 +155,23 @@ public class SessionService {
         return Optional.of(new Rotated(userId, username, role, organizationId, storefrontId, newRaw));
     }
 
+    /**
+     * Updates the active storefront stored on the session tied to {@code rawToken}, so a
+     * later {@link #rotate} picks up the switch instead of reverting to whatever storefront
+     * was active at login. No-op if the token doesn't match a live session.
+     */
+    public void updateStorefront(String rawToken, UUID storefrontId) {
+        String sessionId = redis.opsForValue().get(REFRESH_PREFIX + hash(rawToken));
+        if (sessionId == null) {
+            return;
+        }
+        String sessionKey = SESSION_PREFIX + sessionId;
+        if (!Boolean.TRUE.equals(redis.hasKey(sessionKey))) {
+            return;
+        }
+        redis.opsForHash().put(sessionKey, "storefrontId", storefrontId.toString());
+    }
+
     /** Ends the session tied to {@code rawToken}. No-op if it's already gone. */
     public void logout(String rawToken) {
         String hash = hash(rawToken);
