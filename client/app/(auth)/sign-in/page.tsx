@@ -2,8 +2,8 @@
 
 import { SubmitEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "@/app/(auth)/sign-in/actions";
-import { ArrowRight, Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
+import { requestLoginLink, signIn } from "@/app/(auth)/sign-in/actions";
+import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, UserRound } from "lucide-react";
 import Link from "next/link";
 import { BrandLockup } from "@/components/brand";
 import { Spinner } from "@/components/spinner";
@@ -22,24 +22,53 @@ function SignInForm() {
   const searchParams = useSearchParams();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [method, setMethod] = useState<"password" | "email">("password");
+  const [linkSent, setLinkSent] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  function chooseMethod(nextMethod: "password" | "email") {
+    if (loading) return;
+    if (nextMethod === "email" && !email && identifier.includes("@")) setEmail(identifier);
+    setMethod(nextMethod);
+    setError("");
+    setLinkSent(false);
+  }
+
   async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
-    const formData = new FormData();
-    formData.set("identifier", identifier);
-    formData.set("password", password);
+    if (loading) return;
 
     setLoading(true);
     setError("");
+
+    if (method === "email") {
+      try {
+        const result = await requestLoginLink(email.trim());
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        setLinkSent(true);
+      } catch {
+        setError("No pudimos enviar el enlace. Intentá de nuevo en un ratito.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    const formData = new FormData();
+    formData.set("identifier", identifier);
+    formData.set("password", password);
 
     let result;
     try {
       result = await signIn(formData);
     } catch {
-      setError("Hubo un problema al iniciar sesión");
+      setError("Hubo un problema al iniciar sesión. Intentá de nuevo.");
       setLoading(false);
       return;
     }
@@ -68,57 +97,114 @@ function SignInForm() {
 
       <p className="mb-8.5 max-w-72.5 text-[13px] leading-[1.55] text-muted">Sumá puntos, descubrí recompensas y disfrutá más cada visita.</p>
 
+      <div className="mb-5 grid grid-cols-2 gap-2 rounded-[15px] border border-border bg-card p-1" role="group" aria-label="Elegí cómo ingresar">
+        <button
+          type="button"
+          onClick={() => chooseMethod("password")}
+          disabled={loading}
+          aria-pressed={method === "password"}
+          className={`rounded-[12px] px-2 py-3 text-[13px] font-bold disabled:opacity-65 ${method === "password" ? "bg-primary text-primary-foreground" : "text-muted"}`}
+        >
+          Con contraseña
+        </button>
+        <button
+          type="button"
+          onClick={() => chooseMethod("email")}
+          disabled={loading}
+          aria-pressed={method === "email"}
+          className={`rounded-[12px] px-2 py-3 text-[13px] font-bold disabled:opacity-65 ${method === "email" ? "bg-primary text-primary-foreground" : "text-muted"}`}
+        >
+          Enlace por email
+        </button>
+      </div>
+
       <form onSubmit={handleSubmit} className="grid gap-3">
-        <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-muted">
-          <UserRound size={17} />
-          <input
-            name="identifier"
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-            placeholder="Usuario o email"
-            autoComplete="username"
-            required
-            className="h-13 w-full border-0 bg-transparent text-[13px] text-foreground outline-none"
-          />
-        </label>
+        {method === "password" ? (
+          <>
+            <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-muted">
+              <UserRound size={17} />
+              <input
+                name="identifier"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="Usuario o email"
+                aria-label="Usuario o email"
+                autoComplete="username"
+                required
+                className="h-13 w-full border-0 bg-transparent text-[13px] text-foreground outline-none"
+              />
+            </label>
 
-        <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-muted">
-          <LockKeyhole size={17} />
-          <input
-            name="password"
-            type={showPassword ? "text" : "password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Contraseña"
-            autoComplete="current-password"
-            required
-            className="h-13 w-full border-0 bg-transparent text-[13px] text-foreground outline-none"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((prev) => !prev)}
-            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-            className="shrink-0 py-3 pl-3 pr-1.5 text-muted transition-colors hover:text-foreground"
-          >
-            {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-          </button>
-        </label>
+            <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-muted">
+              <LockKeyhole size={17} />
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Contraseña"
+                aria-label="Contraseña"
+                autoComplete="current-password"
+                required
+                className="h-13 w-full border-0 bg-transparent text-[13px] text-foreground outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                className="flex h-11 w-11 shrink-0 items-center justify-center text-muted transition-colors hover:text-foreground"
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </label>
+          </>
+        ) : (
+          <>
+            <p className="text-[13px] leading-relaxed text-muted">Te vamos a mandar un enlace para entrar sin contraseña.</p>
+            <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-muted">
+              <Mail size={17} />
+              <input
+                name="email"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setLinkSent(false);
+                }}
+                placeholder="Tu email"
+                aria-label="Tu email"
+                autoComplete="email"
+                required
+                className="h-13 w-full border-0 bg-transparent text-[13px] text-foreground outline-none"
+              />
+            </label>
+          </>
+        )}
 
-        {error && <p className="text-[11px] text-[#d75877]">{error}</p>}
+        {error && (
+          <p role="alert" className="text-[12px] text-foreground">
+            {error}
+          </p>
+        )}
+        {method === "email" && linkSent && (
+          <p role="status" className="rounded-[15px] border border-border bg-card p-4 text-[13px] leading-relaxed text-foreground">
+            Si ese email está registrado, vas a recibir un enlace para ingresar. Revisá también la carpeta de spam.
+          </p>
+        )}
 
         <button
           type="submit"
           disabled={loading}
-          className="mt-1.5 flex h-13 items-center justify-between rounded-[15px] bg-primary px-4.5 text-[13px] font-bold text-white disabled:opacity-65"
+          className="mt-1.5 flex h-13 items-center justify-between rounded-[15px] bg-primary px-4.5 text-[13px] font-bold text-primary-foreground disabled:opacity-65"
         >
           {loading ? (
             <>
-              <span>Ingresando...</span>
+              <span>{method === "email" ? "Enviando..." : "Ingresando..."}</span>
               <Spinner />
             </>
           ) : (
             <>
-              <span>Ingresar</span>
+              <span>{method === "email" ? (linkSent ? "Reenviar enlace" : "Enviar enlace") : "Ingresar"}</span>
               <ArrowRight size={17} />
             </>
           )}
@@ -126,12 +212,12 @@ function SignInForm() {
       </form>
 
       <p className="mt-6.25 mb-2 text-center text-sm leading-normal text-muted">
-        ¿Aún no eres parte de BonusBissen?{" "}
-        <Link href={`/sign-up${authQuery}`} className="font-bold text-primary no-underline">
+        ¿Todavía no sos parte de BonusBissen?{" "}
+        <Link href={`/sign-up${authQuery}`} className="inline-flex min-h-11 items-center font-bold text-primary no-underline">
           Registrate
         </Link>
       </p>
-      <Link href="/d/sign-in" className="mt-auto text-center text-[11px] leading-normal font-bold text-primary no-underline">
+      <Link href="/d/sign-in" className="mt-auto flex min-h-11 items-center justify-center text-center text-[11px] leading-normal font-bold text-primary no-underline">
         Ingresar al panel administrativo
       </Link>
     </main>
