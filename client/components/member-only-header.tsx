@@ -2,8 +2,7 @@
 
 import { resolveAssetUrl } from "@/lib/helpers/assets";
 import type { StorefrontDiscoverInfo } from "@/lib/types/storefront";
-import { useUIStore } from "@/lib/ui-store";
-import { Menu } from "lucide-react";
+
 
 const HEADER_PARTICLE_SEEDS = Array.from({ length: 14 }, (_, index) => index);
 
@@ -34,8 +33,6 @@ function formatCssNumber(value: number, unit: string, decimals = 3) {
 }
 
 export function MemberOnlyHeader({ storefront }: { storefront: StorefrontDiscoverInfo }) {
-  const openMenu = useUIStore((state) => state.openMenu); // ver pregunta sobre el nombre del método
-
   const iconUrl = resolveAssetUrl(storefront.iconUrl);
   const storefrontSeed = hashString(storefront.id);
 
@@ -99,14 +96,6 @@ export function MemberOnlyHeader({ storefront }: { storefront: StorefrontDiscove
         ))}
       </div>
 
-      <button
-        type="button"
-        onClick={openMenu}
-        aria-label="Abrir menú"
-        className="absolute right-4 top-4 z-20 grid size-10 place-items-center rounded-full text-foreground transition-colors hover:bg-foreground/5"
-      >
-        <Menu size={20} aria-hidden="true" />
-      </button>
 
       <div className="relative z-10 mx-auto flex max-w-107.5 items-center justify-center gap-x-3">
         <div

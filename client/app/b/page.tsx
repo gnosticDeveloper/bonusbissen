@@ -1,23 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Menu, UserRound } from "lucide-react";
+import { UserRound } from "lucide-react";
 import { PointsCard } from "@/components/points-card";
 import { BusinessList } from "@/components/business-list";
-import { useUIStore } from "@/lib/ui-store";
+
 import { PointsResponse } from "@/lib/definitions";
 import { getPoints } from "@/app/b/actions";
 import { CitySelect } from "@/components/city-select";
 import { useBusinesses } from "@/hooks/use-businesses";
 import { useUser } from "@/providers/user-provider";
+import { useSelectedCity } from "@/lib/preference-store";
 
 export default function MainHomePage() {
-  const openMenu = useUIStore((state) => state.openMenu);
   const user = useUser();
 
   const [points, setPoints] = useState<PointsResponse | null>(null);
   const [pointsError, setPointsError] = useState(false);
-  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const selectedCity = useSelectedCity();
 
   const { businesses, loading, error } = useBusinesses({ size: 3, city: selectedCity, page: 0 });
 
@@ -45,22 +45,7 @@ export default function MainHomePage() {
             <strong className="block text-sm tracking-[-0.2px] text-foreground">{user?.name ?? "Tu cuenta"}</strong>
           </div>
         </div>
-        <div className="relative z-1 flex items-center gap-1.5">
-          {/* Note: commented since we are not implementing notifications in the first release. */}
-          {/*<button
-            aria-label="Notificaciones"
-            className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-foreground transition-colors duration-240"
-          >
-            <Bell size={19} />
-          </button>*/}
-          <button
-            aria-label="Abrir menú"
-            onClick={openMenu}
-            className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-foreground transition-colors duration-240"
-          >
-            <Menu size={20} />
-          </button>
-        </div>
+
       </header>
 
       <PointsCard points={pointsError ? null : points} />
@@ -72,7 +57,7 @@ export default function MainHomePage() {
             {selectedCity ? `Ahora en ${selectedCity}` : "Descubrí negocios"}
           </h2>
         </div>
-        <CitySelect value={selectedCity} onChange={setSelectedCity} />
+        <CitySelect />
       </section>
 
       <BusinessList
