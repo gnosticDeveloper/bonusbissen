@@ -5,20 +5,16 @@ import { BusinessList } from "@/components/business-list";
 import { PaginationControls } from "@/components/pagination-controls";
 import { useBusinesses } from "@/hooks/use-businesses";
 import { useRef, useState } from "react";
+import { useSelectedCity } from "@/lib/preference-store";
 
 const PAGE_SIZE = 10;
 
 export default function DescubrirPage() {
-  const [city, setCity] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const listTopRef = useRef<HTMLDivElement>(null);
+  const city = useSelectedCity();
 
   const { businesses, totalPages, loading, error } = useBusinesses({ size: PAGE_SIZE, city, page });
-
-  function handleCityChange(nextCity: string | null) {
-    setCity(nextCity);
-    setPage(0);
-  }
 
   function handlePageChange(nextPage: number) {
     setPage(nextPage);
@@ -33,7 +29,7 @@ export default function DescubrirPage() {
       </header>
 
       <div className="mb-5 px-5 self-end">
-        <CitySelect value={city} onChange={handleCityChange} />
+        <CitySelect />
       </div>
 
       <div ref={listTopRef} />
