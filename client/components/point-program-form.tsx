@@ -110,7 +110,7 @@ export function PointProgramForm({
       </div>
 
       {isEdit && (
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm w-fit">
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="size-4 accent-primary" />
           Programa activo
         </label>

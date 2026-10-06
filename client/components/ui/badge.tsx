@@ -4,10 +4,10 @@ import type { HTMLAttributes } from 'react'
 type Tone = 'neutral' | 'success' | 'warning' | 'destructive' | 'primary'
 
 const toneClasses: Record<Tone, string> = {
-  neutral: 'bg-muted text-muted-foreground',
-  success: 'bg-success/15 text-success',
-  warning: 'bg-warning/20 text-warning-foreground',
-  destructive: 'bg-destructive/15 text-destructive',
+  neutral: 'bg-muted text-muted',
+  success: 'bg-green-500/15 text-green-500',
+  warning: 'bg-amber-500/20 text-amber-500',
+  destructive: 'bg-red-500/15 text-red-500',
   primary: 'bg-primary/15 text-primary',
 }
 
