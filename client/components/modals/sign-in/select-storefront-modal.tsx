@@ -24,10 +24,14 @@ export function SelectStorefrontModal({ storefronts }: SelectStorefrontModalProp
     setErrorMessage(null);
 
     try {
-      await selectStorefront(id);
+      const result = await selectStorefront(id);
+      if (!result.success) {
+        setErrorMessage(result.error);
+        return;
+      }
       router.push(`/d/${id}/inicio`);
       close();
-    } catch (e) {
+    } catch {
       setErrorMessage("Algo salió mal. Por favor intenta nuevamente en unos segundos.");
     } finally {
       setLoading(false);
