@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { getAllOrganizations, OrganizationOption, selectStorefront, signIn } from "@/app/d/sign-in/actions";
+import { getAllOrganizations, OrganizationOption, signIn } from "@/app/d/sign-in/actions";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
 import Link from "next/link";
 import { BrandLockup } from "@/components/brand";
@@ -29,7 +29,6 @@ export default function DashboardSignInPage() {
       return;
     }
     if (result.data.storefronts.length === 1) {
-      await selectStorefront(result.data.storefronts[0].id);
       router.push(`/d/${result.data.storefronts[0].id}/inicio`);
     } else {
       open(<SelectStorefrontModal storefronts={result.data.storefronts} />, {
