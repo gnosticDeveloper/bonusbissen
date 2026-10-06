@@ -77,7 +77,11 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
                   Movimientos de <span className="font-medium text-foreground">{selected.name}</span>
                 </p>
               ) : (
-                <p className="mt-1 text-xs text-muted">Todas las operaciones de puntos del local.</p>
+                <div className="flex items-center gap-x-1 mt-1 text-xs">
+                    <p className="text-muted">{visibleActions.length > 1 ? `Últimas ${visibleActions.length} operaciones` : `Última operación`} de puntos del local.</p>
+                  {/* TODO: this should link to the full history. Main components neeeds to be refactored to accept a slug or we need to handle the current slug via context/tanstack query -- anything that is persistent. */}
+                  {/*<Link href="#" className="text-primary underline cursor-pointer">Ver todo</Link>*/}
+                </div>
               )}
             </div>
 
