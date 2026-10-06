@@ -103,7 +103,7 @@ function SignInForm() {
           onClick={() => chooseMethod("password")}
           disabled={loading}
           aria-pressed={method === "password"}
-          className={`rounded-[12px] px-2 py-3 text-[13px] font-bold disabled:opacity-65 ${method === "password" ? "bg-primary text-primary-foreground" : "text-muted"}`}
+          className={`rounded-xl px-2 py-3 text-[13px] font-bold disabled:opacity-65 ${method === "password" ? "bg-primary text-primary-foreground" : "text-muted"}`}
         >
           Con contraseña
         </button>
@@ -112,7 +112,7 @@ function SignInForm() {
           onClick={() => chooseMethod("email")}
           disabled={loading}
           aria-pressed={method === "email"}
-          className={`rounded-[12px] px-2 py-3 text-[13px] font-bold disabled:opacity-65 ${method === "email" ? "bg-primary text-primary-foreground" : "text-muted"}`}
+          className={`rounded-xl px-2 py-3 text-[13px] font-bold disabled:opacity-65 ${method === "email" ? "bg-primary text-primary-foreground" : "text-muted"}`}
         >
           Enlace por email
         </button>
