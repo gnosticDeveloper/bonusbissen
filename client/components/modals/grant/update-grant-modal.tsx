@@ -3,19 +3,16 @@
 import { updateGrant, UpdateGrantRequest } from "@/app/d/[slug]/administrar-puntos/actions";
 import { PointAction } from "@/app/d/types";
 import { useModal } from "@/components/modal";
-import { Spinner } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
-import { SubmitEvent, useState } from "react";
+import { formatPoints } from "@/lib/helpers/format";
+import { SubmitEvent } from "react";
 
 export function UpdateGrantModal({ a, onSucceed }: { a: PointAction; onSucceed?: (a: PointAction) => void }) {
-  const { close } = useModal();
-  const [loading, setLoading] = useState(false);
+  const { close, runAction } = useModal();
 
   const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
-
     const formData = new FormData(e.target);
 
     const values: UpdateGrantRequest = {
@@ -23,18 +20,19 @@ export function UpdateGrantModal({ a, onSucceed }: { a: PointAction; onSucceed?:
       note: formData.get("note")?.toString(),
     };
 
-    try {
-      const res = await updateGrant(a.id, values);
+    const result = await runAction(() => updateGrant(a.id, values), {
+      loading: {
+        title: "Actualizando puntos",
+        description: `Estamos actualizando el movimiento de ${a.userName}.`,
+      },
+      success: (updated) => ({
+        title: "Movimiento actualizado",
+        description: `El movimiento de ${formatPoints(updated.amount)} puntos para ${updated.userName} fue actualizado.`,
+      }),
+      errorTitle: "No pudimos actualizar los puntos",
+    });
 
-      if (res.ok) {
-        onSucceed?.(res.data);
-        close();
-        return;
-      }
-    } catch {
-    } finally {
-      setLoading(false);
-    }
+    if (result.ok) onSucceed?.(result.data);
   };
 
   return (
@@ -45,7 +43,7 @@ export function UpdateGrantModal({ a, onSucceed }: { a: PointAction; onSucceed?:
           name="points"
           required
           defaultValue={a.amount}
-          className="h-11 rounded-xl border-border bg-background px-3.5 text-sm shadow-none placeholder:text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+          className="h-11 rounded-xl border-border bg-background px-3.5 text-sm shadow-none placeholder:text-foreground/70 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-foreground/70"
         />
       </label>
 
@@ -55,7 +53,7 @@ export function UpdateGrantModal({ a, onSucceed }: { a: PointAction; onSucceed?:
           name="note"
           defaultValue={a.note}
           placeholder="Agrega una nota (opcional)"
-          className="min-h-24 resize-none rounded-xl border-border bg-background px-3.5 py-3 text-sm shadow-none placeholder:text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+          className="min-h-24 resize-none rounded-xl border-border bg-background px-3.5 py-3 text-sm shadow-none placeholder:text-foreground/70 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-foreground/70"
         />
       </label>
 
@@ -64,24 +62,15 @@ export function UpdateGrantModal({ a, onSucceed }: { a: PointAction; onSucceed?:
           type="button"
           variant="outline"
           onClick={close}
-          disabled={loading}
           className="h-11 rounded-xl border-border bg-card text-sm text-foreground hover:bg-background"
         >
           Cancelar
         </Button>
         <Button
           type="submit"
-          disabled={loading}
           className="h-11 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:bg-primary/90 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60"
         >
-          {loading ? (
-            <>
-              <Spinner />
-              Guardando...
-            </>
-          ) : (
-            "Confirmar"
-          )}
+          Confirmar
         </Button>
       </div>
     </form>
