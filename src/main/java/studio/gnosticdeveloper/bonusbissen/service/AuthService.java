@@ -2,6 +2,7 @@ package studio.gnosticdeveloper.bonusbissen.service;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,6 +17,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.UserLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserRegisterRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.LoginResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.StorefrontSummary;
+import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
@@ -35,6 +37,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final SessionService sessionService;
+    private final TraceabilityService traceabilityService;
 
     public AuthService(
         OrganizationStaffRepository organizationStaffRepository,
@@ -42,7 +45,8 @@ public class AuthService {
         EmailVerificationService emailVerificationService,
         PasswordEncoder passwordEncoder,
         JwtService jwtService,
-        SessionService sessionService
+        SessionService sessionService,
+        TraceabilityService traceabilityService
     ) {
         this.organizationStaffRepository = organizationStaffRepository;
         this.userRepository = userRepository;
@@ -50,6 +54,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.sessionService = sessionService;
+        this.traceabilityService = traceabilityService;
     }
 
     /** A JWT paired with the raw refresh token for the session just created, so the controller can set the cookie. */
@@ -127,6 +132,7 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setEmailVerified(false);
         user = userRepository.save(user);
+        traceabilityService.record(OperationType.USER_CREATE, user.getId(), user.getId(), Map.of("username", user.getUsername()));
 
         if (email != null) {
             emailVerificationService.sendVerification(user);

@@ -80,7 +80,7 @@ public class PointTransactionController {
     @PostMapping("/verify")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     public ExchangeResponse verifyExchange(@RequestBody ExchangeVerifyRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return pointTransactionService.verifyExchange(request.code(), principal.organizationId(), principal.storefrontId());
+        return pointTransactionService.verifyExchange(request.code(), principal.organizationId(), principal.storefrontId(), principal.id());
     }
 
     @PostMapping("/cancel")
