@@ -35,7 +35,7 @@ export function ThemeToggle({ color }: { color?: string }) {
 
   return (
     <div
-      className="mx-4 mt-4 flex items-center justify-between rounded-2xl bg-background p-4"
+      className="mx-4 flex items-center justify-between rounded-2xl bg-background p-4"
       style={{ "--theme-toggle-accent": color || "var(--primary)" } as React.CSSProperties}
     >
       <div className="flex items-center gap-3">
