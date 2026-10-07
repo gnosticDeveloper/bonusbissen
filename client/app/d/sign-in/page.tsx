@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { getAllOrganizations, OrganizationOption, signIn } from "@/app/d/sign-in/actions";
@@ -9,7 +10,12 @@ import { BrandLockup } from "@/components/brand";
 import { Spinner } from "@/components/spinner";
 import { Autocomplete } from "@/components/autocomplete-input";
 import { useModal } from "@/components/modal";
-import { SelectStorefrontModal } from "@/components/modals/sign-in/select-storefront-modal";
+import { ModalContentLoader } from "@/components/modals/action-status-modal";
+
+const SelectStorefrontModal = dynamic(
+  () => import("@/components/modals/sign-in/select-storefront-modal").then((module) => module.SelectStorefrontModal),
+  { loading: () => <ModalContentLoader label="Cargando locales…" /> },
+);
 
 export default function DashboardSignInPage() {
   const router = useRouter();
@@ -29,7 +35,7 @@ export default function DashboardSignInPage() {
       return;
     }
     if (result.data.storefronts.length === 1) {
-      router.push(`/d/${result.data.storefronts[0].id}/inicio`);
+      router.replace(`/d/${result.data.storefronts[0].id}/inicio`);
     } else {
       open(<SelectStorefrontModal storefronts={result.data.storefronts} />, {
         title: "Selecciona un local donde entrar",
@@ -47,10 +53,10 @@ export default function DashboardSignInPage() {
       <h1 className="mt-4.25 mb-3 text-[38px] leading-none text-foreground">
         Panel
         <br />
-        <em className="text-primary not-italic">administrativo.</em>
+        <em className="text-foreground not-italic">administrativo.</em>
       </h1>
 
-      <p className="mb-8.5 max-w-72.5 text-[13px] leading-[1.55] text-muted">Elegí tu negocio para gestionar puntos, canjes y recompensas.</p>
+      <p className="mb-8.5 max-w-72.5 text-[13px] leading-[1.55] text-foreground/80">Elegí tu negocio para gestionar puntos, canjes y recompensas.</p>
 
       <div className="mb-3">
         <Autocomplete<OrganizationOption>
@@ -68,7 +74,7 @@ export default function DashboardSignInPage() {
         <form action={handleSubmit} className="grid gap-3">
           <input type="hidden" name="organizationId" value={org.id} />
 
-          <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-muted">
+          <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-foreground/80">
             <UserRound size={17} />
             <input
               name="identifier"
@@ -79,7 +85,7 @@ export default function DashboardSignInPage() {
             />
           </label>
 
-          <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-muted">
+          <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-foreground/80">
             <LockKeyhole size={17} />
             <input
               name="password"
@@ -93,18 +99,18 @@ export default function DashboardSignInPage() {
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
               aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-              className="shrink-0 py-3 pl-3 pr-1.5 text-muted transition-colors hover:text-foreground"
+              className="shrink-0 py-3 pl-3 pr-1.5 text-foreground/80 transition-colors hover:text-foreground"
             >
               {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
             </button>
           </label>
 
-          {error && <p className="text-[11px] text-[#d75877]">{error}</p>}
+          {error && <p className="rounded-md bg-red-500/15 px-2 py-1 text-[11px] text-foreground">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            className="mt-1.5 flex h-13 items-center justify-between rounded-[15px] bg-primary px-4.5 text-[13px] font-bold text-white disabled:opacity-65"
+            className="mt-1.5 flex h-13 items-center justify-between rounded-[15px] bg-primary px-4.5 text-[13px] font-bold text-primary-foreground disabled:opacity-65"
           >
             {loading ? (
               <>
@@ -121,7 +127,7 @@ export default function DashboardSignInPage() {
         </form>
       )}
 
-      <Link href="/sign-in" className="mt-auto text-center text-[11px] leading-normal font-bold text-primary no-underline">
+      <Link href="/sign-in" className="mt-auto text-center text-[11px] leading-normal font-bold text-foreground no-underline">
         Volver al inicio de sesión de clientes
       </Link>
     </main>

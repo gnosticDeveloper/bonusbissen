@@ -73,7 +73,7 @@ export async function proxy(request: NextRequest) {
       return NextResponse.next();
     }
     const session = await checkSession(token);
-    if (session.status === "valid") return NextResponse.redirect(new URL("/", request.url));
+    if (session.status === "valid") return NextResponse.redirect(new URL("/b", request.url));
     if (session.status === "expired" || !token) {
       const restored = await restoreCustomerSession(request, "/b");
       if (restored) return restored;

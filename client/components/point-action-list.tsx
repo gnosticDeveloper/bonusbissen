@@ -8,8 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, Wallet } from "lucide-react";
 import { Customer } from "@/lib/types/customer";
 import { getAllPointActions } from "@/app/d/[slug]/administrar-puntos/actions";
-import { UpdateGrantModal } from "./modals/grant/update-grant-modal";
+import dynamic from "next/dynamic";
+import { ModalContentLoader } from "./modals/action-status-modal";
 import { useModal } from "./modal";
+
+const UpdateGrantModal = dynamic(() => import("./modals/grant/update-grant-modal").then((module) => module.UpdateGrantModal), {
+  loading: () => <ModalContentLoader label="Cargando editor…" />,
+});
 
 type PointAction = Awaited<ReturnType<typeof getAllPointActions>>[number];
 
@@ -38,11 +43,11 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
     return (
       <section className="flex min-h-60 items-center justify-center rounded-3xl border border-dashed border-border bg-card/50 p-6 text-center lg:col-span-3">
         <div className="max-w-xs">
-          <div className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl bg-primary/10 text-primary">
+          <div className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl bg-primary/10 text-foreground">
             <Wallet className="size-5" aria-hidden="true" />
           </div>
           <p className="text-sm font-semibold text-foreground">Actividad de puntos</p>
-          <p className="mt-1.5 text-xs leading-5 text-muted mix-blend-difference">Acá vas a poder consultar los últimos movimientos de puntos.</p>
+          <p className="mt-1.5 text-xs leading-5 text-foreground/80 mix-blend-difference">Acá vas a poder consultar los últimos movimientos de puntos.</p>
         </div>
       </section>
     );
@@ -52,11 +57,11 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
     return (
       <section className="flex min-h-60 items-center justify-center rounded-3xl border border-dashed border-border bg-card/50 p-6 text-center lg:col-span-3">
         <div className="max-w-xs">
-          <div className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl bg-primary/10 text-primary">
+          <div className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl bg-primary/10 text-foreground">
             <Wallet className="size-5" aria-hidden="true" />
           </div>
           <p className="text-sm font-semibold text-foreground">Actividad de puntos</p>
-          <p className="mt-1.5 text-xs leading-5 text-muted">
+          <p className="mt-1.5 text-xs leading-5 text-foreground/80">
             Parece que <strong className="font-semibold text-foreground">{selected.name}</strong> todavía no tiene registros de puntos.
           </p>
         </div>
@@ -70,22 +75,22 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
         <CardHeader className="border-b border-border px-5 py-5 sm:px-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Registro de actividad</p>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground">Registro de actividad</p>
               <CardTitle className="text-base tracking-[-0.02em] text-foreground">Historial de movimientos</CardTitle>
               {selected ? (
-                <p className="mt-1 text-xs text-muted">
+                <p className="mt-1 text-xs text-foreground/80">
                   Movimientos de <span className="font-medium text-foreground">{selected.name}</span>
                 </p>
               ) : (
                 <div className="flex items-center gap-x-1 mt-1 text-xs">
-                    <p className="text-muted">{visibleActions.length > 1 ? `Últimas ${visibleActions.length} operaciones` : `Última operación`} de puntos del local.</p>
+                    <p className="text-foreground/80">{visibleActions.length > 1 ? `Últimas ${visibleActions.length} operaciones` : `Última operación`} de puntos del local.</p>
                   {/* TODO: this should link to the full history. Main components neeeds to be refactored to accept a slug or we need to handle the current slug via context/tanstack query -- anything that is persistent. */}
-                  {/*<Link href="#" className="text-primary underline cursor-pointer">Ver todo</Link>*/}
+                  {/*<Link href="#" className="text-foreground underline cursor-pointer">Ver todo</Link>*/}
                 </div>
               )}
             </div>
 
-            <Badge tone="neutral" className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-muted">
+            <Badge tone="neutral" className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground/80">
               {visibleActions.length}
             </Badge>
           </div>
@@ -95,11 +100,11 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
           {isPending && visibleActions.length === 0 ? (
             <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-center">
               <span className="size-5 animate-spin rounded-full border-2 border-primary/25 border-t-primary" />
-              <p className="text-sm text-muted">Cargando movimientos…</p>
+              <p className="text-sm text-foreground/80">Cargando movimientos…</p>
             </div>
           ) : visibleActions.length === 0 ? (
             <div className="flex min-h-48 items-center justify-center rounded-2xl border border-dashed border-border bg-background/50 px-5 text-center">
-              <p className="max-w-xs text-sm leading-5 text-muted">
+              <p className="max-w-xs text-sm leading-5 text-foreground/80">
                 {selected ? "Este cliente todavía no tiene movimientos de puntos." : "Todavía no hay movimientos de puntos registrados."}
               </p>
             </div>
@@ -123,11 +128,11 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
                         </Badge>
                       </div>
 
-                      <p className="mt-1 text-xs font-medium text-primary">{pointActionLabel(a.type)}</p>
+                      <p className="mt-1 text-xs font-medium text-foreground">{pointActionLabel(a.type)}</p>
 
-                      {a.note ? <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted">{a.note}</p> : null}
+                      {a.note ? <p className="mt-2 line-clamp-2 text-xs leading-5 text-foreground/80">{a.note}</p> : null}
 
-                      <p className="mt-2 text-[11px] leading-4 text-muted">
+                      <p className="mt-2 text-[11px] leading-4 text-foreground/80">
                         {formatDateTime(a.createdAt)}
                         <span className="mx-1 text-border">·</span>
                         por {a.byUserName}
@@ -140,12 +145,18 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
                         size="icon-sm"
                         aria-label="Editar movimiento"
                         onClick={() =>
-                          open(<UpdateGrantModal a={a} />, {
-                            title: "Mofidicar puntos",
-                            description: `Modifica los puntos que le entregaste a ${a.userName}`,
-                          })
+                          open(
+                            <UpdateGrantModal
+                              a={a}
+                              onSucceed={(updated) => setActions((current) => current.map((action) => (action.id === updated.id ? updated : action)))}
+                            />,
+                            {
+                              title: "Modificar puntos",
+                              description: `Modificá los puntos que le entregaste a ${a.userName}.`,
+                            },
+                          )
                         }
-                        className="rounded-lg text-muted hover:bg-background hover:text-foreground"
+                        className="rounded-lg text-foreground/80 hover:bg-background hover:text-foreground"
                       >
                         <Pencil className="size-4" />
                       </Button>
@@ -154,7 +165,7 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
                         size="icon-sm"
                         aria-label="Eliminar movimiento"
                         // onClick={() => open(<DeleteGrantModal pointA={a} />)}
-                        className="rounded-lg text-muted hover:bg-primary/10 hover:text-primary"
+                        className="rounded-lg text-foreground/80 hover:bg-primary/10 hover:text-foreground"
                       >
                         <Trash2 className="size-4" />
                       </Button>
