@@ -38,7 +38,7 @@ export async function getBusinesses({ page = 0, size = 10, city }: GetBusinesses
 }
 
 export async function getLocations(): Promise<ActionResult<Location[]>> {
-  return request<Location[]>("/discover/cities");
+  return publicRequest<Location[]>("/discover/cities");
 }
 
 export const getMe = cache(async () => {
