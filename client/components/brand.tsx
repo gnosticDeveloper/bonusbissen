@@ -19,8 +19,8 @@ export function BrandLockup({ size = "md", subtitle, color }: { size?: "sm" | "m
     <div className="flex items-center gap-2.5" style={{ "--brand-lockup-accent": color || "var(--primary)" } as React.CSSProperties}>
       <BrandMark size={size} />
       <div className="flex flex-col leading-tight">
-        <span className={cn("font-bold tracking-tight text-primary", size === "lg" ? "text-xl" : "text-base")}>Bonus Bissen</span>
-        {subtitle ? <span className="text-xs text-muted">{subtitle}</span> : null}
+        <span className={cn("font-bold tracking-tight text-foreground", size === "lg" ? "text-xl" : "text-base")}>Bonus Bissen</span>
+        {subtitle ? <span className="text-xs text-foreground/80">{subtitle}</span> : null}
       </div>
     </div>
   );

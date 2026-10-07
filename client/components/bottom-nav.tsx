@@ -27,7 +27,7 @@ export function BottomNav() {
             <Link
               key={href}
               href={href}
-              className={`flex w-17 flex-col items-center gap-1 whitespace-nowrap px-2 py-1 text-[12px] transition-colors ${active ? "text-primary" : "text-foreground"}`}
+              className={`flex w-17 flex-col items-center gap-1 whitespace-nowrap px-2 py-1 text-[12px] transition-colors ${active ? "text-foreground" : "text-foreground"}`}
             >
               <span
                 className="grid place-items-center rounded-full transition-shadow"
@@ -44,7 +44,7 @@ export function BottomNav() {
           type="button"
           onClick={openMenu}
           aria-label="Abrir más opciones"
-          className="flex w-17 flex-col items-center gap-1 whitespace-nowrap px-2 py-1 text-[12px] text-foreground transition-colors hover:text-primary"
+          className="flex w-17 flex-col items-center gap-1 whitespace-nowrap px-2 py-1 text-[12px] text-foreground transition-colors hover:text-foreground"
         >
           <ListPlus size={24} aria-hidden="true" />
           <span>Más</span>

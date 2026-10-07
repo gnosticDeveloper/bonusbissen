@@ -67,7 +67,7 @@ function StorefrontSwitcher({ storefronts, activeStorefrontId }: Pick<DashboardS
 
   return (
     <div className="rounded-xl border border-border bg-background p-3">
-      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+      <div className="flex items-center gap-2 text-xs font-medium text-foreground/80">
         <Building2 className="size-4 shrink-0" />
         Local actual
       </div>
@@ -83,7 +83,7 @@ function StorefrontSwitcher({ storefronts, activeStorefrontId }: Pick<DashboardS
             aria-expanded={isOpen}
             disabled={switching}
             onClick={() => setIsOpen((open) => !open)}
-            className="flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-left text-sm text-foreground shadow-sm transition-[border-color,box-shadow,background-color] duration-200 hover:bg-foreground/10 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-left text-sm text-foreground shadow-sm transition-[border-color,box-shadow,background-color] duration-200 hover:bg-foreground/10 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/70 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span className="truncate">{active?.name ?? "Seleccioná un local"}</span>
             <ChevronDown className={cn("size-4 shrink-0 text-foreground transition-transform duration-200 motion-reduce:transition-none", isOpen && "rotate-180")} />
@@ -114,7 +114,7 @@ function StorefrontSwitcher({ storefronts, activeStorefrontId }: Pick<DashboardS
           </div>
         </div>
       )}
-      {error && <p role="alert" className="mt-2 text-xs text-red-500">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-xs text-foreground">{error}</p>}
     </div>
   );
 }
@@ -162,7 +162,7 @@ export function DashboardShell({ orgId, role, children, currentUser, storefronts
           onClick={() => setIsDrawerOpen(true)}
           aria-label="Abrir menú de navegación"
           aria-expanded={isDrawerOpen}
-          className="rounded-lg p-2 text-foreground transition-colors hover:bg-muted"
+          className="rounded-lg p-2 text-foreground transition-colors hover:bg-foreground/10"
         >
           <Menu className="size-5" />
         </button>
@@ -194,7 +194,7 @@ export function DashboardShell({ orgId, role, children, currentUser, storefronts
             type="button"
             onClick={() => setIsDrawerOpen(false)}
             aria-label="Cerrar menú de navegación"
-            className="rounded-lg p-2 text-foreground transition-colors hover:bg-muted"
+            className="rounded-lg p-2 text-foreground transition-colors hover:bg-foreground/10"
           >
             <X className="size-5" />
           </button>

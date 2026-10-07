@@ -15,7 +15,7 @@ export function MovementCard({ movement }: { movement: MovementResponse }) {
           ) : (
             <div
               className={`grid h-full w-full place-items-center ${
-                isEarn ? "bg-green-500/10 text-green-600 dark:text-green-400" : "text-muted-foreground"
+                isEarn ? "bg-green-500/10 text-foreground" : "text-foreground/80"
               }`}
             >
               {isEarn ? <Coins className="h-8 w-8" aria-hidden="true" /> : <Gift className="h-8 w-8" aria-hidden="true" />}
@@ -27,18 +27,18 @@ export function MovementCard({ movement }: { movement: MovementResponse }) {
           <p className="truncate text-sm font-semibold text-foreground">{movement.title}</p>
 
           {movement.orgName && (
-            <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <div className="mt-1.5 flex items-center gap-1.5 text-xs text-foreground/80">
               <Store className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <p className="truncate">{movement.orgName}</p>
             </div>
           )}
 
           <div className="mt-3 flex items-center justify-between gap-2">
-            <span className="text-[11px] text-muted-foreground">{movement.formattedCreatedAt}</span>
+            <span className="text-[11px] text-foreground/80">{movement.formattedCreatedAt}</span>
 
             <span
               className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                isEarn ? "bg-primary/10 text-primary" : "bg-muted/20 text-foreground"
+                isEarn ? "bg-primary/10 text-foreground" : "bg-muted/20 text-foreground"
               }`}
             >
               {isEarn ? "+" : "-"}
@@ -50,7 +50,7 @@ export function MovementCard({ movement }: { movement: MovementResponse }) {
 
       {movement.storefrontName && (
         <div className="border-t border-border/70 px-3.5 py-3">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-xs text-foreground/80">
             <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <p className="truncate">{movement.storefrontName}</p>
           </div>

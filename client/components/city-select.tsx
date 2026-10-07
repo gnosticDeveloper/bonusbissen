@@ -80,12 +80,12 @@ export function CitySelect() {
         }`}
       >
         {loading ? (
-          <div className="flex items-center justify-center gap-2.25 px-3 py-4 text-[11px] text-muted">
+          <div className="flex items-center justify-center gap-2.25 px-3 py-4 text-[11px] text-foreground/80">
             <Spinner />
             <span>Buscando zonas...</span>
           </div>
         ) : error ? (
-          <div className="px-3 py-4 text-center text-[11px] text-muted">No pudimos cargar las zonas :(</div>
+          <div className="px-3 py-4 text-center text-[11px] text-foreground/80">No pudimos cargar las zonas :(</div>
         ) : (
           <>
             <button
@@ -96,7 +96,7 @@ export function CitySelect() {
               className="flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-left text-xs text-foreground transition-colors duration-240 hover:bg-background"
             >
               <span>Todas las zonas</span>
-              {selectedCity === null && <Check size={16} className="shrink-0 text-primary" />}
+              {selectedCity === null && <Check size={16} className="shrink-0 text-foreground" />}
             </button>
             {cities?.map((city) => (
               <button
@@ -108,7 +108,7 @@ export function CitySelect() {
                 className="flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-left text-xs text-foreground transition-colors duration-240 hover:bg-background"
               >
                 <span className="truncate">{city}</span>
-                {selectedCity === city && <Check size={16} className="shrink-0 text-primary" />}
+                {selectedCity === city && <Check size={16} className="shrink-0 text-foreground" />}
               </button>
             ))}
           </>

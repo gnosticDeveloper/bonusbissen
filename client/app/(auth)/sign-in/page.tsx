@@ -92,10 +92,10 @@ function SignInForm() {
       <h1 className="mt-4.25 mb-3 text-[38px] leading-none text-foreground">
         Volvé a tus
         <br />
-        <em className="text-primary not-italic">lugares favoritos.</em>
+        <em className="text-foreground not-italic">lugares favoritos.</em>
       </h1>
 
-      <p className="mb-8.5 max-w-72.5 text-[13px] leading-[1.55] text-muted">Sumá puntos, descubrí recompensas y disfrutá más cada visita.</p>
+      <p className="mb-8.5 max-w-72.5 text-[13px] leading-[1.55] text-foreground/75">Sumá puntos, descubrí recompensas y disfrutá más cada visita.</p>
 
       <div className="mb-5 grid grid-cols-2 gap-2 rounded-[15px] border border-border bg-card p-1" role="group" aria-label="Elegí cómo ingresar">
         <button
@@ -103,7 +103,7 @@ function SignInForm() {
           onClick={() => chooseMethod("password")}
           disabled={loading}
           aria-pressed={method === "password"}
-          className={`rounded-xl px-2 py-3 text-[13px] font-bold disabled:opacity-65 ${method === "password" ? "bg-primary text-primary-foreground" : "text-muted"}`}
+          className={`rounded-xl px-2 py-3 text-[13px] font-bold disabled:opacity-65 ${method === "password" ? "bg-primary text-primary-foreground" : "text-foreground/75"}`}
         >
           Con contraseña
         </button>
@@ -112,7 +112,7 @@ function SignInForm() {
           onClick={() => chooseMethod("email")}
           disabled={loading}
           aria-pressed={method === "email"}
-          className={`rounded-xl px-2 py-3 text-[13px] font-bold disabled:opacity-65 ${method === "email" ? "bg-primary text-primary-foreground" : "text-muted"}`}
+          className={`rounded-xl px-2 py-3 text-[13px] font-bold disabled:opacity-65 ${method === "email" ? "bg-primary text-primary-foreground" : "text-foreground/75"}`}
         >
           Enlace por email
         </button>
@@ -121,7 +121,7 @@ function SignInForm() {
       <form onSubmit={handleSubmit} className="grid gap-3">
         {method === "password" ? (
           <>
-            <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-muted">
+            <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-foreground/75">
               <UserRound size={17} />
               <input
                 name="identifier"
@@ -135,7 +135,7 @@ function SignInForm() {
               />
             </label>
 
-            <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-muted">
+            <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-foreground/75">
               <LockKeyhole size={17} />
               <input
                 name="password"
@@ -152,7 +152,7 @@ function SignInForm() {
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
                 aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                className="flex h-11 w-11 shrink-0 items-center justify-center text-muted transition-colors hover:text-foreground"
+                className="flex h-11 w-11 shrink-0 items-center justify-center text-foreground/75 transition-colors hover:text-foreground"
               >
                 {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
               </button>
@@ -160,8 +160,8 @@ function SignInForm() {
           </>
         ) : (
           <>
-            <p className="text-[13px] leading-relaxed text-muted">Te vamos a mandar un enlace para entrar sin contraseña.</p>
-            <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-muted">
+            <p className="text-[13px] leading-relaxed text-foreground/75">Te vamos a mandar un enlace para entrar sin contraseña.</p>
+            <label className="flex items-center gap-2.5 rounded-[15px] border border-border bg-card px-3.75 text-foreground/75">
               <Mail size={17} />
               <input
                 name="email"
@@ -182,7 +182,7 @@ function SignInForm() {
         )}
 
         {error && (
-          <p role="alert" className="text-[12px] text-foreground">
+          <p role="alert" className="rounded-lg bg-red-600 px-3 py-2 text-[12px] text-white">
             {error}
           </p>
         )}
@@ -211,13 +211,13 @@ function SignInForm() {
         </button>
       </form>
 
-      <p className="mt-6.25 mb-2 text-center text-sm leading-normal text-muted">
+      <p className="mt-6.25 mb-2 text-center text-sm leading-normal text-foreground/75">
         ¿Todavía no sos parte de BonusBissen?{" "}
-        <Link href={`/sign-up${authQuery}`} className="inline-flex min-h-11 items-center font-bold text-primary no-underline">
+        <Link href={`/sign-up${authQuery}`} className="inline-flex min-h-11 items-center font-bold text-foreground no-underline">
           Registrate
         </Link>
       </p>
-      <Link href="/d/sign-in" className="mt-auto flex min-h-11 items-center justify-center text-center text-[11px] leading-normal font-bold text-primary no-underline">
+      <Link href="/d/sign-in" className="mt-auto flex min-h-11 items-center justify-center text-center text-[11px] leading-normal font-bold text-foreground no-underline">
         Ingresar al panel administrativo
       </Link>
     </main>

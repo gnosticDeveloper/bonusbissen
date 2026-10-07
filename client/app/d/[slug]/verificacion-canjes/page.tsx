@@ -6,9 +6,9 @@ export default function ValidationPage() {
   return (
     <main className="mx-auto min-h-0 w-full text-foreground">
       <header className="mb-7 max-w-xl">
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary"> Operaciones </p>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground"> Operaciones </p>
         <h1 className="text-3xl font-semibold tracking-tighter sm:text-4xl"> Validar canjes </h1>
-        <p className="mt-2 text-sm leading-6 text-muted"> Verificá el código de una recompensa y confirmá su entrega al cliente. </p>
+        <p className="mt-2 text-sm leading-6 text-foreground/80"> Verificá el código de una recompensa y confirmá su entrega al cliente. </p>
       </header>
       <div className="grid min-h-0 items-stretch gap-5 lg:grid-cols-2">
         <Suspense fallback={<RedemptionValidatorSkeleton />}>

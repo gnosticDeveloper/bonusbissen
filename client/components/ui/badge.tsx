@@ -4,11 +4,11 @@ import type { HTMLAttributes } from 'react'
 type Tone = 'neutral' | 'success' | 'warning' | 'destructive' | 'primary'
 
 const toneClasses: Record<Tone, string> = {
-  neutral: 'bg-muted text-muted',
-  success: 'bg-green-500/15 text-green-500',
-  warning: 'bg-amber-500/20 text-amber-500',
-  destructive: 'bg-red-500/15 text-red-500',
-  primary: 'bg-primary/15 text-primary',
+  neutral: 'bg-foreground/10 text-foreground',
+  success: 'bg-green-400 text-green-950',
+  warning: 'bg-amber-400 text-amber-950',
+  destructive: 'bg-red-400 text-red-950',
+  primary: 'bg-primary text-primary-foreground',
 }
 
 export function Badge({
