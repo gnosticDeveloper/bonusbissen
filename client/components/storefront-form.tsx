@@ -49,7 +49,7 @@ export function StorefrontForm({ storefront, onDone }: { storefront?: Storefront
           type="button"
           onClick={() => setOnline(false)}
           variant={!online ? "default" : "ghost"}
-          className={`h-10 rounded-xl text-xs font-semibold ${!online ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-muted"}`}
+          className={`h-10 rounded-xl text-xs font-semibold ${!online ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-foreground/80"}`}
         >
           <MapPin className="size-4" /> Física
         </Button>
@@ -57,7 +57,7 @@ export function StorefrontForm({ storefront, onDone }: { storefront?: Storefront
           type="button"
           onClick={() => setOnline(true)}
           variant={online ? "default" : "ghost"}
-          className={`h-10 rounded-xl text-xs font-semibold ${online ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-muted"}`}
+          className={`h-10 rounded-xl text-xs font-semibold ${online ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-foreground/80"}`}
         >
           <Globe className="size-4" /> Online
         </Button>
@@ -80,7 +80,7 @@ export function StorefrontForm({ storefront, onDone }: { storefront?: Storefront
             type="color"
             id="sf-color"
             name="color"
-            defaultValue={storefront?.color ?? "#f05b9d"}
+            defaultValue={storefront?.color ?? "#d4822b"}
             className="h-12 w-full cursor-pointer rounded-xl border border-border bg-card"
           />
         </Field>

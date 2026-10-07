@@ -62,7 +62,7 @@ export default function Sidebar({ items, onNavigate, orgId }: SidebarProps) {
             onClick={onNavigate}
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none",
-              isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              isActive ? "bg-primary text-primary-foreground" : "text-foreground/80 hover:bg-foreground/10 hover:text-foreground",
               !item.available && "cursor-not-allowed opacity-50",
               !item.show && "hidden",
             )}

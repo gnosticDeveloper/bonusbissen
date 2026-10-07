@@ -22,12 +22,12 @@ export function StorefrontCard({ storefront, onEdit }: { storefront: Storefront;
   return (
     <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-background px-4 py-3.5">
       <div className="flex items-center gap-3 min-w-0">
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-foreground">
           {storefront.online ? <Globe className="size-4" /> : <MapPin className="size-4" />}
         </span>
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{storefront.name}</p>
-          <p className="truncate text-xs text-muted">
+          <p className="truncate text-xs text-foreground/80">
             {storefront.category ?? (storefront.online ? "Online" : "Local físico")}
             {!storefront.active && " · Inactiva"}
           </p>

@@ -9,7 +9,7 @@ export default async function MemberOnlyHomePage({ params }: { params: Promise<{
   const result = await getBusinessByStorefrontId(storefrontId);
 
   if (!result.ok) {
-    return <div className="px-5 py-8 text-sm text-muted">No pudimos cargar la información del negocio.</div>;
+    return <div className="px-5 py-8 text-sm text-foreground/75">No pudimos cargar la información del negocio.</div>;
   }
 
   const business = result.data;
@@ -30,7 +30,7 @@ export default async function MemberOnlyHomePage({ params }: { params: Promise<{
           className="relative rounded-3xl border bg-card p-5 shadow-[0_12px_32px_rgba(25,24,23,0.05)]"
           style={{ borderColor: "var(--business-border)" }}
         >
-          <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
+          <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground/75">
             <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: "var(--business-color)" }} />
             Sobre el negocio
           </p>
@@ -39,7 +39,7 @@ export default async function MemberOnlyHomePage({ params }: { params: Promise<{
       )}
 
       {business.address && (
-        <section className="flex items-start gap-3 border-b border-border pb-5 text-sm text-muted">
+        <section className="flex items-start gap-3 border-b border-border pb-5 text-sm text-foreground/75">
           <span
             className="grid size-9 shrink-0 place-items-center rounded-xl border text-foreground"
             style={{ backgroundColor: "var(--business-soft)", borderColor: "var(--business-border)" }}
@@ -76,7 +76,7 @@ export default async function MemberOnlyHomePage({ params }: { params: Promise<{
             </Link>
           </>
         ) : (
-          <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted">
+          <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-foreground/75">
             Todavía no hay recompensas cargadas.
           </div>
         )}
@@ -95,13 +95,13 @@ function RewardPreviewCard({ reward, pointLabel }: { reward: Reward; pointLabel?
           // eslint-disable-next-line @next/next/no-img-element
           <img src={imageUrl} alt="" className="size-full object-cover" />
         ) : (
-          <Gift className="size-6 text-muted" aria-hidden="true" />
+          <Gift className="size-6 text-foreground/75" aria-hidden="true" />
         )}
       </div>
 
       <div className="min-w-0 flex-1">
         <h3 className="truncate text-sm font-semibold tracking-[-0.02em] text-foreground">{reward.title}</h3>
-        {reward.description && <p className="mt-0.5 truncate text-xs text-muted">{reward.description}</p>}
+        {reward.description && <p className="mt-0.5 truncate text-xs text-foreground/75">{reward.description}</p>}
         <p className="mt-1.5 text-xs font-semibold text-foreground">
           {reward.costPoints} {pointLabel ?? "puntos"}
         </p>

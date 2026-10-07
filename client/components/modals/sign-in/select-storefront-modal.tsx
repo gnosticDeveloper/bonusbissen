@@ -29,7 +29,7 @@ export function SelectStorefrontModal({ storefronts }: SelectStorefrontModalProp
         setErrorMessage(result.error);
         return;
       }
-      router.push(`/d/${id}/inicio`);
+      router.replace(`/d/${id}/inicio`);
       close();
     } catch {
       setErrorMessage("Algo salió mal. Por favor intenta nuevamente en unos segundos.");
@@ -44,7 +44,7 @@ export function SelectStorefrontModal({ storefronts }: SelectStorefrontModalProp
         {storefronts.map((storefront) => (
           <label
             key={storefront.id}
-            className="group flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 transition-colors duration-200 hover:bg-background has-checked:border-primary has-checked:bg-primary/5 has-focus-visible:ring-2 has-focus-visible:ring-primary/30 has-disabled:cursor-not-allowed has-disabled:opacity-60 motion-reduce:transition-none"
+            className="group flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 transition-colors duration-200 hover:bg-background has-checked:border-primary has-checked:bg-primary/5 has-focus-visible:ring-2 has-focus-visible:ring-foreground/70 has-disabled:cursor-not-allowed has-disabled:opacity-60 motion-reduce:transition-none"
           >
             <input
               type="radio"
@@ -69,7 +69,7 @@ export function SelectStorefrontModal({ storefronts }: SelectStorefrontModalProp
       </div>
 
       {!loading && errorMessage && (
-        <p className="rounded-xl bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
+        <p className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-foreground" role="alert">
           {errorMessage}
         </p>
       )}

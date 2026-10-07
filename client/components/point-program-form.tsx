@@ -79,7 +79,7 @@ export function PointProgramForm({
       </Field>
 
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">Sucursales</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-foreground/80">Sucursales</p>
         <div className="flex flex-col gap-1.5">
           {storefronts.map((sf) => {
             const isTaken = taken.has(sf.id);
@@ -102,7 +102,7 @@ export function PointProgramForm({
                   />
                   {sf.name}
                 </span>
-                {isTaken && <span className="text-xs text-muted">ya en {taken.get(sf.id)}</span>}
+                {isTaken && <span className="text-xs text-foreground/80">ya en {taken.get(sf.id)}</span>}
               </label>
             );
           })}
