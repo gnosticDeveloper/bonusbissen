@@ -90,3 +90,6 @@ app:
       bucket: ${DR_BACKUP_S3_BUCKET:unset}
       access-key: ${DR_BACKUP_S3_ACCESS_KEY:unset}
       secret-key: ${DR_BACKUP_S3_SECRET_KEY:unset}
+  traceability:
+    retention-cron: ${TRACEABILITY_RETENTION_CRON:0 0 4 * * *}
+    retention-months: ${TRACEABILITY_RETENTION_MONTHS:6}

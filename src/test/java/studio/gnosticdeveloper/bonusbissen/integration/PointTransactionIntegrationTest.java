@@ -22,6 +22,10 @@ import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -458,5 +462,94 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         var rareEntry = ranking.stream().filter(r -> r.id().equals(rare.getId())).findFirst().orElseThrow();
         assertThat(popularEntry.claimCount()).isEqualTo(2);
         assertThat(rareEntry.claimCount()).isEqualTo(1);
+    }
+
+    /**
+     * Regression test for a double-spend race: claimReward's balance check and the
+     * redeem insert used to be a plain read-then-write with no lock, so concurrent
+     * claims against the same balance could all pass the check before any of them
+     * committed. UserService#lockBalance (a pg_advisory_xact_lock per user+program)
+     * serializes them -- this fires N concurrent claims at a balance that can only
+     * ever afford one, and asserts exactly one succeeds and the balance never goes negative.
+     *
+     * Uses its own organization/program/storefront rather than the shared defaults --
+     * /rewards/top is a top-10-for-the-org ranking, and dumping another claimed reward
+     * into the shared default org would make other tests asserting on that ranking flaky.
+     */
+    @Test
+    void concurrentClaimsAgainstABalanceThatCanOnlyAffordOneAllSerializeCorrectly() throws InterruptedException {
+        studio.gnosticdeveloper.bonusbissen.entity.Organization organization = new studio.gnosticdeveloper.bonusbissen.entity.Organization();
+        organization.setName("Race Test Org");
+        organization = organizationRepository.save(organization);
+
+        studio.gnosticdeveloper.bonusbissen.entity.PointProgram program = new studio.gnosticdeveloper.bonusbissen.entity.PointProgram();
+        program.setOrganization(organization);
+        program.setName("Race Test Points");
+        program = pointProgramRepository.save(program);
+
+        studio.gnosticdeveloper.bonusbissen.entity.Storefront storefront = new studio.gnosticdeveloper.bonusbissen.entity.Storefront();
+        storefront.setOrganization(organization);
+        storefront.setName("Race Test Storefront");
+        storefront.setAddress("1 Race St");
+        storefront.setPointProgram(program);
+        storefront = storefrontRepository.save(storefront);
+
+        User cashier = createEmployee("cashier-race", "password123", StaffRole.CASHIER, organization, storefront);
+        String cashierToken = loginEmployee("cashier-race", "password123", organization.getId());
+        User user = createUser("+5493462009001");
+        String userToken = loginUser("+5493462009001");
+
+        Reward rewardToSave = new Reward();
+        rewardToSave.setPointProgram(program);
+        rewardToSave.setTitle("Race Reward");
+        rewardToSave.setCostPoints(100);
+        final Reward reward = rewardRepository.save(rewardToSave);
+
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + program.getId() + "/members",
+            HttpMethod.POST,
+            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
+            Void.class
+        );
+        restTemplate.exchange(
+            baseUrl() + "/users/grant",
+            HttpMethod.POST,
+            authed(cashierToken, new GrantPointsRequest(user.getId(), 100, null)),
+            UserPointsAwardResponse.class
+        );
+
+        int attempts = 15;
+        ExecutorService pool = Executors.newFixedThreadPool(attempts);
+        AtomicInteger succeeded = new AtomicInteger(0);
+        try {
+            List<Runnable> tasks = java.util.stream.IntStream.range(0, attempts)
+                .<Runnable>mapToObj(i -> () -> {
+                    ResponseEntity<String> response = restTemplate.exchange(
+                        baseUrl() + "/users/claim-reward",
+                        HttpMethod.POST,
+                        authed(userToken, new ClaimRewardRequest(user.getId(), reward.getId())),
+                        String.class
+                    );
+                    if (response.getStatusCode() == HttpStatus.OK) {
+                        succeeded.incrementAndGet();
+                    }
+                })
+                .toList();
+            tasks.forEach(pool::submit);
+        } finally {
+            pool.shutdown();
+            assertThat(pool.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+        }
+
+        assertThat(succeeded.get()).isEqualTo(1);
+        UserPointsResponse balance = restTemplate
+            .exchange(
+                baseUrl() + "/users/" + user.getId() + "?programId=" + program.getId(),
+                HttpMethod.GET,
+                authed(cashierToken),
+                UserPointsResponse.class
+            )
+            .getBody();
+        assertThat(balance.points()).isEqualTo(0);
     }
 }

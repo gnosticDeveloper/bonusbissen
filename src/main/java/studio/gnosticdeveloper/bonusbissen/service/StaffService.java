@@ -1,13 +1,16 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import studio.gnosticdeveloper.bonusbissen.dto.request.StaffCreateRequest;
+import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
@@ -29,19 +32,22 @@ public class StaffService {
     private final UserRepository userRepository;
     private final StorefrontRepository storefrontRepository;
     private final SessionService sessionService;
+    private final TraceabilityService traceabilityService;
 
     public StaffService(
         OrganizationStaffRepository organizationStaffRepository,
         OrganizationRepository organizationRepository,
         UserRepository userRepository,
         StorefrontRepository storefrontRepository,
-        SessionService sessionService
+        SessionService sessionService,
+        TraceabilityService traceabilityService
     ) {
         this.organizationStaffRepository = organizationStaffRepository;
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.storefrontRepository = storefrontRepository;
         this.sessionService = sessionService;
+        this.traceabilityService = traceabilityService;
     }
 
     @Transactional(readOnly = true)
@@ -51,7 +57,7 @@ public class StaffService {
 
     /** Promotes an existing, not-already-staff {@code User} to staff of {@code organizationId}. */
     @Transactional
-    public OrganizationStaff create(StaffCreateRequest request, UUID organizationId) {
+    public OrganizationStaff create(StaffCreateRequest request, UUID organizationId, UUID actingUserId) {
         User user = userRepository
             .findById(request.userId())
             .filter(User::isActive)
@@ -86,7 +92,16 @@ public class StaffService {
             staff.getStorefronts().add(resolveOwnedStorefront(request.storefrontId(), organizationId));
         }
 
-        return saveUnique(staff);
+        staff = saveUnique(staff);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("role", staff.getRole().name());
+        payload.put("organizationId", organizationId);
+        if (request.storefrontId() != null) {
+            payload.put("storefrontId", request.storefrontId());
+        }
+        traceabilityService.record(OperationType.STAFF_CREATE, actingUserId, user.getId(), payload);
+        return staff;
     }
 
     /** Adds storefronts to an existing staff member's assignment. */
@@ -120,10 +135,11 @@ public class StaffService {
      * without deactivating them -- e.g. a suspected account compromise where the
      * person should still be able to log back in once they've reset their password.
      */
-    @Transactional(readOnly = true)
-    public void revokeSessions(UUID staffId, UUID organizationId) {
+    @Transactional
+    public void revokeSessions(UUID staffId, UUID organizationId, UUID actingUserId) {
         OrganizationStaff staff = getOwned(staffId, organizationId);
         sessionService.revokeAllForUser(staff.getUser().getId());
+        traceabilityService.record(OperationType.SESSION_REVOKE, actingUserId, staff.getUser().getId(), Map.of());
     }
 
     private OrganizationStaff getOwned(UUID staffId, UUID organizationId) {

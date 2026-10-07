@@ -46,6 +46,8 @@ class PointTransactionServiceTest {
     private OrganizationStaffRepository organizationStaffRepository;
     @Mock
     private PointProgramRepository pointProgramRepository;
+    @Mock
+    private TraceabilityService traceabilityService;
 
     @InjectMocks
     private PointTransactionService pointTransactionService;
@@ -89,6 +91,9 @@ class PointTransactionServiceTest {
         Organization organization = organization();
 
         PointTransaction tx = pendingRedeem(organization);
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        tx.setUser(user);
 
         OrganizationStaff employee = new OrganizationStaff();
         employee.setId(UUID.randomUUID());
@@ -133,6 +138,9 @@ class PointTransactionServiceTest {
 
         PointTransaction tx = pendingRedeem(organization);
         tx.setPoints(-20);
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        tx.setUser(user);
 
         OrganizationStaff employee = new OrganizationStaff();
         employee.setId(UUID.randomUUID());
@@ -262,7 +270,7 @@ class PointTransactionServiceTest {
         UUID organizationId = UUID.randomUUID();
         when(exchangeCodeRepository.findActiveByCodeAndOrganizationId("000000", organizationId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> pointTransactionService.verifyExchange("000000", organizationId, UUID.randomUUID()))
+        assertThatThrownBy(() -> pointTransactionService.verifyExchange("000000", organizationId, UUID.randomUUID(), UUID.randomUUID()))
             .isInstanceOf(NotFoundException.class);
     }
 
@@ -279,7 +287,7 @@ class PointTransactionServiceTest {
         when(exchangeCodeRepository.findActiveByCodeAndOrganizationId("1234a5", organizationId)).thenReturn(Optional.of(code));
         when(pointProgramRepository.existsByIdAndStorefronts_Id(tx.getPointProgram().getId(), storefrontId)).thenReturn(false);
 
-        assertThatThrownBy(() -> pointTransactionService.verifyExchange("1234a5", organizationId, storefrontId))
+        assertThatThrownBy(() -> pointTransactionService.verifyExchange("1234a5", organizationId, storefrontId, UUID.randomUUID()))
             .isInstanceOf(ConflictException.class);
     }
 
@@ -302,6 +310,6 @@ class PointTransactionServiceTest {
         when(exchangeCodeRepository.findActiveByCodeAndOrganizationId("1234a5", organizationId)).thenReturn(Optional.of(code));
         when(pointProgramRepository.existsByIdAndStorefronts_Id(tx.getPointProgram().getId(), storefrontId)).thenReturn(true);
 
-        assertThat(pointTransactionService.verifyExchange("1234a5", organizationId, storefrontId)).isNotNull();
+        assertThat(pointTransactionService.verifyExchange("1234a5", organizationId, storefrontId, UUID.randomUUID())).isNotNull();
     }
 }

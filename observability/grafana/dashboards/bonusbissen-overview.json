@@ -201,10 +201,44 @@
     },
 
     {
+      "id": 104,
+      "type": "row",
+      "title": "Storage",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Database size",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "db_size_bytes", "legendFormat": "total", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "traceability_logs size & row estimate",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "db_table_size_bytes{table=\"traceability_logs\"}", "legendFormat": "size (bytes)", "refId": "A" },
+        { "expr": "db_table_row_estimate{table=\"traceability_logs\"}", "legendFormat": "rows (est.)", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+
+    {
       "id": 103,
       "type": "row",
       "title": "Logs",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
       "collapsed": false,
       "panels": []
     },
@@ -212,7 +246,7 @@
       "id": 9,
       "type": "timeseries",
       "title": "Log events by level",
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 24 },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 33 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
@@ -228,7 +262,7 @@
       "id": 10,
       "type": "logs",
       "title": "Backend logs",
-      "gridPos": { "h": 14, "w": 24, "x": 0, "y": 30 },
+      "gridPos": { "h": 14, "w": 24, "x": 0, "y": 39 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
@@ -272,5 +306,5 @@
   "timezone": "",
   "title": "Bonusbissen Overview",
   "uid": "bonusbissen-overview",
-  "version": 3
+  "version": 4
 }

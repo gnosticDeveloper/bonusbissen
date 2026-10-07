@@ -1,5 +1,7 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,8 @@ import java.time.format.DateTimeFormatter;
 
 @Service
 public class DatabaseBackupService {
+
+    private static final Logger log = LoggerFactory.getLogger(DatabaseBackupService.class);
 
     private static final DateTimeFormatter KEY_TIMESTAMP =
             DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC);
@@ -39,7 +43,7 @@ public class DatabaseBackupService {
             // A @Scheduled method that throws gets silently deregistered by the
             // scheduler for the rest of the JVM's lifetime, cancelling every
             // future nightly backup. Swallow and log instead.
-            System.err.println("Database backup failed: " + e.getMessage());
+            log.error("Database backup failed", e);
         }
     }
 

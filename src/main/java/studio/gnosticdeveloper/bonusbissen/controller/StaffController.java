@@ -32,7 +32,7 @@ public class StaffController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public StaffResponse create(@Valid @RequestBody StaffCreateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return StaffResponse.from(staffService.create(request, principal.organizationId()));
+        return StaffResponse.from(staffService.create(request, principal.organizationId(), principal.id()));
     }
 
     @PostMapping("/{id}/storefronts")
@@ -63,6 +63,6 @@ public class StaffController {
     @PostMapping("/{id}/sessions/revoke")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void revokeSessions(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        staffService.revokeSessions(id, principal.organizationId());
+        staffService.revokeSessions(id, principal.organizationId(), principal.id());
     }
 }

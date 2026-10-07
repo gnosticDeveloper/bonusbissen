@@ -1,6 +1,8 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -14,6 +16,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeReviewResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointsSummaryResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
+import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
@@ -32,17 +35,20 @@ public class PointTransactionService {
     private final ExchangeCodeRepository exchangeCodeRepository;
     private final OrganizationStaffRepository organizationStaffRepository;
     private final PointProgramRepository pointProgramRepository;
+    private final TraceabilityService traceabilityService;
 
     public PointTransactionService(
         PointTransactionRepository pointTransactionRepository,
         ExchangeCodeRepository exchangeCodeRepository,
         OrganizationStaffRepository organizationStaffRepository,
-        PointProgramRepository pointProgramRepository
+        PointProgramRepository pointProgramRepository,
+        TraceabilityService traceabilityService
     ) {
         this.pointTransactionRepository = pointTransactionRepository;
         this.exchangeCodeRepository = exchangeCodeRepository;
         this.organizationStaffRepository = organizationStaffRepository;
         this.pointProgramRepository = pointProgramRepository;
+        this.traceabilityService = traceabilityService;
     }
 
     private static final String DEFAULT_COLOR = "#232027";
@@ -107,7 +113,7 @@ public class PointTransactionService {
     }
 
     @Transactional
-    public ExchangeResponse verifyExchange(String code, UUID organizationId, UUID storefrontId) {
+    public ExchangeResponse verifyExchange(String code, UUID organizationId, UUID storefrontId, UUID callerId) {
         String normalized = code == null ? "" : code.trim().toLowerCase();
         ExchangeCode exchangeCode = exchangeCodeRepository
             .findActiveByCodeAndOrganizationId(normalized, organizationId)
@@ -136,6 +142,12 @@ public class PointTransactionService {
                 "Ese código no pertenece a un programa de puntos de este local."
             );
         }
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("transactionId", pointTransaction.getId());
+        payload.put("code", normalized);
+        traceabilityService.record(OperationType.EXCHANGE_VERIFY, callerId, pointTransaction.getUser().getId(), payload);
+
         return ExchangeResponse.from(pointTransaction);
     }
 
@@ -170,6 +182,11 @@ public class PointTransactionService {
         pointTransaction.setState(TransactionState.DELIVERED);
         pointTransaction.setEmployee(employee);
         pointTransactionRepository.save(pointTransaction);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("transactionId", pointTransaction.getId());
+        payload.put("points", Math.abs(pointTransaction.getPoints()));
+        traceabilityService.record(OperationType.EXCHANGE_APPROVE, callerId, pointTransaction.getUser().getId(), payload);
     }
 
     @Transactional
@@ -212,6 +229,12 @@ public class PointTransactionService {
         if (request.shouldRefundPoints()) {
             refundTransaction(pointTransaction);
         }
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("transactionId", pointTransaction.getId());
+        payload.put("points", Math.abs(pointTransaction.getPoints()));
+        payload.put("refunded", request.shouldRefundPoints());
+        traceabilityService.record(OperationType.EXCHANGE_CANCEL, callerId, pointTransaction.getUser().getId(), payload);
     }
 
     private void requireOwnership(PointTransaction pointTransaction, UUID organizationId) {
@@ -251,6 +274,11 @@ public class PointTransactionService {
         pointTransactionRepository.save(pointTransaction);
 
         refundTransaction(pointTransaction);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("transactionId", pointTransaction.getId());
+        payload.put("points", Math.abs(pointTransaction.getPoints()));
+        traceabilityService.record(OperationType.EXCHANGE_USER_CANCEL, callerId, callerId, payload);
     }
 
     private void refundTransaction(PointTransaction pointTransaction) {

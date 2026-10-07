@@ -1,5 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -9,6 +10,8 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementCallback;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -27,6 +30,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
+import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
@@ -60,6 +64,8 @@ public class UserService {
     private final UserPointProgramRepository userPointProgramRepository;
     private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
+    private final TraceabilityService traceabilityService;
+    private final JdbcTemplate jdbcTemplate;
 
     public UserService(
         UserRepository userRepository,
@@ -70,7 +76,9 @@ public class UserService {
         StorefrontRepository storefrontRepository,
         UserPointProgramRepository userPointProgramRepository,
         EmailVerificationService emailVerificationService,
-        PasswordEncoder passwordEncoder
+        PasswordEncoder passwordEncoder,
+        TraceabilityService traceabilityService,
+        JdbcTemplate jdbcTemplate
     ) {
         this.userRepository = userRepository;
         this.pointTransactionRepository = pointTransactionRepository;
@@ -81,6 +89,8 @@ public class UserService {
         this.userPointProgramRepository = userPointProgramRepository;
         this.emailVerificationService = emailVerificationService;
         this.passwordEncoder = passwordEncoder;
+        this.traceabilityService = traceabilityService;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     /** Resets the password of a currently-active staff account -- scoped to the calling admin's own organization. */
@@ -436,6 +446,15 @@ public class UserService {
         tx.setTransactionType(TransactionType.EARN);
         tx.setState(TransactionState.DELIVERED);
         tx = pointTransactionRepository.save(tx);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("points", request.points());
+        payload.put("storefrontId", storefrontId);
+        payload.put("programId", program.getId());
+        if (request.note() != null) {
+            payload.put("note", request.note());
+        }
+        traceabilityService.record(OperationType.POINTS_GRANT, employeeId, request.userId(), payload);
         return new UserPointsAwardResponse(tx.getUser().getName(), request.points());
     }
 
@@ -498,6 +517,12 @@ public class UserService {
         tx.setReward(reward);
         tx.setPointProgram(reward.getPointProgram());
 
+        // Balance is a SUM() over point_transactions, not a row we can SELECT ... FOR UPDATE,
+        // so concurrent claims racing the same check-then-insert can all see the same
+        // pre-redemption balance and all pass. Serialize per (user, program) with a
+        // transaction-scoped advisory lock instead -- released automatically on commit/rollback.
+        lockBalance(user.getId(), reward.getPointProgram().getId());
+
         if (getBalance(user.getId(), reward.getPointProgram().getId()) < reward.getCostPoints()) {
             throw new InsufficientPointsException(
                 "User with ID " + user.getId() + " has insufficient points to redeem reward with ID " + reward.getId() + ".",
@@ -518,7 +543,24 @@ public class UserService {
         exchangeCode.setUser(user);
         exchangeCode.setCode(generateExchangeCode());
         exchangeCodeRepository.save(exchangeCode);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("rewardId", reward.getId());
+        payload.put("costPoints", reward.getCostPoints());
+        payload.put("programId", reward.getPointProgram().getId());
+        traceabilityService.record(OperationType.REWARD_CLAIM, user.getId(), user.getId(), payload);
+
         return new ClaimRewardResponse(exchangeCode.getCode());
+    }
+
+    /** Serializes balance-affecting reads/writes for one (user, program) pair for the rest of the current transaction. */
+    private void lockBalance(UUID userId, UUID programId) {
+        jdbcTemplate.execute("SELECT pg_advisory_xact_lock(?, ?)", (PreparedStatementCallback<Void>) ps -> {
+            ps.setInt(1, userId.hashCode());
+            ps.setInt(2, programId.hashCode());
+            ps.execute();
+            return null;
+        });
     }
 
     private String generateExchangeCode() {
