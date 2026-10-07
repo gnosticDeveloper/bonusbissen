@@ -187,6 +187,19 @@ public class SessionService {
         }
     }
 
+    /** Resolves an active refresh token to its session without exposing the token itself. */
+    public Optional<UUID> findSessionId(String rawToken) {
+        String sessionId = redis.opsForValue().get(REFRESH_PREFIX + hash(rawToken));
+        if (sessionId == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(UUID.fromString(sessionId));
+        } catch (IllegalArgumentException ignored) {
+            return Optional.empty();
+        }
+    }
+
     /** Revokes one of {@code userId}'s own sessions. False if it doesn't exist or isn't theirs. */
     public boolean revokeSession(UUID userId, UUID sessionId) {
         String sessionKey = SESSION_PREFIX + sessionId;

@@ -202,9 +202,15 @@ public class AuthController {
 
     /** Lists the caller's own active sessions/devices. */
     @GetMapping("/sessions")
-    public List<SessionResponse> listSessions(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+    public List<SessionResponse> listSessions(
+        @AuthenticationPrincipal AuthenticatedPrincipal principal,
+        HttpServletRequest req
+    ) {
         requireAuthenticated(principal);
-        return sessionService.listSessions(principal.id()).stream().map(SessionResponse::from).toList();
+        UUID currentSessionId = readCookie(req).flatMap(sessionService::findSessionId).orElse(null);
+        return sessionService.listSessions(principal.id()).stream()
+            .map(session -> SessionResponse.from(session, currentSessionId))
+            .toList();
     }
 
     /** Revokes one of the caller's own sessions ("log out this device"). */
