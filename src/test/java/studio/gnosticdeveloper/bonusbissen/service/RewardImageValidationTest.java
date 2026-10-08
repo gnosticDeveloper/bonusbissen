@@ -1,7 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -9,6 +8,8 @@ import static org.mockito.Mockito.when;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -32,15 +33,11 @@ import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 
-/**
- * Ad-hoc manual verification against real downloaded/generated fixtures.
- * Not meant to stay in the repo -- fixtures live outside src/test/resources.
- */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-class RewardImageValidationManualTest {
+class RewardImageValidationTest {
 
-    private static final String FIXTURES_DIR = "/home/kjistik/.claude/jobs/efd4610b/tmp/images/";
+    private static final String FIXTURES_CLASSPATH = "fixtures/reward-images/";
 
     @Mock
     private RewardRepository rewardRepository;
@@ -75,8 +72,11 @@ class RewardImageValidationManualTest {
     }
 
     private MockMultipartFile loadFixture(String filename, String contentType) throws IOException {
-        byte[] bytes = Files.readAllBytes(Path.of(FIXTURES_DIR, filename));
-        return new MockMultipartFile("image", filename, contentType, bytes);
+        String resourcePath = FIXTURES_CLASSPATH + filename;
+        try (InputStream in = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+            if (in == null) throw new IOException("Fixture no encontrada en el classpath: " + resourcePath);
+            return new MockMultipartFile("image", filename, contentType, in.readAllBytes());
+        }
     }
 
     private void expectAccepted(String filename, String contentType) throws IOException {
@@ -146,8 +146,6 @@ class RewardImageValidationManualTest {
         long start = System.currentTimeMillis();
         expectRejected("bomb_attempt.png", "image/png", "4000px");
         long elapsedMs = System.currentTimeMillis() - start;
-        // A full decode of a 20000x20000 RGB image would take a very visible amount
-        // of time (and a lot of heap). Header-only reads should resolve near-instantly.
         assertThat(elapsedMs).as("dimension check should reject via header read, not a full decode").isLessThan(2000);
     }
 
@@ -166,12 +164,9 @@ class RewardImageValidationManualTest {
     }
 
     private static boolean containsAscii(byte[] data, String needle) {
-        return new String(data, java.nio.charset.StandardCharsets.ISO_8859_1).contains(needle);
+        return new String(data, StandardCharsets.ISO_8859_1).contains(needle);
     }
 
-    // JPEG/WebP son formatos con pérdida: aun sin tocar el bitstream, el valor de
-    // cada canal puede variar en una unidad por el muestreo de color del propio
-    // codec. Una tolerancia chica distingue eso de una corrupción real de píxeles.
     private static void assertColorCloseTo(int actualRgb, java.awt.Color expected, int tolerance) {
         java.awt.Color actual = new java.awt.Color(actualRgb);
         assertThat(Math.abs(actual.getRed() - expected.getRed())).isLessThanOrEqualTo(tolerance);
