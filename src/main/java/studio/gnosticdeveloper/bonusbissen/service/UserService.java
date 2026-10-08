@@ -51,6 +51,7 @@ import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserPointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
+import studio.gnosticdeveloper.bonusbissen.security.SessionService;
 
 @Service
 public class UserService {
@@ -66,6 +67,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final TraceabilityService traceabilityService;
     private final JdbcTemplate jdbcTemplate;
+    private final SessionService sessionService;
 
     public UserService(
         UserRepository userRepository,
@@ -78,7 +80,8 @@ public class UserService {
         EmailVerificationService emailVerificationService,
         PasswordEncoder passwordEncoder,
         TraceabilityService traceabilityService,
-        JdbcTemplate jdbcTemplate
+        JdbcTemplate jdbcTemplate,
+        SessionService sessionService
     ) {
         this.userRepository = userRepository;
         this.pointTransactionRepository = pointTransactionRepository;
@@ -91,6 +94,7 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
         this.traceabilityService = traceabilityService;
         this.jdbcTemplate = jdbcTemplate;
+        this.sessionService = sessionService;
     }
 
     /** Resets the password of a currently-active staff account -- scoped to the calling admin's own organization. */
@@ -123,6 +127,7 @@ public class UserService {
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+        sessionService.revokeAllForUser(userId);
     }
 
     /** Self-service password change: any authenticated account, own password only, current password required. */
@@ -139,6 +144,7 @@ public class UserService {
         }
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+        sessionService.revokeAllForUser(userId);
     }
 
     @Transactional

@@ -83,16 +83,20 @@ public class AuthService {
     public LoginResult issueStaffToken(User user, OrganizationStaff staff, String userAgent) {
         List<Storefront> storefronts = staff.getStorefronts().stream().toList();
         List<StorefrontSummary> summaries = storefronts.stream().map(StorefrontSummary::from).toList();
-        UUID storefrontId = storefronts.size() == 1 ? storefronts.get(0).getId() : null;
+        UUID storefrontId = storefronts.size() == 1 ? storefronts.getFirst().getId() : null;
 
-        String token = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
+        JwtService.Issued issued = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
         SessionService.NewSession session = sessionService.createSession(
             user.getId(), staff.getRole().name(), staff.getOrganization().getId(), storefrontId, user.getUsername(), userAgent);
-        return new LoginResult(new LoginResponse(token, summaries), session.rawRefreshToken());
+        sessionService.trackIssuedToken(session.sessionId(), issued.jti());
+        return new LoginResult(new LoginResponse(issued.token(), summaries), session.rawRefreshToken());
     }
 
+    /** A storefront-switch response paired with the minted token's jti, so the controller can track it against the caller's session. */
+    public record StorefrontResult(LoginResponse response, String jti) {}
+
     @Transactional
-    public LoginResponse selectStorefront(UUID userId, UUID storefrontId) {
+    public StorefrontResult selectStorefront(UUID userId, UUID storefrontId) {
         User user = userRepository
             .findById(userId)
             .filter(User::isActive)
@@ -109,8 +113,8 @@ public class AuthService {
         }
 
         List<StorefrontSummary> summaries = staff.getStorefronts().stream().map(StorefrontSummary::from).toList();
-        String token = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
-        return new LoginResponse(token, summaries);
+        JwtService.Issued issued = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
+        return new StorefrontResult(new LoginResponse(issued.token(), summaries), issued.jti());
     }
 
     @Transactional
@@ -157,10 +161,11 @@ public class AuthService {
 
     /** Issues a loyalty-account (non-staff) token for an already-authenticated user. */
     public LoginResult issueUserToken(User user, String userAgent) {
-        String token = jwtService.generateToken(user.getId(), user.getUsername(), "USER");
+        JwtService.Issued issued = jwtService.generateToken(user.getId(), user.getUsername(), "USER");
         SessionService.NewSession session = sessionService.createSession(
             user.getId(), "USER", null, null, user.getUsername(), userAgent);
-        return new LoginResult(LoginResponse.of(token), session.rawRefreshToken());
+        sessionService.trackIssuedToken(session.sessionId(), issued.jti());
+        return new LoginResult(LoginResponse.of(issued.token()), session.rawRefreshToken());
     }
 
     private Optional<User> resolveLoginIdentifier(String identifier) {

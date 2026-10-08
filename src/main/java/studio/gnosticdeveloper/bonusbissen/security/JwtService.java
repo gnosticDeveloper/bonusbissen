@@ -32,14 +32,18 @@ public class JwtService {
         this.expirationMinutes = expirationMinutes;
     }
 
-    public String generateToken(UUID id, String username, String role) {
+    /** A minted access token paired with its own {@code jti}, so the caller can track it against a session for later targeted revocation. */
+    public record Issued(String token, String jti) {}
+
+    public Issued generateToken(UUID id, String username, String role) {
         return generateToken(id, username, role, null);
     }
 
-    public String generateToken(UUID id, String username, String role, UUID storefrontId) {
+    public Issued generateToken(UUID id, String username, String role, UUID storefrontId) {
         Instant now = Instant.now();
+        String jti = UUID.randomUUID().toString();
         JwtBuilder builder = Jwts.builder()
-            .id(UUID.randomUUID().toString())
+            .id(jti)
             .subject(id.toString())
             .claim("username", username)
             .claim("role", role)
@@ -48,7 +52,8 @@ public class JwtService {
         if (storefrontId != null) {
             builder.claim("sf", storefrontId.toString());
         }
-        return builder.signWith(privateKey, Jwts.SIG.ES256).compact();
+        String token = builder.signWith(privateKey, Jwts.SIG.ES256).compact();
+        return new Issued(token, jti);
     }
 
     public Claims parseClaims(String token) {

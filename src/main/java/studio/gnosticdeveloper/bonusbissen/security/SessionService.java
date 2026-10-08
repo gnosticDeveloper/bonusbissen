@@ -41,6 +41,7 @@ public class SessionService {
     private static final String USER_SESSIONS_PREFIX = "user-sessions:";
     private static final String REVOKED_USER_PREFIX = "revoked-user:";
     private static final String BLACKLIST_PREFIX = "blacklist:";
+    private static final String SESSION_JTIS_PREFIX = "session-jtis:";
     private static final Duration ROTATION_TOMBSTONE_TTL = Duration.ofSeconds(60);
     private static final int TOKEN_BYTES = 32;
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -65,6 +66,7 @@ public class SessionService {
 
     /** The identity to mint a new access token for, plus the rotated refresh token to hand back as the new cookie. */
     public record Rotated(
+        UUID sessionId,
         UUID userId,
         String username,
         String role,
@@ -152,7 +154,7 @@ public class SessionService {
         redis.opsForValue().set(ROTATED_PREFIX + hash, userId.toString(), ROTATION_TOMBSTONE_TTL);
         redis.expire(USER_SESSIONS_PREFIX + userId, refreshTtl);
 
-        return Optional.of(new Rotated(userId, username, role, organizationId, storefrontId, newRaw));
+        return Optional.of(new Rotated(UUID.fromString(sessionId), userId, username, role, organizationId, storefrontId, newRaw));
     }
 
     /**
@@ -172,6 +174,31 @@ public class SessionService {
         redis.opsForHash().put(sessionKey, "storefrontId", storefrontId.toString());
     }
 
+    /**
+     * Records that {@code jti} was minted for {@code sessionId}, so a later
+     * {@link #logout} or {@link #revokeSession} on that session can blacklist it
+     * even though it isn't the token presented at logout time -- e.g. an earlier
+     * access token from before a dashboard storefront switch or a refresh.
+     */
+    public void trackIssuedToken(UUID sessionId, String jti) {
+        String key = SESSION_JTIS_PREFIX + sessionId;
+        redis.opsForSet().add(key, jti);
+        redis.expire(key, refreshTtl);
+    }
+
+    /** Blacklists every access token tracked for {@code sessionId} and drops the tracking set. */
+    private void blacklistTrackedTokens(String sessionId) {
+        String key = SESSION_JTIS_PREFIX + sessionId;
+        Set<String> jtis = redis.opsForSet().members(key);
+        if (jtis != null) {
+            Instant expiresAt = Instant.now().plus(accessTtl);
+            for (String jti : jtis) {
+                blacklist(jti, expiresAt);
+            }
+        }
+        redis.delete(key);
+    }
+
     /** Ends the session tied to {@code rawToken}. No-op if it's already gone. */
     public void logout(String rawToken) {
         String hash = hash(rawToken);
@@ -185,6 +212,7 @@ public class SessionService {
         if (userId != null) {
             redis.opsForSet().remove(USER_SESSIONS_PREFIX + userId, sessionId);
         }
+        blacklistTrackedTokens(sessionId);
     }
 
     /** Resolves an active refresh token to its session without exposing the token itself. */
@@ -213,6 +241,7 @@ public class SessionService {
         }
         redis.delete(sessionKey);
         redis.opsForSet().remove(USER_SESSIONS_PREFIX + userId, sessionId.toString());
+        blacklistTrackedTokens(sessionId.toString());
         return true;
     }
 

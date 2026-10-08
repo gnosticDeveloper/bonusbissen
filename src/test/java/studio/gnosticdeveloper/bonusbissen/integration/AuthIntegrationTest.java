@@ -1,7 +1,11 @@
 package studio.gnosticdeveloper.bonusbissen.integration;
 
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import studio.gnosticdeveloper.bonusbissen.dto.request.DashboardLoginRequest;
@@ -9,12 +13,16 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.LoginLinkConsumeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RequestDashboardLoginLinkRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RequestUserLoginLinkRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ResendVerificationRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.SelectStorefrontRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserRegisterRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.VerifyEmailRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.LoginResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
+import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
+import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
+import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -446,5 +454,85 @@ class AuthIntegrationTest extends AbstractIntegrationTest {
             LoginResponse.class
         );
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    }
+
+    /**
+     * Logging out must kill every access token minted during the session, not
+     * just the one presented at logout -- otherwise a token issued earlier (e.g.
+     * before a dashboard storefront switch) keeps working until it naturally
+     * expires, even though the session it came from is gone.
+     */
+    @Test
+    void logoutBlacklistsAnEarlierTokenMintedDuringTheSameSessionByAStorefrontSwitch() {
+        User staff = createEmployee("cashier-multi-store", "password123", StaffRole.CASHIER);
+        Storefront secondStorefront = createSecondStorefrontFor(staff);
+
+        ResponseEntity<LoginResponse> login = restTemplate.postForEntity(
+            baseUrl() + "/auth/dashboard/sign-in",
+            new DashboardLoginRequest("cashier-multi-store", "password123", defaultOrganization().getId()),
+            LoginResponse.class
+        );
+        String firstToken = login.getBody().token();
+        String rawRefreshCookie = extractRawCookie(login, "bb_rt");
+
+        HttpHeaders switchHeaders = authHeaders(firstToken);
+        switchHeaders.add(HttpHeaders.COOKIE, "bb_rt=" + rawRefreshCookie);
+        ResponseEntity<LoginResponse> switched = restTemplate.exchange(
+            baseUrl() + "/auth/storefront",
+            HttpMethod.POST,
+            new HttpEntity<>(new SelectStorefrontRequest(secondStorefront.getId()), switchHeaders),
+            LoginResponse.class
+        );
+        assertThat(switched.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String secondToken = switched.getBody().token();
+
+        // Both tokens still work right after the switch.
+        assertThat(callSessionsEndpoint(firstToken).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(callSessionsEndpoint(secondToken).getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        HttpHeaders logoutHeaders = authHeaders(secondToken);
+        logoutHeaders.add(HttpHeaders.COOKIE, "bb_rt=" + rawRefreshCookie);
+        logoutHeaders.add("X-Requested-With", "XMLHttpRequest");
+        ResponseEntity<Void> logout = restTemplate.exchange(
+            baseUrl() + "/auth/logout",
+            HttpMethod.POST,
+            new HttpEntity<>(null, logoutHeaders),
+            Void.class
+        );
+        assertThat(logout.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+
+        // The token presented at logout, AND the earlier one from before the
+        // switch, must both be rejected now -- not just the latest one.
+        assertThat(callSessionsEndpoint(secondToken).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(callSessionsEndpoint(firstToken).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    private Storefront createSecondStorefrontFor(User staff) {
+        PointProgram program = defaultProgram();
+        Storefront storefront = new Storefront();
+        storefront.setOrganization(defaultOrganization());
+        storefront.setName("Second Storefront");
+        storefront.setAddress("456 Second St");
+        storefront.setPointProgram(program);
+        storefront = storefrontRepository.save(storefront);
+
+        OrganizationStaff organizationStaff = organizationStaffRepository.findWithStorefrontsByUserIdAndActiveTrue(staff.getId()).orElseThrow();
+        organizationStaff.getStorefronts().add(storefront);
+        organizationStaffRepository.save(organizationStaff);
+        return storefront;
+    }
+
+    private ResponseEntity<Void> callSessionsEndpoint(String token) {
+        return restTemplate.exchange(baseUrl() + "/auth/sessions", HttpMethod.GET, authed(token), Void.class);
+    }
+
+    private String extractRawCookie(ResponseEntity<?> response, String cookieName) {
+        List<String> setCookies = response.getHeaders().get(HttpHeaders.SET_COOKIE);
+        assertThat(setCookies).isNotNull();
+        return setCookies.stream()
+            .filter(c -> c.startsWith(cookieName + "="))
+            .map(c -> c.substring(cookieName.length() + 1).split(";", 2)[0])
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("No " + cookieName + " cookie in response"));
     }
 }

@@ -82,6 +82,8 @@ class UserServiceTest {
     private TraceabilityService traceabilityService;
     @Mock
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    @Mock
+    private studio.gnosticdeveloper.bonusbissen.security.SessionService sessionService;
 
     @InjectMocks
     private UserService userService;
@@ -595,6 +597,7 @@ class UserServiceTest {
         userService.resetPassword(targetUserId, "newpassword123", organizationId);
 
         assertThat(user.getPasswordHash()).isEqualTo("new-hash");
+        verify(sessionService).revokeAllForUser(targetUserId);
     }
 
     @Test
@@ -613,6 +616,7 @@ class UserServiceTest {
             .isInstanceOf(NotFoundException.class);
 
         verify(userRepository, never()).save(any());
+        verify(sessionService, never()).revokeAllForUser(any());
     }
 
     @Test
@@ -630,6 +634,7 @@ class UserServiceTest {
         userService.changeOwnPassword(userId, "current-password", "newpassword123");
 
         assertThat(user.getPasswordHash()).isEqualTo("new-hash");
+        verify(sessionService).revokeAllForUser(userId);
     }
 
     @Test
@@ -646,6 +651,7 @@ class UserServiceTest {
             .isInstanceOf(IncorrectPasswordException.class);
 
         verify(userRepository, never()).save(any());
+        verify(sessionService, never()).revokeAllForUser(any());
         assertThat(user.getPasswordHash()).isEqualTo("old-hash");
     }
 }
