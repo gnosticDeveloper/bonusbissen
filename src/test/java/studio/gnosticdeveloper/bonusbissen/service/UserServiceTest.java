@@ -141,6 +141,7 @@ class UserServiceTest {
         userService.deleteById(id);
 
         assertThat(user.isActive()).isFalse();
+        verify(sessionService).revokeAllForUser(id);
     }
 
     @Test

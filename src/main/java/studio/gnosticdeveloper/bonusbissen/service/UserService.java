@@ -278,6 +278,7 @@ public class UserService {
 
         user.setActive(false);
         userRepository.save(user);
+        sessionService.revokeAllForUser(id);
     }
 
     @Transactional(readOnly = true)
