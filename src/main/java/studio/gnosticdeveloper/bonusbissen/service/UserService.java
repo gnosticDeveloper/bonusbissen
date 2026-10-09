@@ -383,7 +383,9 @@ public class UserService {
     }
 
     private MovementResponse toMovementResponse(PointTransaction mv) {
-        String title = mv.getTransactionType() == TransactionType.EARN ? "Sumaste puntos" : mv.getReward().getTitle();
+        String title = mv.getCorrectedTransaction() != null ? "Corrección de puntos"
+            : mv.getTransactionType() == TransactionType.REDEEM ? mv.getReward().getTitle()
+            : mv.getPoints() < 0 ? "Restaste puntos" : "Sumaste puntos";
 
         String rewardImagePath = mv.getReward() != null ? mv.getReward().getImagePath() : null;
         String imageUrl = rewardImagePath == null ? null : storageService.resolveUrl(rewardImagePath, DeliveryVariant.THUMBNAIL);
