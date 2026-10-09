@@ -46,6 +46,7 @@ import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
@@ -58,6 +59,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PointTransactionRepository pointTransactionRepository;
+    private final PointProgramRepository pointProgramRepository;
     private final RewardRepository rewardRepository;
     private final ExchangeCodeRepository exchangeCodeRepository;
     private final OrganizationStaffRepository organizationStaffRepository;
@@ -72,6 +74,7 @@ public class UserService {
     public UserService(
         UserRepository userRepository,
         PointTransactionRepository pointTransactionRepository,
+        PointProgramRepository pointProgramRepository,
         RewardRepository rewardRepository,
         ExchangeCodeRepository exchangeCodeRepository,
         OrganizationStaffRepository organizationStaffRepository,
@@ -85,6 +88,7 @@ public class UserService {
     ) {
         this.userRepository = userRepository;
         this.pointTransactionRepository = pointTransactionRepository;
+        this.pointProgramRepository = pointProgramRepository;
         this.rewardRepository = rewardRepository;
         this.exchangeCodeRepository = exchangeCodeRepository;
         this.organizationStaffRepository = organizationStaffRepository;
@@ -376,11 +380,26 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public Page<UserPointsResponse> search(String search, UUID programId, Pageable pageable) {
+    public Page<UserPointsResponse> search(String search, UUID programId, UUID organizationId, UUID storefrontId, Pageable pageable) {
+        UUID balanceProgramId = programId;
+        if (balanceProgramId != null) {
+            if (!pointProgramRepository.existsByIdAndOrganizationId(balanceProgramId, organizationId)) {
+                throw new NotFoundException("Point program " + balanceProgramId + " is not owned by organization " + organizationId + ".",
+                    "No pudimos encontrar el programa de puntos seleccionado.");
+            }
+        } else if (storefrontId != null) {
+            Storefront storefront = storefrontRepository.findById(storefrontId).orElseThrow(() ->
+                new NotFoundException("Selected storefront " + storefrontId + " was not found.", "No pudimos encontrar el local seleccionado."));
+            PointProgram program = storefront.getPointProgram();
+            if (program != null && program.isActive() && program.getOrganization().getId().equals(organizationId)) {
+                balanceProgramId = program.getId();
+            }
+        }
+        UUID resolvedProgramId = balanceProgramId;
         String term = search == null || search.isBlank() ? null : search.trim();
         return userRepository
             .search(term, pageable)
-            .map(user -> UserPointsResponse.from(user, programId != null ? getBalance(user.getId(), programId) : null));
+            .map(user -> UserPointsResponse.from(user, resolvedProgramId != null ? getBalance(user.getId(), resolvedProgramId) : null));
     }
 
     @Transactional(readOnly = true)
@@ -392,7 +411,19 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<PointActionResponse> getGrantHistory(UUID organizationId, UUID userId, int size) {
         Pageable pageable = PageRequest.of(0, size);
-        return pointTransactionRepository.findGrantHistory(organizationId, userId, pageable).stream().map(PointActionResponse::from).toList();
+        List<PointTransaction> history = pointTransactionRepository.findGrantHistory(organizationId, userId, pageable);
+        List<UUID> originalIds = history.stream()
+            .filter(tx -> tx.getCorrectedTransaction() == null)
+            .map(PointTransaction::getId)
+            .toList();
+        Map<UUID, Long> corrections = originalIds.isEmpty() ? Map.of() : pointTransactionRepository
+            .sumCorrectionsByOriginalIds(originalIds)
+            .stream()
+            .collect(Collectors.toMap(row -> (UUID) row[0], row -> ((Number) row[1]).longValue()));
+        return history.stream()
+            .map(tx -> PointActionResponse.from(tx, (long) tx.getPoints() +
+                (tx.getCorrectedTransaction() == null ? corrections.getOrDefault(tx.getId(), 0L) : 0L)))
+            .toList();
     }
 
     @Transactional
@@ -443,6 +474,12 @@ public class UserService {
             );
         }
 
+        if (request.points() == 0) {
+            throw new BadRequestException("Zero-point manual grant.", "Ingresá una cantidad de puntos distinta de cero.");
+        }
+        lockBalance(user.getId(), program.getId());
+        requireAffordableAdjustment(user.getId(), program.getId(), request.points(), request.allowDebt());
+
         PointTransaction tx = new PointTransaction();
         tx.setEmployee(employee);
         tx.setPointProgram(program);
@@ -450,7 +487,7 @@ public class UserService {
         tx.setUser(user);
         tx.setPoints(request.points());
         tx.setNote(request.note());
-        tx.setTransactionType(TransactionType.EARN);
+        tx.setTransactionType(request.points() > 0 ? TransactionType.EARN : TransactionType.ADJUST);
         tx.setState(TransactionState.DELIVERED);
         tx = pointTransactionRepository.save(tx);
 
@@ -466,23 +503,63 @@ public class UserService {
     }
 
     @Transactional
-    public PointActionResponse updateGrant(UUID transactionId, GrantPointsUpdateRequest request, UUID organizationId) {
-        PointTransaction tx = getOwnedGrant(transactionId, organizationId);
-        tx.setPoints(request.points());
-        tx.setNote(request.note());
-        tx = pointTransactionRepository.save(tx);
-        return PointActionResponse.from(tx);
+    public PointActionResponse updateGrant(UUID transactionId, GrantPointsUpdateRequest request, UUID organizationId, UUID callerId) {
+        PointTransaction original = getOwnedGrant(transactionId, organizationId);
+        if (request.points() == null) {
+            throw new BadRequestException("Correction target is required.", "Ingresá una cantidad de puntos para la corrección.");
+        }
+        if (request.note() == null || request.note().isBlank()) {
+            throw new BadRequestException("Correction note is missing.", "Indicá el motivo de la corrección.");
+        }
+        UUID userId = original.getUser().getId();
+        UUID programId = original.getPointProgram().getId();
+        lockBalance(userId, programId);
+        long delta = (long) request.points() - original.getPoints() - pointTransactionRepository.sumCorrections(original.getId());
+        if (delta == 0 || delta > Integer.MAX_VALUE || delta < Integer.MIN_VALUE) {
+            throw new BadRequestException("Invalid or empty correction delta: " + delta, "La corrección debe cambiar los puntos dentro del rango permitido.");
+        }
+        requireAffordableAdjustment(userId, programId, (int) delta, request.allowDebt());
+        OrganizationStaff employee = organizationStaffRepository.findByUserIdAndActiveTrue(callerId)
+            .filter(staff -> staff.getOrganization().getId().equals(organizationId))
+            .orElseThrow(() -> new AccessDeniedException("Active staff membership required for correction."));
+
+        PointTransaction correction = new PointTransaction();
+        correction.setUser(original.getUser());
+        correction.setPointProgram(original.getPointProgram());
+        correction.setStorefront(original.getStorefront());
+        correction.setEmployee(employee);
+        correction.setCorrectedTransaction(original);
+        correction.setTransactionType(TransactionType.ADJUST);
+        correction.setPoints((int) delta);
+        correction.setNote(request.note().trim());
+        correction.setState(TransactionState.DELIVERED);
+        correction = pointTransactionRepository.save(correction);
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("transactionId", correction.getId());
+        payload.put("correctedTransactionId", original.getId());
+        payload.put("points", delta);
+        payload.put("note", correction.getNote());
+        traceabilityService.record(OperationType.POINTS_CORRECTION, callerId, userId, payload);
+        return PointActionResponse.from(correction);
     }
 
-    @Transactional
-    public void deleteGrant(UUID transactionId, UUID organizationId) {
-        pointTransactionRepository.delete(getOwnedGrant(transactionId, organizationId));
+    private void requireAffordableAdjustment(UUID userId, UUID programId, int delta, boolean allowDebt) {
+        if (delta < 0 && !allowDebt) {
+            int balance = getBalance(userId, programId);
+            if (balance + delta < 0) {
+                throw new ConflictException(
+                    "Adjustment would exceed available balance for user " + userId + " in program " + programId,
+                    "La resta supera el saldo disponible. Saldo disponible: " + balance + " puntos. Confirmá que querés generar una deuda para continuar."
+                );
+            }
+        }
     }
 
     private PointTransaction getOwnedGrant(UUID transactionId, UUID organizationId) {
         PointTransaction tx = pointTransactionRepository
             .findById(transactionId)
-            .filter(t -> t.getTransactionType() == TransactionType.EARN && t.getEmployee() != null)
+            .filter(t -> t.getEmployee() != null && t.getRefundedTransaction() == null && t.getCorrectedTransaction() == null
+                && (t.getTransactionType() == TransactionType.EARN || t.getTransactionType() == TransactionType.ADJUST))
             .orElseThrow(() ->
                 new NotFoundException(
                     "Point grant transaction with ID " + transactionId + " was not found or is not a valid employee grant.",
