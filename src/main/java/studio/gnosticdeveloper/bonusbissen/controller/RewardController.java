@@ -19,6 +19,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.RewardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
+import studio.gnosticdeveloper.bonusbissen.service.RewardResponseMapper;
 import studio.gnosticdeveloper.bonusbissen.service.RewardService;
 
 @RestController
@@ -26,9 +27,11 @@ import studio.gnosticdeveloper.bonusbissen.service.RewardService;
 public class RewardController {
 
     private final RewardService rewardService;
+    private final RewardResponseMapper responseMapper;
 
-    public RewardController(RewardService rewardService) {
+    public RewardController(RewardService rewardService, RewardResponseMapper responseMapper) {
         this.rewardService = rewardService;
+        this.responseMapper = responseMapper;
     }
 
     @GetMapping
@@ -41,12 +44,12 @@ public class RewardController {
     ) {
         UUID organizationId = principal != null ? principal.organizationId() : null;
         Page<Reward> page = rewardService.listActive(search, organizationId, programId, storefrontId, pageable);
-        return PagedResponse.from(page.map(RewardResponse::from));
+        return PagedResponse.from(page.map(responseMapper::toResponse));
     }
 
     @GetMapping("/{id}")
     public RewardResponse getById(@PathVariable UUID id) {
-        return RewardResponse.from(rewardService.findById(id));
+        return responseMapper.toResponse(rewardService.findById(id));
     }
 
     @GetMapping("/top")
@@ -59,7 +62,7 @@ public class RewardController {
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
     public RewardResponse create(@Valid @ModelAttribute RewardCreateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return RewardResponse.from(rewardService.create(request, principal.organizationId()));
+        return responseMapper.toResponse(rewardService.create(request, principal.organizationId()));
     }
 
     @PutMapping(path = "/{id}", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
@@ -69,7 +72,7 @@ public class RewardController {
         @Valid @ModelAttribute RewardUpdateRequest request,
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
-        return RewardResponse.from(rewardService.update(id, request, principal.organizationId()));
+        return responseMapper.toResponse(rewardService.update(id, request, principal.organizationId()));
     }
 
     @DeleteMapping("/{id}")

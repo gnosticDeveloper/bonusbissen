@@ -7,9 +7,9 @@ export function RewardCard({ reward, color, pointsLabel }: { reward: Reward; col
 
   return (
     <div className="relative aspect-4/3 w-full overflow-hidden bg-muted/20">
-      {reward.imagePath ? (
+      {reward.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={reward.imagePath} alt={reward.title} className="size-full object-cover" />
+        <img src={reward.imageUrl} alt={reward.title} className="size-full object-cover" />
       ) : (
         <div className="grid size-full place-items-center bg-muted/20 text-xs text-foreground/80" aria-label="Esta recompensa no tiene imagen">
           Sin imagen

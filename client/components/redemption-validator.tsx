@@ -11,7 +11,6 @@ import { CheckCircle2, Search, Ticket, XCircle } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Skeleton } from "./ui/skeleton";
-import { resolveAssetUrl } from "@/lib/helpers/assets";
 
 export function RedemptionValidatorSkeleton() {
   return (
@@ -159,7 +158,7 @@ export default function RedemptionValidator() {
           <div className="grid gap-4 rounded-2xl border border-border bg-background/60 p-4">
             <div className="flex gap-3">
               <img
-                src={resolveAssetUrl(found.rewardImagePath) || "/placeholder.svg"}
+                src={found.rewardImageUrl || "/placeholder.svg"}
                 alt={found.rewardTitle}
                 className="size-20 shrink-0 rounded-2xl border border-border object-cover"
               />

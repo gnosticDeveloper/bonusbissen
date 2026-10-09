@@ -18,6 +18,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.ClaimRewardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
@@ -493,6 +494,31 @@ class UserServiceTest {
         tx.setState(TransactionState.DELIVERED);
         tx.setCreatedAt(java.time.OffsetDateTime.now());
         return tx;
+    }
+
+    @Test
+    void movementHistoryLabelsRewardlessCorrectionsAndManualDebits() {
+        UUID userId = UUID.randomUUID();
+        PointTransaction original = grantTransaction(UUID.randomUUID());
+        PointTransaction correction = grantTransaction(UUID.randomUUID());
+        correction.setTransactionType(TransactionType.ADJUST);
+        correction.setPoints(-60);
+        correction.setCorrectedTransaction(original);
+        PointTransaction debit = grantTransaction(UUID.randomUUID());
+        debit.setTransactionType(TransactionType.ADJUST);
+        debit.setPoints(-10);
+        when(pointTransactionRepository.findAllByUserIdAndStorefrontIdOrderByCreatedAtDesc(userId, STOREFRONT_ID))
+            .thenReturn(List.of(correction, debit, original));
+
+        List<MovementResponse> history = userService.getMovementsByUserId(userId, STOREFRONT_ID);
+
+        assertThat(history.get(0).title()).isEqualTo("Corrección de puntos");
+        assertThat(history.get(0).points()).isEqualTo(-60);
+        assertThat(history.get(0).correctedTransactionId()).isEqualTo(original.getId());
+        assertThat(history.get(0).correctedTransactionAmount()).isEqualTo(50);
+        assertThat(history.get(1).title()).isEqualTo("Restaste puntos");
+        assertThat(history.get(1).correction()).isFalse();
+        assertThat(history.get(2).title()).isEqualTo("Sumaste puntos");
     }
 
     @Test

@@ -15,10 +15,7 @@ export function MemberOnlyRewardCard({ reward }: { reward: Reward }) {
     });
   };
 
-  // reward.imagePath already comes fully-resolved from the server (page.tsx
-  // prefixes it with ASSETS_URL before passing it down) -- resolving it again
-  // here would double the prefix and produce a malformed URL.
-  const imageUrl = reward.imagePath;
+  const imageUrl = reward.imageThumbnailUrl;
 
   return (
     <button

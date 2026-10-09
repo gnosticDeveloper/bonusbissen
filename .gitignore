@@ -6,6 +6,7 @@ nginx/certs/
 nginx/certbot/
 nginx/nginx.conf
 !nginx/nginx.conf.example
+scripts/migrate-images-to-cloudinary.sh
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

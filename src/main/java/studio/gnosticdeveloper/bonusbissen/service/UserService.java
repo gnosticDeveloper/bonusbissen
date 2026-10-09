@@ -1,8 +1,11 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -39,6 +42,8 @@ import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
+import studio.gnosticdeveloper.bonusbissen.storage.DeliveryVariant;
+import studio.gnosticdeveloper.bonusbissen.storage.StorageService;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
@@ -58,6 +63,9 @@ import studio.gnosticdeveloper.bonusbissen.security.SessionService;
 @Service
 public class UserService {
 
+    private static final ZoneId ZONE_ARGENTINA = ZoneId.of("America/Argentina/Buenos_Aires");
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.of("es", "AR"));
+
     private final UserRepository userRepository;
     private final PointTransactionRepository pointTransactionRepository;
     private final PointProgramRepository pointProgramRepository;
@@ -70,6 +78,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final TraceabilityService traceabilityService;
     private final JdbcTemplate jdbcTemplate;
+    private final StorageService storageService;
     private final SessionService sessionService;
 
     public UserService(
@@ -85,6 +94,7 @@ public class UserService {
         PasswordEncoder passwordEncoder,
         TraceabilityService traceabilityService,
         JdbcTemplate jdbcTemplate,
+        StorageService storageService,
         SessionService sessionService
     ) {
         this.userRepository = userRepository;
@@ -99,6 +109,7 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
         this.traceabilityService = traceabilityService;
         this.jdbcTemplate = jdbcTemplate;
+        this.storageService = storageService;
         this.sessionService = sessionService;
     }
 
@@ -338,14 +349,63 @@ public class UserService {
 
         return exchanges
             .stream()
-            .map(ex -> HistoricalExchangeResponse.from(ex, codesByTransactionId.get(ex.getId())))
+            .map(ex -> toHistoricalExchangeResponse(ex, codesByTransactionId.get(ex.getId())))
             .toList();
+    }
+
+    private HistoricalExchangeResponse toHistoricalExchangeResponse(PointTransaction ex, String exchangeCode) {
+        String formattedDate = ex.getCreatedAt().atZoneSameInstant(ZONE_ARGENTINA).format(DATE_FORMAT);
+        Reward reward = ex.getReward();
+        PointProgram program = ex.getPointProgram();
+        String imageUrl = reward.getImagePath() == null ? null : storageService.resolveUrl(reward.getImagePath(), DeliveryVariant.THUMBNAIL);
+
+        return new HistoricalExchangeResponse(
+            ex.getId(),
+            reward.getTitle(),
+            reward.getDescription(),
+            imageUrl,
+            reward.getDiscountValue(),
+            Math.abs(ex.getPoints()),
+            program.getUnitLabel() != null ? program.getUnitLabel() : "puntos",
+            formattedDate,
+            ex.getState().getValue(),
+            program.getOrganization().getId(),
+            program.getOrganization().getName(),
+            ex.getStorefront() != null ? ex.getStorefront().getName() : null,
+            ex.getState() == TransactionState.PENDING ? exchangeCode : null
+        );
     }
 
     @Transactional(readOnly = true)
     public List<MovementResponse> getMovementsByUserId(UUID userId, UUID storefrontId) {
         List<PointTransaction> movements = pointTransactionRepository.findAllByUserIdAndStorefrontIdOrderByCreatedAtDesc(userId, storefrontId);
-        return movements.stream().map(MovementResponse::from).toList();
+        return movements.stream().map(this::toMovementResponse).toList();
+    }
+
+    private MovementResponse toMovementResponse(PointTransaction mv) {
+        String title = mv.getCorrectedTransaction() != null ? "Corrección de puntos"
+            : mv.getTransactionType() == TransactionType.REDEEM ? mv.getReward().getTitle()
+            : mv.getPoints() < 0 ? "Restaste puntos" : "Sumaste puntos";
+
+        String rewardImagePath = mv.getReward() != null ? mv.getReward().getImagePath() : null;
+        String imageUrl = rewardImagePath == null ? null : storageService.resolveUrl(rewardImagePath, DeliveryVariant.THUMBNAIL);
+
+        String formattedDate = mv.getCreatedAt().atZoneSameInstant(ZONE_ARGENTINA).format(DATE_FORMAT);
+
+        return new MovementResponse(
+            mv.getId(),
+            mv.getTransactionType().getValue(),
+            mv.getPoints(),
+            imageUrl,
+            title,
+            mv.getOrganization() != null ? mv.getOrganization().getName() : null,
+            mv.getStorefront() != null ? mv.getStorefront().getName() : null,
+            mv.getPointProgram() != null ? mv.getPointProgram().getUnitLabel() : null,
+            formattedDate,
+            mv.getCorrectedTransaction() != null,
+            mv.getCorrectedTransaction() != null ? mv.getCorrectedTransaction().getId() : null,
+            mv.getCorrectedTransaction() != null ? mv.getCorrectedTransaction().getPoints() : null
+        );
     }
 
     private UUID resolveOrganizationId(UUID storefrontId) {

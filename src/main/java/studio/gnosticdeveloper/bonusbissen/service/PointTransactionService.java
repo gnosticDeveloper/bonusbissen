@@ -1,7 +1,10 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
@@ -19,6 +22,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
 import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
+import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
@@ -27,36 +31,69 @@ import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
+import studio.gnosticdeveloper.bonusbissen.storage.DeliveryVariant;
+import studio.gnosticdeveloper.bonusbissen.storage.StorageService;
 
 @Service
 public class PointTransactionService {
+
+    private static final String DEFAULT_COLOR = "#232027";
+    private static final String DEFAULT_POINT_LABEL = "puntos";
+    private static final ZoneId ZONE_ARGENTINA = ZoneId.of("America/Argentina/Buenos_Aires");
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.of("es", "AR"));
 
     private final PointTransactionRepository pointTransactionRepository;
     private final ExchangeCodeRepository exchangeCodeRepository;
     private final OrganizationStaffRepository organizationStaffRepository;
     private final PointProgramRepository pointProgramRepository;
     private final TraceabilityService traceabilityService;
+    private final StorageService storageService;
 
     public PointTransactionService(
         PointTransactionRepository pointTransactionRepository,
         ExchangeCodeRepository exchangeCodeRepository,
         OrganizationStaffRepository organizationStaffRepository,
         PointProgramRepository pointProgramRepository,
-        TraceabilityService traceabilityService
+        TraceabilityService traceabilityService,
+        StorageService storageService
     ) {
         this.pointTransactionRepository = pointTransactionRepository;
         this.exchangeCodeRepository = exchangeCodeRepository;
         this.organizationStaffRepository = organizationStaffRepository;
         this.pointProgramRepository = pointProgramRepository;
         this.traceabilityService = traceabilityService;
+        this.storageService = storageService;
     }
 
-    private static final String DEFAULT_COLOR = "#232027";
-    private static final String DEFAULT_POINT_LABEL = "puntos";
+    private String resolveThumbnailUrl(String imagePath) {
+        return imagePath == null ? null : storageService.resolveUrl(imagePath, DeliveryVariant.THUMBNAIL);
+    }
+
+    private ExchangeResponse toExchangeResponse(PointTransaction ex) {
+        String formattedDate = ex.getCreatedAt().atZoneSameInstant(ZONE_ARGENTINA).format(DATE_FORMAT);
+        Reward reward = ex.getReward();
+
+        return new ExchangeResponse(
+            ex.getId(),
+            ex.getUser().getId(),
+            ex.getUser().getName(),
+            ex.getUser().getUsername(),
+            ex.getEmployee() != null ? ex.getEmployee().getUser().getName() : null,
+            reward != null ? reward.getId() : null,
+            reward != null ? reward.getTitle() : null,
+            reward != null ? reward.getDescription() : null,
+            reward != null ? resolveThumbnailUrl(reward.getImagePath()) : null,
+            reward != null ? reward.getDiscountValue() : null,
+            reward != null ? reward.getCostPoints() : 0,
+            ex.getState().getValue(),
+            ex.getPoints(),
+            formattedDate
+        );
+    }
 
     @Transactional(readOnly = true)
     public List<ExchangeResponse> getAll(UUID organizationId) {
-        return pointTransactionRepository.findAllWithRelations(organizationId).stream().map(ExchangeResponse::from).toList();
+        return pointTransactionRepository.findAllWithRelations(organizationId).stream().map(this::toExchangeResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -86,7 +123,7 @@ public class PointTransactionService {
 
     @Transactional(readOnly = true)
     public List<ExchangeResponse> getResolved(UUID organizationId, Pageable pageable) {
-        return pointTransactionRepository.findAllResolvedByOrganizationId(organizationId, pageable).stream().map(ExchangeResponse::from).toList();
+        return pointTransactionRepository.findAllResolvedByOrganizationId(organizationId, pageable).stream().map(this::toExchangeResponse).toList();
     }
 
     @Transactional
@@ -148,7 +185,7 @@ public class PointTransactionService {
         payload.put("code", normalized);
         traceabilityService.record(OperationType.EXCHANGE_VERIFY, callerId, pointTransaction.getUser().getId(), payload);
 
-        return ExchangeResponse.from(pointTransaction);
+        return toExchangeResponse(pointTransaction);
     }
 
     @Transactional

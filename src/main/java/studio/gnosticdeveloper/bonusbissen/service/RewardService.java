@@ -1,15 +1,15 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.UUID;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +27,7 @@ import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
+import studio.gnosticdeveloper.bonusbissen.storage.StorageService;
 
 @Service
 public class RewardService {
@@ -36,22 +37,32 @@ public class RewardService {
     private final RewardRepository rewardRepository;
     private final PointProgramRepository pointProgramRepository;
     private final StorefrontRepository storefrontRepository;
+    private final StorageService storageService;
 
     private static final long MAX_BYTES = 2 * 1024 * 1024; // 2MB
-    // private static final int MAX_WIDTH = 1000;
-    private static final Set<String> TYPES_ALLOWED = Set.of("image/jpeg", "image/png", "image/webp", "image/jpg");
 
-    @Value("${app.uploads.dir}")
-    private String uploadsDir;
+    private static final Map<String, String> EXTENSIONS_BY_TYPE = Map.of(
+        "image/jpeg", "jpg",
+        "image/jpg", "jpg",
+        "image/png", "png",
+        "image/webp", "webp"
+    );
+
+    private static final double MIN_ASPECT_RATIO = 1.0; // cuadrada
+    private static final double MAX_ASPECT_RATIO = 2.0; // panorámica (ej. 16:9)
+
+    private static final int MAX_DIMENSION_PX = 4000;
 
     public RewardService(
         RewardRepository rewardRepository,
         PointProgramRepository pointProgramRepository,
-        StorefrontRepository storefrontRepository
+        StorefrontRepository storefrontRepository,
+        StorageService storageService
     ) {
         this.rewardRepository = rewardRepository;
         this.pointProgramRepository = pointProgramRepository;
         this.storefrontRepository = storefrontRepository;
+        this.storageService = storageService;
     }
 
     @Transactional(readOnly = true)
@@ -91,14 +102,18 @@ public class RewardService {
     @Transactional
     public Reward create(RewardCreateRequest request, UUID organizationId) {
         String imagePath = null;
+        String imageError = null;
 
         if (request.image() != null && !request.image().isEmpty()) {
             try {
                 imagePath = saveImage(request.image());
-            } catch (IOException e) {
-                // Caught so the app doesn't crash if the image can't be saved -- the reward
-                // is still created, just without an image.
-                log.warn("Error al guardar la imagen", e);
+            } catch (IllegalArgumentException | IOException e) {
+                // La imagen no es un campo obligatorio: la recompensa se crea
+                // igual, sin imagen. Se avisa en la respuesta, con el motivo
+                // específico, para que el admin sepa qué pasó y si tiene sentido
+                // reintentar.
+                log.warn("No se pudo guardar la imagen de la recompensa", e);
+                imageError = describeImageFailure(e);
             }
         }
 
@@ -118,7 +133,9 @@ public class RewardService {
         reward.setCostPoints(request.costPoints());
         reward.setDiscountValue(request.discountValue());
         reward.setImagePath(imagePath);
-        return rewardRepository.save(reward);
+        reward = rewardRepository.save(reward);
+        reward.setImageUploadError(imageError);
+        return reward;
     }
 
     @Transactional
@@ -139,23 +156,45 @@ public class RewardService {
         }
     }
 
+    private String describeImageFailure(Exception e) {
+        if (e instanceof IllegalArgumentException) {
+            // Falló alguna de nuestras propias validaciones (tipo no permitido,
+            // tamaño, relación de aspecto, dimensión máxima, archivo corrupto,
+            // animación) -- el mensaje de la excepción ya es específico y seguro
+            // de mostrar tal cual.
+            return e.getMessage();
+        }
+
+        // No es un problema del archivo: no se pudo llegar a Cloudinary (red,
+        // timeout, caído). No depende de lo que el admin suba, tiene sentido
+        // sugerir reintentar más tarde en vez de pedir otro archivo.
+        return "No se pudo subir la imagen a Cloudinary. Probá de nuevo en unos minutos.";
+    }
+
     private String saveImage(MultipartFile file) throws IOException {
-        if (!TYPES_ALLOWED.contains(file.getContentType())) {
+        String extension = EXTENSIONS_BY_TYPE.get(file.getContentType());
+        if (extension == null) {
             throw new IllegalArgumentException("Tipo de archivo no permitido.");
         }
         if (file.getSize() > MAX_BYTES) {
             throw new IllegalArgumentException("La imagen supera el tamaño máximo de 2MB.");
         }
 
-        // Filename generated by the server, to avoid collisions and path traversal
-        String filename = UUID.randomUUID() + ".jpg";
-        Path destino = Paths.get(uploadsDir, filename);
-        Files.createDirectories(destino.getParent());
+        int[] dimensions = readDimensions(file);
+        int width = dimensions[0];
+        int height = dimensions[1];
 
-        // TODO: discuss if it is worth it to add compression or resizing for this. For a single user, it is acceptable to fetch the file directly. Later on, it will likely pay to add compression at the very least
-        file.transferTo(destino);
+        if (width > MAX_DIMENSION_PX || height > MAX_DIMENSION_PX) {
+            throw new IllegalArgumentException("La imagen no puede superar los " + MAX_DIMENSION_PX + "px de ancho o alto.");
+        }
 
-        return "rewards/" + filename;
+        double ratio = (double) width / height;
+        if (ratio < MIN_ASPECT_RATIO || ratio > MAX_ASPECT_RATIO) {
+            throw new IllegalArgumentException("La imagen debe tener una relación de aspecto entre 1:1 y 2:1 (horizontal).");
+        }
+
+        byte[] cleaned = ImageMetadataStripper.strip(file.getBytes(), extension);
+        return storageService.store(cleaned, extension);
     }
 
     @Transactional
@@ -171,6 +210,7 @@ public class RewardService {
         reward.setDiscountValue(request.discountValue());
 
         String oldImagePath = reward.getImagePath();
+        String imageError = null;
 
         if (request.image() != null && !request.image().isEmpty()) {
             // Caso 2: imagen nueva. Guardamos primero, actualizamos la fila
@@ -181,11 +221,15 @@ public class RewardService {
                 reward.setImagePath(newImagePath);
                 reward = rewardRepository.save(reward);
                 deleteImageFile(oldImagePath);
-            } catch (IOException e) {
+            } catch (IllegalArgumentException | IOException e) {
                 // Mismo criterio que en el alta: si la imagen no se pudo guardar,
                 // la app sigue funcionando con el resto de los campos actualizados,
                 // conservando la imagen anterior.
-                log.warn("Error al guardar la imagen", e);
+                log.warn("No se pudo guardar la imagen de la recompensa", e);
+                imageError = describeImageFailure(e);
+                if (oldImagePath != null) {
+                    imageError += " Se conservó la imagen anterior.";
+                }
                 reward = rewardRepository.save(reward);
             }
         } else if (Boolean.TRUE.equals(request.removeImage())) {
@@ -198,20 +242,44 @@ public class RewardService {
             reward = rewardRepository.save(reward);
         }
 
+        reward.setImageUploadError(imageError);
         return reward;
+    }
+
+    private int[] readDimensions(MultipartFile file) throws IOException {
+        try (ImageInputStream iis = ImageIO.createImageInputStream(file.getInputStream())) {
+            if (iis == null) {
+                throw new IllegalArgumentException("No se pudo leer la imagen.");
+            }
+
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
+            if (!readers.hasNext()) {
+                throw new IllegalArgumentException("No se pudo leer la imagen.");
+            }
+
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(iis);
+                if (reader.getNumImages(true) > 1) {
+                    throw new IllegalArgumentException("No se permiten imágenes animadas.");
+                }
+
+                return new int[] { reader.getWidth(0), reader.getHeight(0) };
+            } finally {
+                reader.dispose();
+            }
+        }
     }
 
     private void deleteImageFile(String imagePath) {
         if (imagePath == null) return;
         try {
-            // imagePath viene como "rewards/xxxx.jpg".
-            Path filePath = Paths.get(uploadsDir, imagePath.replaceFirst("^rewards/", ""));
-            Files.deleteIfExists(filePath);
+            storageService.delete(imagePath);
         } catch (IOException e) {
-            // No relanzamos: si el archivo viejo no se pudo borrar, es un
-            // archivo huérfano en disco, molesto pero no corrompe datos. La
-            // fila de la base ya quedó correcta en cualquiera de los dos
-            // casos que llaman a este método.
+            // No relanzamos: si la imagen vieja no se pudo borrar en Cloudinary,
+            // queda huérfana ahí, molesto pero no corrompe datos. La fila de la
+            // base ya quedó correcta en cualquiera de los dos casos que llaman
+            // a este método.
             log.warn("Error al borrar la imagen anterior", e);
         }
     }

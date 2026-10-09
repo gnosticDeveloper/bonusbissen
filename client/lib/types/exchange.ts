@@ -8,7 +8,7 @@ export interface HistoricalExchangeBase {
   id: string;
   rewardTitle: string;
   rewardDescription: string;
-  rewardImagePath: string;
+  rewardImageUrl: string;
   discountValue: number;
   costPoints: number;
   pointsUnitLabel: string;

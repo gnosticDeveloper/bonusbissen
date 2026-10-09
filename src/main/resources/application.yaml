@@ -63,6 +63,18 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   uploads:
     dir: /var/lib/bonusbissen/uploads/rewards
+  storage:
+    # "local" (default): writes to app.uploads.dir, served by nginx's existing
+    # rewards/ location -- no Cloudinary account needed for local dev. Set to
+    # "cloudinary" to use the real account (requires CLOUDINARY_* below).
+    provider: ${STORAGE_PROVIDER:local}
+    # Only used by the local provider, to turn a relative path into the
+    # absolute URL callers expect (Cloudinary's URLs are already absolute).
+    assets-url: ${ASSETS_URL:https://localhost/}
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:unset}
+    api-key: ${CLOUDINARY_API_KEY:unset}
+    api-secret: ${CLOUDINARY_API_SECRET:unset}
   georef:
     # https://datos.gob.ar/georef. Disabled -> address stored as typed, city null.
     enabled: ${GEOREF_ENABLED:true}

@@ -143,7 +143,10 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
             baseUrl() + "/users/" + user.getId() + "/movements?storefrontId=" + defaultStorefront().getId(),
             HttpMethod.GET, authed(token), new ParameterizedTypeReference<List<MovementResponse>>() {}
         ).getBody();
-        assertThat(movements.stream().filter(MovementResponse::correction).findFirst().orElseThrow().correctedTransactionId()).isEqualTo(originalId);
+        MovementResponse correctionMovement = movements.stream().filter(MovementResponse::correction).findFirst().orElseThrow();
+        assertThat(correctionMovement.correctedTransactionId()).isEqualTo(originalId);
+        assertThat(correctionMovement.title()).isEqualTo("Corrección de puntos");
+        assertThat(correctionMovement.points()).isEqualTo(-60);
 
         ResponseEntity<String> delete = restTemplate.exchange(
             baseUrl() + "/users/grant/" + originalId, HttpMethod.DELETE, authed(token), String.class

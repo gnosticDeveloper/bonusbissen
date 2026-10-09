@@ -8,7 +8,7 @@ import { decodeJwt, getSessionToken } from "@/lib/auth/session";
 //     UUID id,
 //     String type,
 //     int points,
-//     String imagePath,
+//     String imageUrl,
 //     String title,
 //     String orgName,
 //     String storefrontName,
@@ -20,7 +20,7 @@ export type MovementResponse = {
   id: string;
   type: "redeem" | "earn" | "adjust";
   points: number;
-  imagePath?: string;
+  imageUrl?: string;
   title: string;
   orgName?: string;
   storefrontName?: string;

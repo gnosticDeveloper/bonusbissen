@@ -9,9 +9,9 @@ export function MovementCard({ movement }: { movement: MovementResponse }) {
     <article className="overflow-hidden rounded-3xl border border-border bg-card shadow-[0_12px_30px_rgba(20,16,25,0.05)]">
       <div className="flex gap-3 p-3.5">
         <div className="relative h-19 w-19 shrink-0 overflow-hidden rounded-[18px] bg-muted/20">
-          {movement.imagePath ? (
+          {movement.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={movement.imagePath} alt={movement.title} className="h-full w-full object-cover" />
+            <img src={movement.imageUrl} alt={movement.title} className="h-full w-full object-cover" />
           ) : (
             <div
               className={`grid h-full w-full place-items-center ${
