@@ -2,8 +2,8 @@ import { MovementResponse } from "@/app/s/[slug]/(member-only)/historial/actions
 import { Gift, Coins, MapPin, Store } from "lucide-react";
 
 export function MovementCard({ movement }: { movement: MovementResponse }) {
-  const isEarn = movement.type === "earn";
-  const pointsText = `${Math.abs(movement.points).toLocaleString("es-AR")} ${movement.pointsLabel}`;
+  const isEarn = movement.points > 0;
+  const pointsText = `${Math.abs(movement.points).toLocaleString("es-AR")} ${movement.pointsLabel || "puntos"}`;
 
   return (
     <article className="overflow-hidden rounded-3xl border border-border bg-card shadow-[0_12px_30px_rgba(20,16,25,0.05)]">
@@ -18,13 +18,14 @@ export function MovementCard({ movement }: { movement: MovementResponse }) {
                 isEarn ? "bg-green-500/10 text-foreground" : "text-foreground/80"
               }`}
             >
-              {isEarn ? <Coins className="h-8 w-8" aria-hidden="true" /> : <Gift className="h-8 w-8" aria-hidden="true" />}
+              {movement.type !== "redeem" ? <Coins className="h-8 w-8" aria-hidden="true" /> : <Gift className="h-8 w-8" aria-hidden="true" />}
             </div>
           )}
         </div>
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-foreground">{movement.title}</p>
+          {movement.correction && <p className="mt-1 text-xs font-medium text-foreground/80">Corrección del movimiento original de {movement.correctedTransactionAmount?.toLocaleString("es-AR")} puntos</p>}
 
           {movement.orgName && (
             <div className="mt-1.5 flex items-center gap-1.5 text-xs text-foreground/80">

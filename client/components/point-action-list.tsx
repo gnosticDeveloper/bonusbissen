@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime, formatPoints, pointActionLabel } from "@/lib/helpers/format";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, Wallet } from "lucide-react";
+import { Pencil, Wallet } from "lucide-react";
 import { Customer } from "@/lib/types/customer";
 import { getAllPointActions } from "@/app/d/[slug]/administrar-puntos/actions";
 import dynamic from "next/dynamic";
@@ -18,9 +18,10 @@ const UpdateGrantModal = dynamic(() => import("./modals/grant/update-grant-modal
 
 type PointAction = Awaited<ReturnType<typeof getAllPointActions>>[number];
 
-export default function PointActionList({ selected, refreshKey }: { selected: Customer | null; refreshKey?: number }) {
+export default function PointActionList({ selected, refreshKey, onBalanceChanged }: { selected: Customer | null; refreshKey?: number; onBalanceChanged?: () => void }) {
   const { open } = useModal();
   const [actions, setActions] = useState<PointAction[]>([]);
+  const [historyRefresh, setHistoryRefresh] = useState(0);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
     return () => {
       cancelled = true;
     };
-  }, [selected?.id, refreshKey]);
+  }, [selected?.id, refreshKey, historyRefresh]);
 
   const visibleActions = actions;
 
@@ -126,20 +127,32 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
                           {isPositive ? "+" : ""}
                           {formatPoints(a.amount)} pts
                         </Badge>
+                        {a.correctedTransaction && <Badge tone="neutral">Corrección</Badge>}
                       </div>
 
                       <p className="mt-1 text-xs font-medium text-foreground">{pointActionLabel(a.type)}</p>
 
                       {a.note ? <p className="mt-2 line-clamp-2 text-xs leading-5 text-foreground/80">{a.note}</p> : null}
+                      {a.correctedTransaction && (
+                        <Button type="button" variant="outline" className="mt-2" onClick={() => open(
+                          <div className="space-y-2 text-sm">
+                            <p>Movimiento original: {formatPoints(a.correctedTransaction!.amount)} puntos</p>
+                            <p>Fecha: {formatDateTime(a.correctedTransaction!.createdAt)}</p>
+                            <p>Nota: {a.correctedTransaction!.note || "Sin nota"}</p>
+                            <p className="break-all text-xs">ID: {a.correctedTransaction!.id}</p>
+                          </div>,
+                          { title: "Movimiento original", description: "Información del movimiento que se corrigió." },
+                        )}>Ver movimiento original</Button>
+                      )}
 
                       <p className="mt-2 text-[11px] leading-4 text-foreground/80">
                         {formatDateTime(a.createdAt)}
-                        <span className="mx-1 text-border">·</span>
+                        <span className="mx-1">•</span>
                         por {a.byUserName}
                       </p>
                     </div>
 
-                    <div className="flex shrink-0 gap-1 rounded-xl border border-border bg-card p-1 opacity-70 transition-opacity group-hover:opacity-100">
+                    {!a.correctedTransaction && <div className="flex shrink-0 gap-1 rounded-xl border border-border bg-card p-1 opacity-70 transition-opacity group-hover:opacity-100">
                       <Button
                         variant="ghost"
                         size="icon-sm"
@@ -148,11 +161,11 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
                           open(
                             <UpdateGrantModal
                               a={a}
-                              onSucceed={(updated) => setActions((current) => current.map((action) => (action.id === updated.id ? updated : action)))}
+                              onSucceed={() => { setHistoryRefresh((key) => key + 1); onBalanceChanged?.(); }}
                             />,
                             {
-                              title: "Modificar puntos",
-                              description: `Modificá los puntos que le entregaste a ${a.userName}.`,
+                              title: "Corregir movimiento",
+                              description: `Registrá una corrección para ${a.userName} sin modificar el movimiento original.`,
                             },
                           )
                         }
@@ -160,16 +173,7 @@ export default function PointActionList({ selected, refreshKey }: { selected: Cu
                       >
                         <Pencil className="size-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="Eliminar movimiento"
-                        // onClick={() => open(<DeleteGrantModal pointA={a} />)}
-                        className="rounded-lg text-foreground/80 hover:bg-primary/10 hover:text-foreground"
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
+                    </div>}
                   </li>
                 );
               })}

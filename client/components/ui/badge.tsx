@@ -5,9 +5,9 @@ type Tone = 'neutral' | 'success' | 'warning' | 'destructive' | 'primary'
 
 const toneClasses: Record<Tone, string> = {
   neutral: 'bg-foreground/10 text-foreground',
-  success: 'bg-green-400 text-green-950',
-  warning: 'bg-amber-400 text-amber-950',
-  destructive: 'bg-red-400 text-red-950',
+  success: 'bg-green-500/50 text-green-950',
+  warning: 'bg-amber-500/50 text-amber-950',
+  destructive: 'bg-red-500/50 text-red-950',
   primary: 'bg-primary text-primary-foreground',
 }
 

@@ -17,8 +17,9 @@ const MAX_SPEND = 10_000_000;
 const MAX_POINTS = 1_000;
 
 export default function PointsManagerPage() {
-  const { runAction } = useModal();
+  const { runAction, open, close } = useModal();
   const [mode, setMode] = useState<"spend" | "manual">("spend");
+  const [operation, setOperation] = useState<"add" | "subtract">("add");
 
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -43,6 +44,7 @@ export default function PointsManagerPage() {
   async function submit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!selected) return;
+    const customer = selected;
 
     setError(null);
 
@@ -63,41 +65,68 @@ export default function PointsManagerPage() {
     } else {
       const manualPoints = parsePositiveInt(manual, { max: MAX_POINTS });
       if (manualPoints == null) {
-        setError("Sumar puntos manualmente solo admite cantidades de 1 a 1000.");
+        setError("Ingresá una cantidad de 1 a 1000 puntos.");
         return;
       }
-      points = manualPoints;
+      points = operation === "subtract" ? -manualPoints : manualPoints;
     }
 
-    const result = await runAction(() => grantPointsTo(selected.id, points, note), {
-      loading: {
-        title: "Sumando puntos",
-        description: `Estamos registrando ${formatPoints(points)} puntos para ${selected.name}.`,
-      },
-      success: ({ pointsGranted, userName }) => ({
-        title: "Puntos otorgados",
-        description: `Se sumaron ${formatPoints(pointsGranted)} puntos a ${userName}.`,
-      }),
-      errorTitle: "No pudimos sumar los puntos",
-    });
+    async function submitPoints(allowDebt = false) {
+      const result = await grantPointsTo(customer.id, points, note, allowDebt);
+      if (!result.ok && result.status === 409 && !allowDebt && points < 0 && result.error.startsWith("La resta supera el saldo disponible.")) {
+        open(
+          <div className="grid gap-4">
+            <p className="text-sm">{result.error}</p>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={close}>Cancelar</Button>
+              <Button type="button" onClick={() => void submitPoints(true)}>Confirmar deuda</Button>
+            </div>
+          </div>,
+          { title: "Saldo insuficiente", description: "Esta resta dejaría al cliente con una deuda." },
+        );
+        return;
+      }
+      const shown = await runAction(async () => result, {
+        loading: {
+          title: "Registrando puntos",
+          description: `Estamos registrando ${formatPoints(Math.abs(points))} puntos para ${customer.name}.`,
+        },
+        success: ({ pointsGranted, userName }) => ({
+          title: "Movimiento registrado",
+          description: `Se ${pointsGranted < 0 ? "restaron" : "sumaron"} ${formatPoints(Math.abs(pointsGranted))} puntos a ${userName}.`,
+        }),
+        errorTitle: "No pudimos registrar los puntos",
+      });
+      if (!shown.ok) return;
+      setRefreshKey((key) => key + 1);
+      void refreshCustomerBalance(customer.id, customer.username);
+      if (mode === "spend") setSpend("");
+      else setManual("");
+    }
 
-    if (!result.ok) return;
+    await submitPoints();
+  }
 
-    setRefreshKey((key) => key + 1);
-    if (mode === "spend") setSpend("");
-    else setManual("");
+  async function refreshCustomerBalance(id: string, username: string) {
+    try {
+      const page = await getAllCustomers({ search: username, page: 0, size: 10 });
+      const updated = page.items.find((customer) => customer.id === id);
+      if (updated) setSelected((current) => current?.id === id ? updated : current);
+    } catch {
+      // Don't replace the selected customer if the balance refresh fails.
+    }
   }
 
   const isNotValidAmount =
     ((Number(spend) < POINTS_PER_CURRENCY || Number(spend) > MAX_SPEND) && mode === "spend") ||
-    ((Number(manual) <= 0 || Number(manual) > MAX_SPEND) && mode === "manual");
+    (parsePositiveInt(manual, { max: MAX_POINTS }) == null && mode === "manual");
 
   return (
     <main className="mx-auto min-h-0 w-full text-foreground">
       <header className="mb-7 lg:mb-3">
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground">Programa de fidelización</p>
-        <h1 className="text-3xl font-semibold tracking-tighter sm:text-4xl">Otorgar puntos</h1>
-        <p className="mt-2 text-sm leading-6 text-foreground/80">Sumá puntos a la cuenta de un cliente según su compra o ingresá una cantidad manualmente.</p>
+        <h1 className="text-3xl font-semibold tracking-tighter sm:text-4xl">Administrar puntos</h1>
+        <p className="mt-2 text-sm leading-6 text-foreground/80">Sumá puntos por compra o realizá movimientos manuales de suma y resta.</p>
       </header>
 
       <div className="grid min-h-0 gap-5 lg:grid-cols-5">
@@ -108,7 +137,7 @@ export default function PointsManagerPage() {
                 <Coins className="size-5" aria-hidden="true" />
               </span>
               <span>
-                <span className="block">Sumar puntos</span>
+                <span className="block">Registrar puntos</span>
                 <span className="mt-1 block text-xs font-normal text-foreground/80">Elegí un cliente y registrá su movimiento.</span>
               </span>
             </CardTitle>
@@ -124,8 +153,8 @@ export default function PointsManagerPage() {
                 fetchFn={getAllCustomers}
                 getId={(c) => c.id}
                 displayKeys={["name", "username"]}
-                // Note: the backend threw me a null points here. I used the ?? operator to avoid null errors when calling formatPoints. I should check the workflow better.
-                badge={(c) => `${formatPoints(c.points ?? 0)} pts`}
+
+                badge={(c) => c.points == null ? "Saldo no disponible" : `${formatPoints(c.points)} pts`}
                 placeholder="Buscar por nombre o email…"
               />
             </div>
@@ -184,8 +213,12 @@ export default function PointsManagerPage() {
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="button" variant={operation === "add" ? "default" : "outline"} onClick={() => setOperation("add")}>Sumar</Button>
+                    <Button type="button" variant={operation === "subtract" ? "default" : "outline"} onClick={() => setOperation("subtract")}>Restar</Button>
+                  </div>
                   <Label htmlFor="manual" className="text-sm font-medium">
-                    Puntos a sumar
+                    Puntos a {operation === "subtract" ? "restar" : "sumar"}
                   </Label>
                   <Input
                     id="manual"
@@ -220,13 +253,13 @@ export default function PointsManagerPage() {
                 className="mt-1 h-12 w-full rounded-xl bg-primary font-semibold text-primary-foreground shadow-sm transition-transform hover:bg-primary/90 active:scale-[0.99] disabled:opacity-50"
                 disabled={isNotValidAmount}
               >
-                Sumar puntos
+                {mode === "manual" && operation === "subtract" ? "Restar puntos" : "Sumar puntos"}
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        <PointActionList selected={selected} refreshKey={refreshKey} />
+        <PointActionList selected={selected} refreshKey={refreshKey} onBalanceChanged={() => selected && void refreshCustomerBalance(selected.id, selected.username)} />
       </div>
     </main>
   );
