@@ -582,6 +582,7 @@ class UserServiceTest {
         PointTransaction tx = grantTransaction(organizationId);
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
         when(pointTransactionRepository.calculateBalance(tx.getUser().getId(), PROGRAM_ID)).thenReturn(10);
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(EMPLOYEE_ID)).thenReturn(Optional.of(tx.getEmployee()));
 
         assertThatThrownBy(() -> userService.updateGrant(tx.getId(), new GrantPointsUpdateRequest(-1, "error"), organizationId, EMPLOYEE_ID))
             .isInstanceOfSatisfying(ConflictException.class, error -> {
@@ -650,6 +651,7 @@ class UserServiceTest {
         UUID organizationId = UUID.randomUUID();
         PointTransaction original = grantTransaction(organizationId);
         when(pointTransactionRepository.findById(original.getId())).thenReturn(Optional.of(original));
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(EMPLOYEE_ID)).thenReturn(Optional.of(original.getEmployee()));
         assertThatThrownBy(() -> userService.updateGrant(original.getId(), new GrantPointsUpdateRequest(50, "sin cambios"), organizationId, EMPLOYEE_ID))
             .isInstanceOf(BadRequestException.class);
         verify(pointTransactionRepository, never()).save(any());

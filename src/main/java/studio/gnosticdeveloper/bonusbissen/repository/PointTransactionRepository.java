@@ -1,5 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
@@ -93,6 +94,33 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
         group by t.correctedTransaction.id
         """)
     List<Object[]> sumCorrectionsByOriginalIds(@Param("originalIds") List<UUID> originalIds);
+
+    /** Dedupes a retried/double-clicked manual grant: same user, program, employee, amount and note, submitted moments ago. */
+    @Query("""
+        SELECT t FROM PointTransaction t
+        WHERE t.user.id = :userId AND t.pointProgram.id = :programId AND t.employee.id = :employeeId
+          AND t.points = :points AND t.correctedTransaction IS NULL AND t.createdAt >= :since
+        ORDER BY t.createdAt DESC
+        """)
+    List<PointTransaction> findRecentGrants(
+        @Param("userId") UUID userId,
+        @Param("programId") UUID programId,
+        @Param("employeeId") UUID employeeId,
+        @Param("points") int points,
+        @Param("since") OffsetDateTime since
+    );
+
+    /** Dedupes a retried/double-clicked correction: same original transaction and employee, submitted moments ago. */
+    @Query("""
+        SELECT t FROM PointTransaction t
+        WHERE t.correctedTransaction.id = :originalId AND t.employee.id = :employeeId AND t.createdAt >= :since
+        ORDER BY t.createdAt DESC
+        """)
+    List<PointTransaction> findRecentCorrections(
+        @Param("originalId") UUID originalId,
+        @Param("employeeId") UUID employeeId,
+        @Param("since") OffsetDateTime since
+    );
 
     /** One row per point program the user has ever transacted in, for the points carousel. */
     @Query(

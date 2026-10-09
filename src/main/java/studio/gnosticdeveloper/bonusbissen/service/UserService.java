@@ -1,5 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -478,6 +479,12 @@ public class UserService {
             throw new BadRequestException("Zero-point manual grant.", "Ingresá una cantidad de puntos distinta de cero.");
         }
         lockBalance(user.getId(), program.getId());
+
+        PointTransaction duplicate = findRecentDuplicateGrant(user.getId(), program.getId(), employee.getId(), request.points(), request.note());
+        if (duplicate != null) {
+            return new UserPointsAwardResponse(duplicate.getUser().getName(), duplicate.getPoints());
+        }
+
         requireAffordableAdjustment(user.getId(), program.getId(), request.points(), request.allowDebt());
 
         PointTransaction tx = new PointTransaction();
@@ -513,15 +520,19 @@ public class UserService {
         }
         UUID userId = original.getUser().getId();
         UUID programId = original.getPointProgram().getId();
-        lockBalance(userId, programId);
-        long delta = (long) request.points() - original.getPoints() - pointTransactionRepository.sumCorrections(original.getId());
-        if (delta == 0 || delta > Integer.MAX_VALUE || delta < Integer.MIN_VALUE) {
-            throw new BadRequestException("Invalid or empty correction delta: " + delta, "La corrección debe cambiar los puntos dentro del rango permitido.");
-        }
-        requireAffordableAdjustment(userId, programId, (int) delta, request.allowDebt());
         OrganizationStaff employee = organizationStaffRepository.findByUserIdAndActiveTrue(callerId)
             .filter(staff -> staff.getOrganization().getId().equals(organizationId))
             .orElseThrow(() -> new AccessDeniedException("Active staff membership required for correction."));
+        lockBalance(userId, programId);
+        long delta = (long) request.points() - original.getPoints() - pointTransactionRepository.sumCorrections(original.getId());
+        if (delta == 0 || delta > Integer.MAX_VALUE || delta < Integer.MIN_VALUE) {
+            PointTransaction recent = findRecentDuplicateCorrection(original.getId(), employee.getId());
+            if (recent != null) {
+                return PointActionResponse.from(recent);
+            }
+            throw new BadRequestException("Invalid or empty correction delta: " + delta, "La corrección debe cambiar los puntos dentro del rango permitido.");
+        }
+        requireAffordableAdjustment(userId, programId, (int) delta, request.allowDebt());
 
         PointTransaction correction = new PointTransaction();
         correction.setUser(original.getUser());
@@ -541,6 +552,28 @@ public class UserService {
         payload.put("note", correction.getNote());
         traceabilityService.record(OperationType.POINTS_CORRECTION, callerId, userId, payload);
         return PointActionResponse.from(correction);
+    }
+
+    /** Window within which an identical retried/double-clicked submission is treated as a no-op instead of a duplicate. */
+    private static final java.time.Duration DUPLICATE_SUBMISSION_WINDOW = java.time.Duration.ofSeconds(5);
+
+    /** Null when no recent duplicate exists (the normal case); otherwise the earlier transaction to replay the response from. */
+    private PointTransaction findRecentDuplicateGrant(UUID userId, UUID programId, UUID employeeId, int points, String note) {
+        OffsetDateTime since = OffsetDateTime.now().minus(DUPLICATE_SUBMISSION_WINDOW);
+        return pointTransactionRepository.findRecentGrants(userId, programId, employeeId, points, since)
+            .stream()
+            .filter(t -> Objects.equals(t.getNote(), note))
+            .findFirst()
+            .orElse(null);
+    }
+
+    /** Null when no recent duplicate exists; otherwise the earlier correction to replay the response from. */
+    private PointTransaction findRecentDuplicateCorrection(UUID originalId, UUID employeeId) {
+        OffsetDateTime since = OffsetDateTime.now().minus(DUPLICATE_SUBMISSION_WINDOW);
+        return pointTransactionRepository.findRecentCorrections(originalId, employeeId, since)
+            .stream()
+            .findFirst()
+            .orElse(null);
     }
 
     private void requireAffordableAdjustment(UUID userId, UUID programId, int delta, boolean allowDebt) {
@@ -639,12 +672,28 @@ public class UserService {
 
     /** Serializes balance-affecting reads/writes for one (user, program) pair for the rest of the current transaction. */
     private void lockBalance(UUID userId, UUID programId) {
-        jdbcTemplate.execute("SELECT pg_advisory_xact_lock(?, ?)", (PreparedStatementCallback<Void>) ps -> {
-            ps.setInt(1, userId.hashCode());
-            ps.setInt(2, programId.hashCode());
+        long key = mix64(userId.getMostSignificantBits(), userId.getLeastSignificantBits())
+            ^ mix64(programId.getMostSignificantBits(), programId.getLeastSignificantBits());
+        jdbcTemplate.execute("SELECT pg_advisory_xact_lock(?)", (PreparedStatementCallback<Void>) ps -> {
+            ps.setLong(1, key);
             ps.execute();
             return null;
         });
+    }
+
+    /**
+     * MurmurHash3 finalizer: a full-avalanche 64-bit mix, used to fold each UUID's 128 bits into one
+     * lock key. UUID.hashCode() alone only XORs the two halves down to 32 bits per ID, which is cheap
+     * to collide across unrelated (user, program) pairs and would serialize their locks together.
+     */
+    private static long mix64(long hi, long lo) {
+        long h = hi ^ lo;
+        h ^= (h >>> 33);
+        h *= 0xff51afd7ed558ccdL;
+        h ^= (h >>> 33);
+        h *= 0xc4ceb9fe1a85ec53L;
+        h ^= (h >>> 33);
+        return h;
     }
 
     private String generateExchangeCode() {
