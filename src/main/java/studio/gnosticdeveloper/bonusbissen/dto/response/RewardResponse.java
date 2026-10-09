@@ -16,7 +16,8 @@ public record RewardResponse(
         int costPoints,
         BigDecimal discountValue,
         boolean active,
-        String createdAtFormatted
+        String createdAtFormatted,
+        String imageError
 ) {
     private static final ZoneId ZONE_ARGENTINA = ZoneId.of("America/Argentina/Buenos_Aires");
     private static final DateTimeFormatter DATE_FORMAT =
@@ -35,7 +36,8 @@ public record RewardResponse(
                 reward.getCostPoints(),
                 reward.getDiscountValue(),
                 reward.isActive(),
-                formattedDate
+                formattedDate,
+                reward.getImageUploadError()
         );
     }
 }
