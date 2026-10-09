@@ -15,7 +15,7 @@ export class ApiError extends Error {
   }
 }
 
-export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
+export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string; status?: number };
 
 export const request = async <T>(path: string, init?: RequestInit): Promise<ActionResult<T>> => {
   const cookiesStore = await cookies();
@@ -71,7 +71,7 @@ export const dashboardRequest = async <T>(path: string, init?: RequestInit): Pro
       } catch {
         problemDetail = null;
       }
-      return { ok: false, error: problemDetail?.detail ?? "No pudimos completar la solicitud." };
+      return { ok: false, error: problemDetail?.detail ?? "No pudimos completar la solicitud.", status: response.status };
     }
     const text = await response.text();
     return { ok: true, data: (text ? JSON.parse(text) : undefined) as T };

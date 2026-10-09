@@ -18,7 +18,7 @@ import { decodeJwt, getSessionToken } from "@/lib/auth/session";
 //
 export type MovementResponse = {
   id: string;
-  type: "redeem" | "earn";
+  type: "redeem" | "earn" | "adjust";
   points: number;
   imagePath?: string;
   title: string;
@@ -26,6 +26,9 @@ export type MovementResponse = {
   storefrontName?: string;
   pointsLabel?: string;
   formattedCreatedAt: string;
+  correction: boolean;
+  correctedTransactionId: string | null;
+  correctedTransactionAmount: number | null;
 };
 
 export async function getMovementsHistory(storefrontId?: string) {
