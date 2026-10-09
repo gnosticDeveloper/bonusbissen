@@ -369,6 +369,12 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         User cashier = createEmployee("cashier-negative-grant", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-negative-grant", "password123");
         User user = createUser("+5493462003010");
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
+            HttpMethod.POST,
+            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
+            Void.class
+        );
 
         ResponseEntity<String> response = restTemplate.exchange(
             baseUrl() + "/users/grant",

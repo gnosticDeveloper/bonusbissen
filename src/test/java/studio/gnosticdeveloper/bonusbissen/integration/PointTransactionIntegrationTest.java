@@ -246,8 +246,8 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         grant(token, user.getId(), 65);
 
         PagedResponse<UserPointsResponse> result = restTemplate.exchange(
-            baseUrl() + "/users?search=%2B5493462001097", HttpMethod.GET, authed(token),
-            new ParameterizedTypeReference<PagedResponse<UserPointsResponse>>() {}
+            baseUrl() + "/users?search={search}", HttpMethod.GET, authed(token),
+            new ParameterizedTypeReference<PagedResponse<UserPointsResponse>>() {}, "+5493462001097"
         ).getBody();
 
         assertThat(result.items()).anySatisfy(found -> {
