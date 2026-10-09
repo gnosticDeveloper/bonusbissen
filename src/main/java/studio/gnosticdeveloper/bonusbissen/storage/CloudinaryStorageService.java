@@ -5,9 +5,11 @@ import com.cloudinary.utils.ObjectUtils;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 @Service
+@ConditionalOnProperty(name = "app.storage.provider", havingValue = "cloudinary")
 public class CloudinaryStorageService implements StorageService {
 
     private static final String FOLDER = "rewards";

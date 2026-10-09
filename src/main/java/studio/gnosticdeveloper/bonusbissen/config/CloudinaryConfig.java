@@ -4,6 +4,7 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -11,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 public class CloudinaryConfig {
 
     @Bean
+    @ConditionalOnProperty(name = "app.storage.provider", havingValue = "cloudinary")
     public Cloudinary cloudinary(
         @Value("${app.cloudinary.cloud-name:unset}") String cloudName,
         @Value("${app.cloudinary.api-key:unset}") String apiKey,
