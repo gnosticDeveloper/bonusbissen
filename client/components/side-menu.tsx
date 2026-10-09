@@ -3,14 +3,14 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, X, ChevronRight, UserRound, Home } from "lucide-react";
+import { LogOut, X, ChevronRight, UserRound, Home, Compass } from "lucide-react";
 import { signOut } from "@/app/b/actions";
 import { useUIStore } from "@/lib/ui-store";
 import { BrandLockup } from "@/components/brand";
 import { ThemeToggle } from "./theme-toggle";
 import { useUser } from "@/providers/user-provider";
 
-export function SideMenu({ backHref, backLabel, color }: { backHref?: string; backLabel?: string; color?: string }) {
+export function SideMenu({ backHref, color }: { backHref?: string; color?: string }) {
   const pathname = usePathname();
   const menuOpen = useUIStore((state) => state.menuOpen);
   const closeMenu = useUIStore((state) => state.closeMenu);
@@ -32,7 +32,7 @@ export function SideMenu({ backHref, backLabel, color }: { backHref?: string; ba
       <div
         aria-hidden={!menuOpen}
         onClick={closeMenu}
-        className={`fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px] transition-opacity motion-reduce:transition-none ${
+        className={`fixed inset-0 z-40 bg-black/70 transition-opacity motion-reduce:transition-none ${
           menuOpen ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       />
@@ -56,43 +56,54 @@ export function SideMenu({ backHref, backLabel, color }: { backHref?: string; ba
           <button
             aria-label="Cerrar menú"
             onClick={closeMenu}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-muted transition-colors hover:bg-background hover:text-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-foreground/80 transition-colors hover:bg-background hover:text-foreground"
           >
             <X size={18} />
           </button>
         </div>
 
-        {backHref && (
+        <div className="flex flex-col gap-y-3 mt-8">
+          {backHref && (
+            <Link
+              onClick={closeMenu}
+              href="/b"
+              className="mx-4 bg-background transition-colors flex items-center gap-3 rounded-2xl hover:bg-foreground/10 p-4 text-sm font-bold text-foreground"
+            >
+              <Home size={18} />
+              Volver al inicio
+            </Link>
+          )}
+
           <Link
+            href="/descubrir"
             onClick={closeMenu}
-            href="/b"
-            className="mx-4 bg-background mt-6 transition-colors flex items-center gap-3 rounded-2xl hover:bg-(--side-menu-accent)/10 p-4 text-sm font-bold hover:text-(--side-menu-accent)"
+            className="mx-4 flex items-center gap-3 rounded-2xl bg-background p-4 transition-colors hover:bg-border/40"
           >
-            <Home size={18} />
-            Volver al inicio
+            <Compass size={18} aria-hidden="true" />
+            Explorar negocios
           </Link>
-        )}
 
-        <Link
-          href="/b/perfil"
-          onClick={closeMenu}
-          className="mx-4 mt-4 flex items-center gap-3 rounded-2xl bg-background p-4 transition-colors hover:bg-border/40"
-        >
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-(--side-menu-accent) text-primary-foreground">
-            <UserRound size={20} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-medium text-foreground">{user?.name ?? "Tu cuenta"}</p>
-            <p className="text-sm text-muted">Ver mi perfil</p>
-          </div>
-          <ChevronRight size={16} className="shrink-0 text-muted" />
-        </Link>
+          <Link
+            href="/b/perfil"
+            onClick={closeMenu}
+            className="mx-4 flex items-center gap-3 rounded-2xl bg-background p-4 transition-colors hover:bg-border/40"
+          >
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-primary-foreground">
+              <UserRound size={20} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium text-foreground">{user?.name ?? "Tu cuenta"}</p>
+              <p className="text-sm text-foreground/80">Ver mi perfil</p>
+            </div>
+            <ChevronRight size={16} className="shrink-0 text-foreground/80" />
+          </Link>
 
-        <ThemeToggle color={color} />
+          <ThemeToggle color={color} />
+        </div>
 
         <button
           onClick={handleSignOut}
-          className="mx-4 mb-[max(1.25rem,env(safe-area-inset-bottom))] mt-auto flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-red-400 transition-colors hover:bg-red-400/10"
+          className="mx-4 mb-[max(1.25rem,env(safe-area-inset-bottom))] mt-auto flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-red-500/15"
         >
           <LogOut size={16} />
           Cerrar sesión

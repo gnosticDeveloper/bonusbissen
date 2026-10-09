@@ -1,11 +1,9 @@
-import RewardsList from "@/components/rewards-list";
 import { getRewards } from "./actions";
-import { CreateRewardButton } from "@/components/create-reward-button";
 import { getCurrentUser } from "../actions";
 import { UserRole } from "@/lib/definitions";
 import { SearchParamsPaginationControls } from "@/components/search-params-pagination-controls";
 import { cookies } from "next/headers";
-import { RewardViewToggle } from "@/components/reward-view-toggle";
+import { RewardsView } from "@/components/rewards-view";
 
 export default async function RewardsPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | undefined }> }) {
   const { query, page: pageParam } = await searchParams;

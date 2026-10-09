@@ -14,6 +14,8 @@ public interface PointProgramRepository extends JpaRepository<PointProgram, UUID
     @EntityGraph(attributePaths = "storefronts")
     Optional<PointProgram> findByIdAndOrganizationId(UUID id, UUID organizationId);
 
+    boolean existsByIdAndOrganizationId(UUID id, UUID organizationId);
+
     /** True when the given program is honoured at the given storefront. */
     boolean existsByIdAndStorefronts_Id(UUID programId, UUID storefrontId);
 }

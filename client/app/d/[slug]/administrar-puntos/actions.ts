@@ -5,24 +5,24 @@ import { Customer } from "@/lib/types/customer";
 import { PointAction } from "../../types";
 import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
 import { ActionResult } from "@/lib/action-result";
-// import { updateTag } from "next/cache";
 
 interface UserPointsAwardResponse {
   userName: string;
   pointsGranted: number;
 }
 
-export const grantPointsTo = async (id: string, points: number, note?: string): Promise<ActionResult<UserPointsAwardResponse>> => {
+export const grantPointsTo = async (id: string, points: number, note?: string, allowDebt = false): Promise<ActionResult<UserPointsAwardResponse>> => {
   return await dashboardRequest<UserPointsAwardResponse>("/users/grant", {
     method: "POST",
-    body: JSON.stringify({ userId: id, points, note }),
+    body: JSON.stringify({ userId: id, points, note, allowDebt }),
     headers: { "Content-Type": "application/json" },
   });
 };
 
 export interface UpdateGrantRequest {
   points: number;
-  note?: string;
+  note: string;
+  allowDebt?: boolean;
 }
 
 export async function updateGrant(id: string, values: UpdateGrantRequest) {
@@ -32,20 +32,9 @@ export async function updateGrant(id: string, values: UpdateGrantRequest) {
     body: JSON.stringify({ ...values }),
   });
 
-  // updateTag("point-action-list");
-
   return res;
 }
 
-export async function deleteGrant(id: string) {
-  const res = await dashboardRequest(`/users/grant/${id}`, {
-    method: "DELETE",
-  });
-
-  // updateTag("point-action-list");
-
-  return res;
-}
 
 export const getAllCustomers: PagedRequestFunction<Customer> = async ({ search, page, size }) => {
   const params = new URLSearchParams();
@@ -62,7 +51,7 @@ export const getAllCustomers: PagedRequestFunction<Customer> = async ({ search, 
 
 export const getAllPointActions = async (id?: string): Promise<PointAction[]> => {
   const params = new URLSearchParams();
-  params.append("page", "10");
+  params.append("size", "10");
   if (id) params.append("of", id);
   const res = await dashboardRequest<PointAction[]>(`/users/grant/history?${params.toString()}`);
 

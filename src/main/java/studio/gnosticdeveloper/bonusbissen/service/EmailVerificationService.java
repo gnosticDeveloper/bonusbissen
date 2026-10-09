@@ -6,13 +6,11 @@ import java.time.OffsetDateTime;
 import java.util.Base64;
 import java.util.Locale;
 import java.util.Objects;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import studio.gnosticdeveloper.bonusbissen.email.EmailSender;
 import studio.gnosticdeveloper.bonusbissen.entity.EmailVerificationToken;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
@@ -69,9 +67,7 @@ public class EmailVerificationService {
             return;
         }
 
-        tokenRepository
-            .findAllByUserIdAndConsumedAtIsNull(user.getId())
-            .forEach(t -> t.setConsumedAt(OffsetDateTime.now()));
+        tokenRepository.findAllByUserIdAndConsumedAtIsNull(user.getId()).forEach(t -> t.setConsumedAt(OffsetDateTime.now()));
 
         EmailVerificationToken token = new EmailVerificationToken();
         token.setUser(user);
@@ -89,18 +85,21 @@ public class EmailVerificationService {
     public void verify(String rawToken) {
         EmailVerificationToken token = tokenRepository
             .findByToken(rawToken)
-            .orElseThrow(() -> new BadRequestException("El enlace de verificación no es válido."));
+            .orElseThrow(() -> new BadRequestException("Verification link is not valid", "El enlace de verificación no es válido."));
 
         if (token.isConsumed()) {
-            throw new BadRequestException("Este enlace de verificación ya fue utilizado.");
+            throw new BadRequestException("Verification link already used", "Este enlace de verificación ya fue utilizado.");
         }
         if (token.isExpired()) {
-            throw new BadRequestException("El enlace de verificación expiró. Pedí uno nuevo.");
+            throw new BadRequestException("Verification link is expired", "El enlace de verificación expiró. Pedí uno nuevo.");
         }
 
         User user = token.getUser();
         if (!Objects.equals(normalizeEmail(token.getEmail()), normalizeEmail(user.getEmail()))) {
-            throw new BadRequestException("El email de la cuenta cambió. Pedí un nuevo enlace de verificación.");
+            throw new BadRequestException(
+                "The account's email doesn't match the token's email.",
+                "El email de la cuenta cambió. Pedí un nuevo enlace de verificación."
+            );
         }
 
         user.setEmailVerified(true);
@@ -119,7 +118,7 @@ public class EmailVerificationService {
             throw new BadCredentialsException("Invalid credentials");
         }
         if (user.getEmail() == null) {
-            throw new BadRequestException("La cuenta no tiene un email asociado.");
+            throw new BadRequestException("The account has no email associated", "La cuenta no tiene un email asociado.");
         }
         sendVerification(user);
     }

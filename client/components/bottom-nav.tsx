@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Gift, User2, RotateCcwClock } from "lucide-react";
+import { Home, Gift, User2, RotateCcwClock, ListPlus } from "lucide-react";
+import { useUIStore } from "@/lib/ui-store";
 
 const HOME_ITEMS = [
   { href: "/b", label: "Inicio", icon: Home },
@@ -13,6 +14,7 @@ const HOME_ITEMS = [
 
 export function BottomNav() {
   const pathname = usePathname();
+  const openMenu = useUIStore((state) => state.openMenu);
   const isActive = (href: string) => (href === "/b" ? pathname === "/b" : pathname.startsWith(href));
 
   return (
@@ -25,7 +27,7 @@ export function BottomNav() {
             <Link
               key={href}
               href={href}
-              className={`flex w-17 flex-col items-center gap-1 whitespace-nowrap px-2 py-1 text-[12px] transition-colors ${active ? "text-primary" : "text-foreground"}`}
+              className={`flex w-17 flex-col items-center gap-1 whitespace-nowrap px-2 py-1 text-[12px] transition-colors ${active ? "text-foreground" : "text-foreground"}`}
             >
               <span
                 className="grid place-items-center rounded-full transition-shadow"
@@ -37,6 +39,16 @@ export function BottomNav() {
             </Link>
           );
         })}
+
+        <button
+          type="button"
+          onClick={openMenu}
+          aria-label="Abrir más opciones"
+          className="flex w-17 flex-col items-center gap-1 whitespace-nowrap px-2 py-1 text-[12px] text-foreground transition-colors hover:text-foreground"
+        >
+          <ListPlus size={24} aria-hidden="true" />
+          <span>Más</span>
+        </button>
 
         {/* Note: Afiliating to a pointProgram is performed with a basic confirmation flow through "/afiliarse". We are not planning to use QRs for now. */}
         {/*<button
@@ -58,6 +70,7 @@ const MEMBER_ONLY_ITEMS = [
 
 export function MemberOnlyBottomNav({ slug, color }: { slug: string; color?: string }) {
   const pathname = usePathname();
+  const openMenu = useUIStore((state) => state.openMenu);
   const isActive = (path: string) => pathname === `/s/${slug}${path}`;
 
   return (
@@ -90,6 +103,16 @@ export function MemberOnlyBottomNav({ slug, color }: { slug: string; color?: str
             </Link>
           );
         })}
+
+        <button
+          type="button"
+          onClick={openMenu}
+          aria-label="Abrir más opciones"
+          className="flex w-17 flex-col items-center gap-1 whitespace-nowrap px-2 py-1 text-[12px] text-foreground transition-colors hover:text-(--nav-active-color)"
+        >
+          <ListPlus size={22} aria-hidden="true" />
+          <span>Más</span>
+        </button>
       </div>
     </nav>
   );

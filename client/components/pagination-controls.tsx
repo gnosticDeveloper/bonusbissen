@@ -26,7 +26,7 @@ export function PaginationControls({ page, totalPages, onPageChange, disabled, c
         <ChevronLeft size={18} />
       </button>
 
-      <span className="text-xs text-muted">
+      <span className="text-xs text-foreground/80">
         Página {page + 1} de {totalPages}
       </span>
 

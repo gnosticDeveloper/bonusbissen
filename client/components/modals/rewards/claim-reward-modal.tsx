@@ -49,13 +49,13 @@ export function RewardClaimModal({ reward }: RewardClaimModalProps) {
   if (code) {
     return (
       <div className="flex flex-col items-center gap-4 text-center">
-        <div className="grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary">
+        <div className="grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-foreground">
           <Check className="h-7 w-7" aria-hidden="true" />
         </div>
 
         <div>
           <p className="text-sm font-semibold text-foreground">¡Recompensa reclamada!</p>
-          <p className="mt-1 text-xs text-muted-foreground">Mostrá este código en el local para canjearlo.</p>
+          <p className="mt-1 text-xs text-foreground/80">Mostrá este código en el local para canjearlo.</p>
         </div>
 
         <div className="flex w-full items-center justify-between gap-3 rounded-2xl border border-dashed border-border bg-muted/10 px-4 py-3">
@@ -80,7 +80,7 @@ export function RewardClaimModal({ reward }: RewardClaimModalProps) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={reward.imageThumbnailUrl} alt={reward.title} className="h-full w-full object-cover" />
           ) : (
-            <div className="grid h-full w-full place-items-center text-muted-foreground">
+            <div className="grid h-full w-full place-items-center text-foreground/80">
               <Gift className="h-7 w-7" aria-hidden="true" />
             </div>
           )}
@@ -88,7 +88,7 @@ export function RewardClaimModal({ reward }: RewardClaimModalProps) {
 
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-foreground">{reward.title}</p>
-          {reward.description && <p className="mt-1 text-xs leading-5 text-muted-foreground">{reward.description}</p>}
+          {reward.description && <p className="mt-1 text-xs leading-5 text-foreground/80">{reward.description}</p>}
         </div>
       </div>
 
@@ -96,13 +96,13 @@ export function RewardClaimModal({ reward }: RewardClaimModalProps) {
         {reward.discountValue > 0 && (
           <span className="rounded-full bg-muted/20 px-2.5 py-1 text-[11px] font-semibold text-foreground">{reward.discountValue}% OFF</span>
         )}
-        <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+        <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-foreground">
           {reward.costPoints.toLocaleString("es-AR")} pts
         </span>
       </div>
 
       {status === "error" && errorMessage && (
-        <p className="rounded-xl bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">
+        <p className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-foreground" role="alert">
           {errorMessage}
         </p>
       )}

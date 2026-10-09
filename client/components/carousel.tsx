@@ -109,7 +109,7 @@ export function Carousel<T>({ items, mainCard = null, renderItem, fallback, clas
         <button
           aria-label="Anterior"
           onClick={() => goTo(-1)}
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-white/20 bg-black/15 text-white transition-opacity hover:bg-black/25"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-foreground/10"
         >
           <ChevronLeft size={16} />
         </button>
@@ -122,7 +122,7 @@ export function Carousel<T>({ items, mainCard = null, renderItem, fallback, clas
               aria-label={`Ir a slide ${index + 1}`}
               onClick={() => goToIndex(index)}
               className={`h-1.25 rounded-full transition-all duration-180 ${
-                index === slide ? "w-4.25 bg-primary" : "w-1.25 bg-primary-foreground hover:bg-border/70"
+                index === slide ? "w-4.25 bg-primary" : "w-1.25 bg-foreground/40 hover:bg-foreground/70"
               }`}
             />
           ))}
@@ -131,7 +131,7 @@ export function Carousel<T>({ items, mainCard = null, renderItem, fallback, clas
         <button
           aria-label="Siguiente"
           onClick={() => goTo(1)}
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-white/20 bg-black/15 text-white transition-opacity hover:bg-black/25"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-foreground/10"
         >
           <ChevronRight size={16} />
         </button>

@@ -154,19 +154,30 @@ public class PointTransactionService {
         String normalized = code == null ? "" : code.trim().toLowerCase();
         ExchangeCode exchangeCode = exchangeCodeRepository
             .findActiveByCodeAndOrganizationId(normalized, organizationId)
-            .orElseThrow(() -> new NotFoundException("No pudimos encontrar el código de intercambio: " + normalized));
+            .orElseThrow(() ->
+                new NotFoundException("The redemption code does not exist.", "No pudimos encontrar el código de intercambio: " + normalized)
+            );
 
         PointTransaction pointTransaction = exchangeCode.getPointTransaction();
         if (pointTransaction == null) {
-            throw new NotFoundException("El código de intercambio no tiene una transacción de puntos hecha: " + normalized);
+            throw new NotFoundException(
+                "The redemption code has no a exchange.",
+                "El código de intercambio no tiene una transacción de puntos hecha: " + normalized
+            );
         }
 
         if (storefrontId == null) {
-            throw new ConflictException("Elegí un local antes de validar un canje.");
+            throw new ConflictException(
+                "Null storefront provided when trying to verify an exchange code.",
+                "Elegí un local antes de validar un canje."
+            );
         }
         UUID programId = pointTransaction.getPointProgram().getId();
         if (!pointProgramRepository.existsByIdAndStorefronts_Id(programId, storefrontId)) {
-            throw new ConflictException("Ese código no pertenece a un programa de puntos de este local.");
+            throw new ConflictException(
+                "Invalid storefront when verifying an exchange code.",
+                "Ese código no pertenece a un programa de puntos de este local."
+            );
         }
 
         Map<String, Object> payload = new HashMap<>();
@@ -181,16 +192,29 @@ public class PointTransactionService {
     public void approveExchange(ApproveExchangeRequest request, UUID organizationId, UUID callerId) {
         PointTransaction pointTransaction = pointTransactionRepository
             .findById(request.id())
-            .orElseThrow(() -> new NotFoundException("Point transaction not found: " + request.id()));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "Point transaction not found: " + request.id(),
+                    "No se pudo encontrar un programa de puntos valido para la sucursal seleccionada."
+                )
+            );
         requireOwnership(pointTransaction, organizationId);
 
         if (pointTransaction.getState() != TransactionState.PENDING) {
-            throw new ConflictException("El canje " + request.id() + " ya fue procesado (" + pointTransaction.getState() + ").");
+            throw new ConflictException(
+                "El canje " + request.id() + " ya fue procesado (" + pointTransaction.getState() + ").",
+                "El canje ya fue procesado."
+            );
         }
 
         OrganizationStaff employee = organizationStaffRepository
             .findByUserIdAndActiveTrue(callerId)
-            .orElseThrow(() -> new NotFoundException("Employee not found: " + callerId));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "Employee not found: " + callerId,
+                    "Hubo un problema al verificar el código. Parece que tu cuenta no pertenece a este local."
+                )
+            );
 
         pointTransaction.setState(TransactionState.DELIVERED);
         pointTransaction.setEmployee(employee);
@@ -206,16 +230,29 @@ public class PointTransactionService {
     public void cancelExchange(CancelExchangeRequest request, UUID organizationId, UUID callerId) {
         PointTransaction pointTransaction = pointTransactionRepository
             .findById(request.id())
-            .orElseThrow(() -> new NotFoundException("Point transaction not found: " + request.id()));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "Point transaction not found: " + request.id(),
+                    "No se pudo encontrar un programa de puntos valido para la sucursal seleccionada."
+                )
+            );
         requireOwnership(pointTransaction, organizationId);
 
         if (pointTransaction.getState() != TransactionState.PENDING) {
-            throw new ConflictException("El canje " + request.id() + " ya fue procesado (" + pointTransaction.getState() + ").");
+            throw new ConflictException(
+                "El canje " + request.id() + " ya fue procesado (" + pointTransaction.getState() + ").",
+                "El canje ya fue procesado."
+            );
         }
 
         OrganizationStaff employee = organizationStaffRepository
             .findByUserIdAndActiveTrue(callerId)
-            .orElseThrow(() -> new NotFoundException("Employee not found: " + callerId));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "Employee not found: " + callerId,
+                    "Hubo un problema al verificar el código. Parece que tu cuenta no pertenece a este local."
+                )
+            );
 
         pointTransaction.setState(TransactionState.CANCELLED);
         pointTransaction.setEmployee(employee);
@@ -247,14 +284,22 @@ public class PointTransactionService {
     public void userCancelExchange(UserCancelExchangeRequest request, UUID callerId) {
         PointTransaction pointTransaction = pointTransactionRepository
             .findById(request.exchangeId())
-            .orElseThrow(() -> new NotFoundException("Point transaction not found: " + request.exchangeId()));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "Point transaction not found: " + request.exchangeId(),
+                    "Hubo un problema al encontrar la transacción que seleccionaste."
+                )
+            );
 
         if (!pointTransaction.getUser().getId().equals(callerId)) {
             throw new AccessDeniedException("No podés cancelar el canje de otro cliente.");
         }
 
         if (pointTransaction.getState() != TransactionState.PENDING) {
-            throw new ConflictException("El canje " + request.exchangeId() + " ya fue procesado (" + pointTransaction.getState() + ").");
+            throw new ConflictException(
+                "El canje " + request.exchangeId() + " ya fue procesado (" + pointTransaction.getState() + ").",
+                "El canje ya fue procesado."
+            );
         }
 
         pointTransaction.setState(TransactionState.CANCELLED);

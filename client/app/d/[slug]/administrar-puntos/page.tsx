@@ -1,6 +1,6 @@
 "use client";
 
-import { useToast } from "@/components/toast";
+import { useModal } from "@/components/modal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldError, Input, Label } from "@/components/ui/input";
@@ -17,13 +17,13 @@ const MAX_SPEND = 10_000_000;
 const MAX_POINTS = 1_000;
 
 export default function PointsManagerPage() {
-  const notify = useToast();
+  const { runAction, open, close } = useModal();
   const [mode, setMode] = useState<"spend" | "manual">("spend");
+  const [operation, setOperation] = useState<"add" | "subtract">("add");
 
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [selected, setSelected] = useState<Customer | null>(null);
-  const [granting, setGranting] = useState(false);
   const [note, setNote] = useState("");
   const [spend, setSpend] = useState("");
   const [manual, setManual] = useState("");
@@ -44,96 +44,108 @@ export default function PointsManagerPage() {
   async function submit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!selected) return;
+    const customer = selected;
 
-    setGranting(true);
     setError(null);
 
-    try {
-      if (mode === "spend") {
-        const amount = parsePositiveInt(spend, { max: MAX_SPEND });
+    let points: number;
+    if (mode === "spend") {
+      const amount = parsePositiveInt(spend, { max: MAX_SPEND });
 
-        if (amount == null) {
-          setError("Ingresá un monto gastado válido (número mayor a 0, sin decimales).");
-          return;
-        }
-
-        const points = Math.floor(amount / POINTS_PER_CURRENCY);
-
-        if (points <= 0) {
-          setError(`El monto es muy bajo para sumar puntos (mínimo $${POINTS_PER_CURRENCY}).`);
-          return;
-        }
-
-        const result = await grantPointsTo(selected.id, points, note);
-
-        if (result.ok) {
-          const { pointsGranted, userName } = result.data;
-
-          notify(`Se sumaron ${formatPoints(pointsGranted)} puntos a ${userName}.`, "success");
-
-          setRefreshKey((k) => k + 1);
-          setSpend("");
-        } else {
-          setError(result.error);
-        }
-      } else {
-        const points = parsePositiveInt(manual, { max: MAX_POINTS });
-
-        if (points == null) {
-          setError("Sumar puntos manualmente solo admite de cantidades de 1 a 1000.");
-          return;
-        }
-
-        const result = await grantPointsTo(selected.id, points, note);
-
-        if (result.ok) {
-          const { pointsGranted, userName } = result.data;
-
-          notify(`Se sumaron ${formatPoints(pointsGranted)} puntos a ${userName}.`, "success");
-
-          setRefreshKey((k) => k + 1);
-          setManual("");
-        } else {
-          setError(result.error);
-          notify("Ocurrió un error inesperado al intentar sumar los puntos", "error");
-        }
+      if (amount == null) {
+        setError("Ingresá un monto gastado válido (número mayor a 0, sin decimales).");
+        return;
       }
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Ocurrió un error inesperado al intentar sumar los puntos.");
-    } finally {
-      setGranting(false);
+
+      points = Math.floor(amount / POINTS_PER_CURRENCY);
+      if (points <= 0) {
+        setError(`El monto es muy bajo para sumar puntos (mínimo $${POINTS_PER_CURRENCY}).`);
+        return;
+      }
+    } else {
+      const manualPoints = parsePositiveInt(manual, { max: MAX_POINTS });
+      if (manualPoints == null) {
+        setError("Ingresá una cantidad de 1 a 1000 puntos.");
+        return;
+      }
+      points = operation === "subtract" ? -manualPoints : manualPoints;
+    }
+
+    async function submitPoints(allowDebt = false) {
+      const result = await grantPointsTo(customer.id, points, note, allowDebt);
+      if (!result.ok && result.status === 409 && !allowDebt && points < 0 && result.error.startsWith("La resta supera el saldo disponible.")) {
+        open(
+          <div className="grid gap-4">
+            <p className="text-sm">{result.error}</p>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={close}>Cancelar</Button>
+              <Button type="button" onClick={() => void submitPoints(true)}>Confirmar deuda</Button>
+            </div>
+          </div>,
+          { title: "Saldo insuficiente", description: "Esta resta dejaría al cliente con una deuda." },
+        );
+        return;
+      }
+      const shown = await runAction(async () => result, {
+        loading: {
+          title: "Registrando puntos",
+          description: `Estamos registrando ${formatPoints(Math.abs(points))} puntos para ${customer.name}.`,
+        },
+        success: ({ pointsGranted, userName }) => ({
+          title: "Movimiento registrado",
+          description: `Se ${pointsGranted < 0 ? "restaron" : "sumaron"} ${formatPoints(Math.abs(pointsGranted))} puntos a ${userName}.`,
+        }),
+        errorTitle: "No pudimos registrar los puntos",
+      });
+      if (!shown.ok) return;
+      setRefreshKey((key) => key + 1);
+      void refreshCustomerBalance(customer.id, customer.username);
+      if (mode === "spend") setSpend("");
+      else setManual("");
+    }
+
+    await submitPoints();
+  }
+
+  async function refreshCustomerBalance(id: string, username: string) {
+    try {
+      const page = await getAllCustomers({ search: username, page: 0, size: 10 });
+      const updated = page.items.find((customer) => customer.id === id);
+      if (updated) setSelected((current) => current?.id === id ? updated : current);
+    } catch {
+      // Don't replace the selected customer if the balance refresh fails.
     }
   }
 
   const isNotValidAmount =
     ((Number(spend) < POINTS_PER_CURRENCY || Number(spend) > MAX_SPEND) && mode === "spend") ||
-    ((Number(manual) <= 0 || Number(manual) > MAX_SPEND) && mode === "manual");
+    (parsePositiveInt(manual, { max: MAX_POINTS }) == null && mode === "manual");
 
   return (
     <main className="mx-auto min-h-0 w-full text-foreground">
       <header className="mb-7 lg:mb-3">
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Programa de fidelización</p>
-        <h1 className="text-3xl font-semibold tracking-tighter sm:text-4xl">Otorgar puntos</h1>
-        <p className="mt-2 text-sm leading-6 text-muted">Sumá puntos a la cuenta de un cliente según su compra o ingresá una cantidad manualmente.</p>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground">Programa de fidelización</p>
+        <h1 className="text-3xl font-semibold tracking-tighter sm:text-4xl">Administrar puntos</h1>
+        <p className="mt-2 text-sm leading-6 text-foreground/80">Sumá puntos por compra o realizá movimientos manuales de suma y resta.</p>
       </header>
 
       <div className="grid min-h-0 gap-5 lg:grid-cols-5">
         <Card className="overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)] lg:col-span-2">
           <CardHeader className="border-b border-border px-5 py-5 sm:px-6">
             <CardTitle className="flex items-center gap-3 text-base tracking-[-0.02em]">
-              <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary">
+              <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-foreground">
                 <Coins className="size-5" aria-hidden="true" />
               </span>
               <span>
-                <span className="block">Sumar puntos</span>
-                <span className="mt-1 block text-xs font-normal text-muted">Elegí un cliente y registrá su movimiento.</span>
+                <span className="block">Registrar puntos</span>
+                <span className="mt-1 block text-xs font-normal text-foreground/80">Elegí un cliente y registrá su movimiento.</span>
               </span>
             </CardTitle>
           </CardHeader>
 
           <CardContent className="flex flex-col gap-5 px-5 py-5 sm:px-6 sm:py-6">
             <div className="flex flex-col gap-2">
-              <Label className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Cliente</Label>
+              <Label className="text-xs font-semibold uppercase tracking-[0.12em] text-foreground/80">Cliente</Label>
               <Autocomplete<Customer>
                 selected={selected}
                 onSelect={setSelected}
@@ -141,8 +153,8 @@ export default function PointsManagerPage() {
                 fetchFn={getAllCustomers}
                 getId={(c) => c.id}
                 displayKeys={["name", "username"]}
-                // Note: the backend threw me a null points here. I used the ?? operator to avoid null errors when calling formatPoints. I should check the workflow better.
-                badge={(c) => `${formatPoints(c.points ?? 0)} pts`}
+
+                badge={(c) => c.points == null ? "Saldo no disponible" : `${formatPoints(c.points)} pts`}
                 placeholder="Buscar por nombre o email…"
               />
             </div>
@@ -155,7 +167,7 @@ export default function PointsManagerPage() {
                 className={`h-10 rounded-xl text-xs font-semibold ${
                   mode === "spend"
                     ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
-                    : "text-muted hover:bg-card hover:text-foreground"
+                    : "text-foreground/80 hover:bg-card hover:text-foreground"
                 }`}
               >
                 <Wallet className="size-4" aria-hidden="true" />
@@ -168,7 +180,7 @@ export default function PointsManagerPage() {
                 className={`h-10 rounded-xl text-xs font-semibold ${
                   mode === "manual"
                     ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
-                    : "text-muted hover:bg-card hover:text-foreground"
+                    : "text-foreground/80 hover:bg-card hover:text-foreground"
                 }`}
               >
                 <HandCoins className="size-4" aria-hidden="true" />
@@ -183,7 +195,7 @@ export default function PointsManagerPage() {
                     Monto gastado
                   </Label>
                   <div className="relative">
-                    <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-sm font-semibold text-muted">$</span>
+                    <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-sm font-semibold text-foreground/80">$</span>
                     <Input
                       id="spend"
                       inputMode="numeric"
@@ -191,18 +203,22 @@ export default function PointsManagerPage() {
                       autoComplete="off"
                       value={spend}
                       onChange={(e) => setSpend(e.target.value.replace(/[^\d]/g, ""))}
-                      className="h-12 rounded-xl border-border bg-background pl-8 shadow-none placeholder:text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+                      className="h-12 rounded-xl border-border bg-background pl-8 shadow-none placeholder:text-foreground/70 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
                     />
                   </div>
-                  <p className="text-xs leading-5 text-muted">
+                  <p className="text-xs leading-5 text-foreground/80">
                     1 punto por cada ${POINTS_PER_CURRENCY}. Se sumarán{" "}
-                    <span className="font-semibold text-primary">{formatPoints(computedFromSpend)} puntos</span>.
+                    <span className="font-semibold text-foreground">{formatPoints(computedFromSpend)} puntos</span>.
                   </p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="button" variant={operation === "add" ? "default" : "outline"} onClick={() => setOperation("add")}>Sumar</Button>
+                    <Button type="button" variant={operation === "subtract" ? "default" : "outline"} onClick={() => setOperation("subtract")}>Restar</Button>
+                  </div>
                   <Label htmlFor="manual" className="text-sm font-medium">
-                    Puntos a sumar
+                    Puntos a {operation === "subtract" ? "restar" : "sumar"}
                   </Label>
                   <Input
                     id="manual"
@@ -211,14 +227,14 @@ export default function PointsManagerPage() {
                     autoComplete="off"
                     value={manual}
                     onChange={(e) => setManual(e.target.value.replace(/[^\d]/g, ""))}
-                    className="h-12 rounded-xl border-border bg-background shadow-none placeholder:text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+                    className="h-12 rounded-xl border-border bg-background shadow-none placeholder:text-foreground/70 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
                   />
                 </div>
               )}
 
               <div className="flex flex-col gap-2">
                 <Label htmlFor="note" className="text-sm font-medium">
-                  Nota <span className="font-normal text-muted">(opcional)</span>
+                  Nota <span className="font-normal text-foreground/80">(opcional)</span>
                 </Label>
                 <Input
                   id="note"
@@ -226,7 +242,7 @@ export default function PointsManagerPage() {
                   placeholder="Ej. Compra del mediodía"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  className="h-12 rounded-xl border-border bg-background shadow-none placeholder:text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+                  className="h-12 rounded-xl border-border bg-background shadow-none placeholder:text-foreground/70 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
                 />
               </div>
 
@@ -235,15 +251,15 @@ export default function PointsManagerPage() {
               <Button
                 type="submit"
                 className="mt-1 h-12 w-full rounded-xl bg-primary font-semibold text-primary-foreground shadow-sm transition-transform hover:bg-primary/90 active:scale-[0.99] disabled:opacity-50"
-                disabled={isNotValidAmount || granting}
+                disabled={isNotValidAmount}
               >
-                {granting ? "Sumando puntos…" : "Sumar puntos"}
+                {mode === "manual" && operation === "subtract" ? "Restar puntos" : "Sumar puntos"}
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        <PointActionList selected={selected} refreshKey={refreshKey} />
+        <PointActionList selected={selected} refreshKey={refreshKey} onBalanceChanged={() => selected && void refreshCustomerBalance(selected.id, selected.username)} />
       </div>
     </main>
   );

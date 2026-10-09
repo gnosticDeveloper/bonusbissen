@@ -26,6 +26,30 @@ export type StorefrontSummary = {
   name: string;
 };
 
+const DASHBOARD_STOREFRONTS_COOKIE = "d_storefronts";
+
+export async function getDashboardStorefronts(): Promise<StorefrontSummary[]> {
+  const value = (await cookies()).get(DASHBOARD_STOREFRONTS_COOKIE)?.value;
+  if (!value) return [];
+  try {
+    const storefronts: unknown = JSON.parse(value);
+    return Array.isArray(storefronts) && storefronts.every(
+      (item) => item && typeof item.id === "string" && typeof item.name === "string",
+    ) ? storefronts : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStorefronts(cookieStore: Awaited<ReturnType<typeof cookies>>, storefronts: StorefrontSummary[]) {
+  cookieStore.set(DASHBOARD_STOREFRONTS_COOKIE, JSON.stringify(storefronts), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+  });
+}
+
 export async function signIn(formData: FormData): Promise<ActionResult<{ storefronts: StorefrontSummary[] }>> {
   const identifier = formData.get("identifier")?.toString().trim();
   const password = formData.get("password")?.toString();
@@ -58,6 +82,7 @@ export async function signIn(formData: FormData): Promise<ActionResult<{ storefr
       sameSite: "lax",
       path: "/",
     });
+    saveStorefronts(cookieStore, storefronts);
 
     return {
       ok: true,
@@ -68,8 +93,8 @@ export async function signIn(formData: FormData): Promise<ActionResult<{ storefr
   }
 }
 
-export async function selectStorefront(storefrontId: string) {
-  const res = await dashboardRequest<{ token: string }>("/auth/storefront", {
+export async function selectStorefront(storefrontId: string): Promise<{ success: true } | { success: false; error: string }> {
+  const res = await dashboardRequest<{ token: string; storefronts: StorefrontSummary[] }>("/auth/storefront", {
     method: "POST",
     body: JSON.stringify({ storefrontId }),
     headers: { "Content-Type": "application/json" },
@@ -83,5 +108,6 @@ export async function selectStorefront(storefrontId: string) {
     sameSite: "lax",
     path: "/",
   });
+  saveStorefronts(cookieStore, res.data.storefronts);
   return { success: true };
 }
