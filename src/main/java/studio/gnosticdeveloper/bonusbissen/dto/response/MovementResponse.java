@@ -16,7 +16,10 @@ public record MovementResponse(
     String orgName,
     String storefrontName,
     String pointsLabel,
-    String formattedCreatedAt
+    String formattedCreatedAt,
+    boolean correction,
+    UUID correctedTransactionId,
+    Integer correctedTransactionAmount
 ) {
     private static final ZoneId ZONE_ARGENTINA = ZoneId.of("America/Argentina/Buenos_Aires");
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.of("es", "AR"));
@@ -25,7 +28,8 @@ public record MovementResponse(
         String formattedDate = mv.getCreatedAt().atZoneSameInstant(ZONE_ARGENTINA).format(DATE_FORMAT);
 
         String title =
-            mv.getTransactionType() == TransactionType.EARN ? "Sumaste puntos" : mv.getReward().getTitle();
+            mv.getCorrectedTransaction() != null ? "Corrección de puntos" : mv.getTransactionType() == TransactionType.REDEEM
+                ? mv.getReward().getTitle() : mv.getPoints() < 0 ? "Restaste puntos" : "Sumaste puntos";
 
         return new MovementResponse(
             mv.getId(),
@@ -36,7 +40,10 @@ public record MovementResponse(
             mv.getOrganization() != null ? mv.getOrganization().getName() : null,
             mv.getStorefront() != null ? mv.getStorefront().getName() : null,
             mv.getPointProgram() != null ? mv.getPointProgram().getUnitLabel() : null,
-            formattedDate
+            formattedDate,
+            mv.getCorrectedTransaction() != null,
+            mv.getCorrectedTransaction() != null ? mv.getCorrectedTransaction().getId() : null,
+            mv.getCorrectedTransaction() != null ? mv.getCorrectedTransaction().getPoints() : null
         );
     }
 }
