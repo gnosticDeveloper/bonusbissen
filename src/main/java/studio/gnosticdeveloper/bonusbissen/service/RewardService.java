@@ -77,7 +77,9 @@ public class RewardService {
 
     @Transactional(readOnly = true)
     public Reward findById(UUID id) {
-        return rewardRepository.findById(id).orElseThrow(() -> new NotFoundException("Reward not found: " + id));
+        return rewardRepository
+            .findById(id)
+            .orElseThrow(() -> new NotFoundException("Reward not found: " + id, "No pudimos encontrar la recompensa seleccionada."));
     }
 
     @Transactional(readOnly = true)
@@ -102,7 +104,12 @@ public class RewardService {
 
         PointProgram program = pointProgramRepository
             .findByIdAndOrganizationId(request.pointProgramId(), organizationId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar el programa de puntos con ID " + request.pointProgramId() + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar el programa de puntos con ID " + request.pointProgramId() + ".",
+                    "Parece que el programa de puntos seleccionado no existe o no es válido."
+                )
+            );
 
         Reward reward = new Reward();
         reward.setPointProgram(program);
@@ -116,7 +123,11 @@ public class RewardService {
 
     @Transactional
     public void delete(UUID id, UUID organizationId) {
-        Reward reward = rewardRepository.findById(id).orElseThrow(() -> new NotFoundException("No se encontró la recompensa con id: " + id));
+        Reward reward = rewardRepository
+            .findById(id)
+            .orElseThrow(() ->
+                new NotFoundException("No se encontró la recompensa con id: " + id, "No pudimos encontrar la recompensa seleccionada.")
+            );
         requireOwnership(reward, organizationId);
         reward.setActive(false);
         rewardRepository.save(reward);
@@ -149,7 +160,9 @@ public class RewardService {
 
     @Transactional
     public Reward update(UUID id, RewardUpdateRequest request, UUID organizationId) {
-        Reward reward = rewardRepository.findById(id).orElseThrow(() -> new NotFoundException("Reward not found: " + id));
+        Reward reward = rewardRepository
+            .findById(id)
+            .orElseThrow(() -> new NotFoundException("Reward not found: " + id, "No pudimos encontrar la recompensa seleccionada."));
         requireOwnership(reward, organizationId);
 
         reward.setTitle(request.title());

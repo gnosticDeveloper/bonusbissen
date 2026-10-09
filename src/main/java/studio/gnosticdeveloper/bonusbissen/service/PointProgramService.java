@@ -54,7 +54,12 @@ public class PointProgramService {
     public PointProgram create(PointProgramCreateRequest request, UUID organizationId) {
         Organization organization = organizationRepository
             .findById(organizationId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la organización con ID " + organizationId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar la organización con ID " + organizationId + ".",
+                    "La organización seleccionada no es valida"
+                )
+            );
 
         PointProgram program = new PointProgram();
         program.setOrganization(organization);
@@ -86,7 +91,12 @@ public class PointProgramService {
     public boolean isMemberByStorefront(UUID userId, UUID storefrontId) {
         Storefront storefront = storefrontRepository
             .findById(storefrontId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la sucursal con ID " + storefrontId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar la sucursal con ID " + storefrontId + ".",
+                    "No pudimos verificar que estés afiliado a esta sucursal. Intenta de nuevo en un momento."
+                )
+            );
 
         PointProgram program = storefront.getPointProgram();
         if (program == null || !program.isActive()) {
@@ -126,6 +136,7 @@ public class PointProgramService {
             UUID currentProgramId = optionalProgramId(storefront);
             if (currentProgramId != null && !currentProgramId.equals(program.getId())) {
                 throw new ConflictException(
+                    "Storefront already linked to a point program.",
                     "La sucursal \"" + storefront.getName() + "\" ya tiene un programa de puntos asignado. Desvinculala primero."
                 );
             }
@@ -140,10 +151,17 @@ public class PointProgramService {
         PointProgram program = pointProgramRepository
             .findById(programId)
             .filter(PointProgram::isActive)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar el programa de puntos con ID " + programId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar el programa de puntos con ID " + programId + ".",
+                    "No pudimos encontrar el programa de puntos elegido."
+                )
+            );
         User user = userRepository
             .findById(userId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + userId + "."));
+            .orElseThrow(() ->
+                new NotFoundException("No se pudo encontrar un cliente con el ID " + userId + ".", "Hubo un error al buscar al cliente")
+            );
         joinIfMissing(user, program);
     }
 
@@ -152,14 +170,24 @@ public class PointProgramService {
     public void joinByStorefront(UUID userId, UUID storefrontId) {
         Storefront storefront = storefrontRepository
             .findById(storefrontId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la sucursal con ID " + storefrontId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar la sucursal con ID " + storefrontId + ".",
+                    "Parece que la sucursal a la que te querés unir no existe."
+                )
+            );
         PointProgram program = storefront.getPointProgram();
         if (program == null || !program.isActive()) {
-            throw new NotFoundException("Esta sucursal no tiene un programa de puntos activo.");
+            throw new NotFoundException("The storefront has no point programs.", "Esta sucursal no tiene un programa de puntos activo.");
         }
         User user = userRepository
             .findById(userId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + userId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar un cliente con el ID " + userId + ".",
+                    "Hubo un problema al intentar unirte a esta sucursal."
+                )
+            );
         joinIfMissing(user, program);
     }
 
@@ -169,7 +197,12 @@ public class PointProgramService {
         PointProgram program = getOwned(programId, organizationId);
         User user = userRepository
             .findById(userId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un cliente con el ID " + userId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar un cliente con el ID " + userId + ".",
+                    "No encontramos al usuario que seleccionaste para afiliarlo a la sucursal."
+                )
+            );
         joinIfMissing(user, program);
     }
 
@@ -186,7 +219,12 @@ public class PointProgramService {
     private PointProgram getOwned(UUID id, UUID organizationId) {
         return pointProgramRepository
             .findByIdAndOrganizationId(id, organizationId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar el programa de puntos con ID " + id + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar el programa de puntos con ID " + id + ".",
+                    "No pudimos encontrar el programa de puntos elegido."
+                )
+            );
     }
 
     private Set<Storefront> resolveOwnedStorefronts(List<UUID> storefrontIds, UUID organizationId) {
@@ -195,7 +233,12 @@ public class PointProgramService {
             resolved.add(
                 storefrontRepository
                     .findByIdAndOrganizationId(storefrontId, organizationId)
-                    .orElseThrow(() -> new BadRequestException("El local " + storefrontId + " no pertenece a esta organización."))
+                    .orElseThrow(() ->
+                        new BadRequestException(
+                            "El local " + storefrontId + " no pertenece a esta organización.",
+                            "La sucursal seleccionada no es parte de la organización."
+                        )
+                    )
             );
         }
         return resolved;
@@ -205,7 +248,7 @@ public class PointProgramService {
         try {
             return pointProgramRepository.saveAndFlush(program);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            throw new ConflictException("Ya existe un programa de puntos con ese nombre.");
+            throw new ConflictException("Storefront name already used", "Ya existe un programa de puntos con ese nombre.");
         }
     }
 }

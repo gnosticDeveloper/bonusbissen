@@ -1,6 +1,8 @@
 "use server";
 
 import { ActionResult } from "@/lib/action-result";
+import { logoutFromBackend } from "@/lib/auth/logout";
+import { CUSTOMER_REFRESH_COOKIE } from "@/lib/auth/refresh";
 import { publicRequest, request } from "@/lib/api";
 import { Location, Business, PagedResponse, PointsResponse } from "@/lib/definitions";
 import { UserInfo } from "@/lib/types/customer";
@@ -36,7 +38,7 @@ export async function getBusinesses({ page = 0, size = 10, city }: GetBusinesses
 }
 
 export async function getLocations(): Promise<ActionResult<Location[]>> {
-  return request<Location[]>("/discover/cities");
+  return publicRequest<Location[]>("/discover/cities");
 }
 
 export const getMe = cache(async () => {
@@ -45,6 +47,8 @@ export const getMe = cache(async () => {
 
 export async function signOut() {
   const cookieStore = await cookies();
+  await logoutFromBackend(cookieStore.get("access_token")?.value, cookieStore.get(CUSTOMER_REFRESH_COOKIE)?.value);
   cookieStore.delete("access_token");
+  cookieStore.delete(CUSTOMER_REFRESH_COOKIE);
   return redirect("/sign-in");
 }

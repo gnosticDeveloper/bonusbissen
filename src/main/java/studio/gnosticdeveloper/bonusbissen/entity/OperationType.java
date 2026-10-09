@@ -8,6 +8,7 @@ public enum OperationType {
     STAFF_CREATE("staff_create"),
     USER_CREATE("user_create"),
     POINTS_GRANT("points_grant"),
+    POINTS_CORRECTION("points_correction"),
     REWARD_CLAIM("reward_claim"),
     EXCHANGE_VERIFY("exchange_verify"),
     EXCHANGE_APPROVE("exchange_approve"),

@@ -27,7 +27,7 @@ public class OrganizationService {
 
     @Transactional(readOnly = true)
     public Organization getById(UUID id) {
-        return organizationRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar la organización con ID " + id + "."));
+        return organizationRepository.findById(id).orElseThrow(() -> new NotFoundException("No se pudo encontrar la organización con ID " + id + ".", "No pudimos encontrar la organización"));
     }
 
     @Transactional

@@ -43,6 +43,10 @@ public class PointTransaction {
     @JoinColumn(name = "refunded_transaction_id", nullable = true)
     private PointTransaction refundedTransaction;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "corrected_transaction_id")
+    private PointTransaction correctedTransaction;
+
     @Convert(converter = TransactionTypeConverter.class)
     @Column(name = "transaction_type", nullable = false)
     private TransactionType transactionType;

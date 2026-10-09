@@ -129,9 +129,12 @@ public class AuthController {
         if (principal == null || !List.of("ADMIN", "CASHIER").contains(principal.role())) {
             throw new AccessDeniedException("Necesitás iniciar sesión como empleado.");
         }
-        LoginResponse response = authService.selectStorefront(principal.id(), request.storefrontId());
-        readCookie(req).ifPresent(raw -> sessionService.updateStorefront(raw, request.storefrontId()));
-        return response;
+        AuthService.StorefrontResult result = authService.selectStorefront(principal.id(), request.storefrontId());
+        readCookie(req).ifPresent(raw -> {
+            sessionService.updateStorefront(raw, request.storefrontId());
+            sessionService.findSessionId(raw).ifPresent(sessionId -> sessionService.trackIssuedToken(sessionId, result.jti()));
+        });
+        return result.response();
     }
 
     @PostMapping("/verify-email")
@@ -185,9 +188,10 @@ public class AuthController {
         }
 
         SessionService.Rotated session = rotated.get();
-        String token = jwtService.generateToken(session.userId(), session.username(), session.role(), session.storefrontId());
+        JwtService.Issued issued = jwtService.generateToken(session.userId(), session.username(), session.role(), session.storefrontId());
+        sessionService.trackIssuedToken(session.sessionId(), issued.jti());
         setCookie(res, session.rawRefreshToken());
-        return LoginResponse.of(token);
+        return LoginResponse.of(issued.token());
     }
 
     /** Ends the current session: drops its refresh token and immediately kills its still-valid access token. */
@@ -202,9 +206,15 @@ public class AuthController {
 
     /** Lists the caller's own active sessions/devices. */
     @GetMapping("/sessions")
-    public List<SessionResponse> listSessions(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+    public List<SessionResponse> listSessions(
+        @AuthenticationPrincipal AuthenticatedPrincipal principal,
+        HttpServletRequest req
+    ) {
         requireAuthenticated(principal);
-        return sessionService.listSessions(principal.id()).stream().map(SessionResponse::from).toList();
+        UUID currentSessionId = readCookie(req).flatMap(sessionService::findSessionId).orElse(null);
+        return sessionService.listSessions(principal.id()).stream()
+            .map(session -> SessionResponse.from(session, currentSessionId))
+            .toList();
     }
 
     /** Revokes one of the caller's own sessions ("log out this device"). */
@@ -213,7 +223,7 @@ public class AuthController {
     public void revokeSession(@PathVariable UUID sessionId, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         requireAuthenticated(principal);
         if (!sessionService.revokeSession(principal.id(), sessionId)) {
-            throw new NotFoundException("No se pudo encontrar esa sesión.");
+            throw new NotFoundException("No se pudo encontrar esa sesión.", "No pudimos encontrar la sesión que ingresaste. Por favor, ingresa de nuevo.");
         }
     }
 
@@ -238,7 +248,7 @@ public class AuthController {
 
     private void requireCsrfHeader(HttpServletRequest req) {
         if (!CSRF_HEADER_VALUE.equals(req.getHeader(CSRF_HEADER))) {
-            throw new BadRequestException("Solicitud inválida.");
+            throw new BadRequestException("Solicitud inválida.", "La solicitud no es válida. Por favor, ingresa de nuevo.");
         }
     }
 

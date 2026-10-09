@@ -123,15 +123,13 @@ export function redemptionStatusLabel(status: "pending" | "delivered" | "cancell
   }
 }
 
-export function pointActionLabel(type: "add" | "subtract" | "edit" | "remove"): string {
+export function pointActionLabel(type: "add" | "subtract" | "edit"): string {
   switch (type) {
     case "add":
       return "Suma de puntos";
     case "subtract":
       return "Resta de puntos";
     case "edit":
-      return "Modificación";
-    case "remove":
-      return "Eliminación";
+      return "Corrección de puntos";
   }
 }

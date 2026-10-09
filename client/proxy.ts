@@ -1,33 +1,68 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isSessionValid } from "@/lib/auth/session";
+import { checkSession } from "@/lib/auth/session";
+import {
+  accessCookieOptions,
+  CUSTOMER_ACCESS_COOKIE,
+  CUSTOMER_REFRESH_COOKIE,
+  refreshCookieOptions,
+  refreshCustomerSession,
+} from "@/lib/auth/refresh";
 
 // Rutas que se dejan pasar siempre, sin importar el estado de la sesión
-const ALWAYS_PUBLIC_PATHS = ["/d/sign-in", "/verify-email", "/descubrir"];
+const ALWAYS_PUBLIC_PATHS = ["/d/sign-in", "/verify-email", "/descubrir", "/login-link"];
 
 // /s/{storefrontId}/afiliarse — pública, sin importar sesión
 const AFILIARSE_PATTERN = /^\/s\/[^/]+\/afiliarse(?:\/.*)?$/;
 
-function isPublicPath(pathname: string): boolean {
-  if (ALWAYS_PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
-    return true;
+
+async function restoreCustomerSession(request: NextRequest, redirectTo?: string): Promise<NextResponse | null> {
+  const raw = request.cookies.get(CUSTOMER_REFRESH_COOKIE)?.value;
+  if (!raw) return null;
+
+  const result = await refreshCustomerSession(raw);
+  if (result.status === "retry" || result.status === "unavailable") {
+    return new NextResponse("No pudimos renovar tu sesión. Probá de nuevo en un momento.", { status: 503 });
   }
-  return AFILIARSE_PATTERN.test(pathname);
+  if (result.status === "expired") {
+    const response = NextResponse.redirect(new URL("/sign-in", request.url));
+    response.cookies.delete(CUSTOMER_ACCESS_COOKIE);
+    response.cookies.delete(CUSTOMER_REFRESH_COOKIE);
+    return response;
+  }
+
+  request.cookies.set(CUSTOMER_ACCESS_COOKIE, result.token);
+  request.cookies.set(CUSTOMER_REFRESH_COOKIE, result.cookie.value);
+  const response = redirectTo
+    ? NextResponse.redirect(new URL(redirectTo, request.url))
+    : NextResponse.next({ request: { headers: request.headers } });
+  response.cookies.set(CUSTOMER_ACCESS_COOKIE, result.token, accessCookieOptions);
+  response.cookies.set(CUSTOMER_REFRESH_COOKIE, result.cookie.value, refreshCookieOptions(result.cookie.maxAge));
+  return response;
 }
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Rutas públicas: no importa si hay sesión, sesión vencida o no hay token
-  if (isPublicPath(pathname)) {
+  // La afiliación es pública, pero conviene renovar una sesión vencida antes
+  // de que la página intente consultar membresía.
+  if (AFILIARSE_PATTERN.test(pathname)) {
+    const token = request.cookies.get(CUSTOMER_ACCESS_COOKIE)?.value;
+    if (!token || (await checkSession(token)).status === "expired") {
+      const restored = await restoreCustomerSession(request);
+      if (restored) return restored;
+    }
     return NextResponse.next();
   }
+
+  if (ALWAYS_PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return NextResponse.next();
 
   // OJO: usar "/d/" con barra (o pathname === "/d") y no "/d" a secas,
   // porque "/descubrir" también arranca con "/d" y quedaría mal clasificado
   // como ruta de dashboard.
   const isDashboard = pathname === "/d" || pathname.startsWith("/d/");
   const signInUrl = isDashboard ? "/d/sign-in" : "/sign-in";
-  const token = request.cookies.get(isDashboard ? "d_token" : "access_token")?.value;
+  const cookieName = isDashboard ? "d_token" : "access_token";
+  const token = request.cookies.get(cookieName)?.value;
 
   // Rutas de auth (sign-in, sign-up): si ya hay sesión válida, no tiene sentido mostrarlas
   if (pathname.startsWith("/sign-")) {
@@ -37,23 +72,40 @@ export function proxy(request: NextRequest) {
     if (request.headers.has("next-action")) {
       return NextResponse.next();
     }
-    if (isSessionValid(token)) return NextResponse.redirect(new URL("/", request.url));
-    return NextResponse.next();
+    const session = await checkSession(token);
+    if (session.status === "valid") return NextResponse.redirect(new URL("/b", request.url));
+    if (session.status === "expired" || !token) {
+      const restored = await restoreCustomerSession(request, "/b");
+      if (restored) return restored;
+    }
+    const response = NextResponse.next();
+    if (token && session.status === "invalid") response.cookies.delete(cookieName);
+    return response;
   }
 
   // A partir de acá, la ruta requiere sesión.
 
+  if (!token && !isDashboard) {
+    const restored = await restoreCustomerSession(request);
+    if (restored) return restored;
+  }
   if (!token) {
-    // No hay token directamente -> usuario nuevo. En el área de cliente lo
-    // mandamos a /descubrir en vez de a sign-in; el dashboard no tiene ese
-    // equivalente, así que sigue yendo a /d/sign-in.
+    // No hay sesión -> mostrar la entrada pública o pedir credenciales del panel.
     return NextResponse.redirect(new URL(isDashboard ? signInUrl : "/descubrir", request.url));
   }
 
-  if (!isSessionValid(token)) {
-    // Hay token pero está vencido/inválido -> hubo sesión real, así que
-    // pedimos loguearse de nuevo, no lo tratamos como usuario nuevo.
-    return NextResponse.redirect(new URL(signInUrl, request.url));
+  const session = await checkSession(token, isDashboard ? "dashboard" : "customer");
+  if (!isDashboard && session.status === "expired") {
+    const restored = await restoreCustomerSession(request);
+    if (restored) return restored;
+  }
+  if (session.status === "unavailable") {
+    return new NextResponse("No pudimos verificar tu sesión. Probá de nuevo en un momento.", { status: 503 });
+  }
+  if (session.status === "invalid" || session.status === "expired") {
+    const response = NextResponse.redirect(new URL(signInUrl, request.url));
+    response.cookies.delete(cookieName);
+    return response;
   }
 
   return NextResponse.next();

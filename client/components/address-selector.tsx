@@ -86,7 +86,7 @@ export function AddressSelector({
               showPicture={false}
             />
           ) : (
-            <p className="rounded-xl border border-dashed border-border px-3.5 py-2.5 text-sm text-muted">Elegí una provincia primero.</p>
+            <p className="rounded-xl border border-dashed border-border px-3.5 py-2.5 text-sm text-foreground/80">Elegí una provincia primero.</p>
           )}
         </Field>
       </div>
@@ -107,7 +107,7 @@ export function AddressSelector({
               showPicture={false}
             />
           ) : (
-            <p className="rounded-xl border border-dashed border-border px-3.5 py-2.5 text-sm text-muted">Elegí una localidad primero.</p>
+            <p className="rounded-xl border border-dashed border-border px-3.5 py-2.5 text-sm text-foreground/80">Elegí una localidad primero.</p>
           )}
         </Field>
       </div>
@@ -127,8 +127,8 @@ export function AddressSelector({
       )}
 
       {!street && initialAddress && (
-        <p className="text-xs text-muted sm:col-span-3">
-          Dirección actual: <span className="text-primary">{initialAddress}</span>. Buscá y seleccioná una calle para reemplazarla.
+        <p className="text-xs text-foreground/80 sm:col-span-3">
+          Dirección actual: <span className="text-foreground">{initialAddress}</span>. Buscá y seleccioná una calle para reemplazarla.
         </p>
       )}
     </div>

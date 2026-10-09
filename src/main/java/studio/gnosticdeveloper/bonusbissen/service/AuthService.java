@@ -83,24 +83,28 @@ public class AuthService {
     public LoginResult issueStaffToken(User user, OrganizationStaff staff, String userAgent) {
         List<Storefront> storefronts = staff.getStorefronts().stream().toList();
         List<StorefrontSummary> summaries = storefronts.stream().map(StorefrontSummary::from).toList();
-        UUID storefrontId = storefronts.size() == 1 ? storefronts.get(0).getId() : null;
+        UUID storefrontId = storefronts.size() == 1 ? storefronts.getFirst().getId() : null;
 
-        String token = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
+        JwtService.Issued issued = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
         SessionService.NewSession session = sessionService.createSession(
             user.getId(), staff.getRole().name(), staff.getOrganization().getId(), storefrontId, user.getUsername(), userAgent);
-        return new LoginResult(new LoginResponse(token, summaries), session.rawRefreshToken());
+        sessionService.trackIssuedToken(session.sessionId(), issued.jti());
+        return new LoginResult(new LoginResponse(issued.token(), summaries), session.rawRefreshToken());
     }
 
+    /** A storefront-switch response paired with the minted token's jti, so the controller can track it against the caller's session. */
+    public record StorefrontResult(LoginResponse response, String jti) {}
+
     @Transactional
-    public LoginResponse selectStorefront(UUID userId, UUID storefrontId) {
+    public StorefrontResult selectStorefront(UUID userId, UUID storefrontId) {
         User user = userRepository
             .findById(userId)
             .filter(User::isActive)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un usuario con el ID " + userId + "."));
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un usuario con el ID " + userId + ".", "No pudimos encontrar el usuario que ingresaste. Por favor, ingresa de nuevo."));
 
         OrganizationStaff staff = organizationStaffRepository
             .findByUserIdAndActiveTrue(userId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + userId + "."));
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + userId + ".", "No pudimos encontrar a ese empleado en el local."));
 
         boolean assigned = staff.getStorefronts().stream()
             .anyMatch(s -> s.getId().equals(storefrontId) && s.getOrganization().getId().equals(staff.getOrganization().getId()));
@@ -109,20 +113,20 @@ public class AuthService {
         }
 
         List<StorefrontSummary> summaries = staff.getStorefronts().stream().map(StorefrontSummary::from).toList();
-        String token = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
-        return new LoginResponse(token, summaries);
+        JwtService.Issued issued = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
+        return new StorefrontResult(new LoginResponse(issued.token(), summaries), issued.jti());
     }
 
     @Transactional
     public LoginResult registerUser(UserRegisterRequest request, String userAgent) {
         String username = request.username().trim().toLowerCase(Locale.ROOT);
         if (userRepository.existsByUsername(username)) {
-            throw new ConflictException("Ese nombre de usuario ya está en uso.");
+            throw new ConflictException("Username " + username + " is already being used.", "El nombre de usuario " + username + " ya está ocupado. Por favor elige otro.");
         }
 
         String email = EmailVerificationService.normalizeEmail(request.email());
         if (email != null && userRepository.existsByEmail(email)) {
-            throw new ConflictException("Ese email ya está registrado.");
+            throw new ConflictException("Email " + email + " is already registered.", "El email " + email + " ya está registrado en nuestro sistema. Por favor, usa otro correo.");
         }
 
         User user = new User();
@@ -157,10 +161,11 @@ public class AuthService {
 
     /** Issues a loyalty-account (non-staff) token for an already-authenticated user. */
     public LoginResult issueUserToken(User user, String userAgent) {
-        String token = jwtService.generateToken(user.getId(), user.getUsername(), "USER");
+        JwtService.Issued issued = jwtService.generateToken(user.getId(), user.getUsername(), "USER");
         SessionService.NewSession session = sessionService.createSession(
             user.getId(), "USER", null, null, user.getUsername(), userAgent);
-        return new LoginResult(LoginResponse.of(token), session.rawRefreshToken());
+        sessionService.trackIssuedToken(session.sessionId(), issued.jti());
+        return new LoginResult(LoginResponse.of(issued.token()), session.rawRefreshToken());
     }
 
     private Optional<User> resolveLoginIdentifier(String identifier) {

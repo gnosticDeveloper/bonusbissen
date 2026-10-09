@@ -53,6 +53,6 @@ public class TraceabilityService {
         if (affectedUserId != null) {
             return traceabilityLogRepository.findAllByAffectedUserIdsContains(affectedUserId);
         }
-        throw new BadRequestException("Especificá operationId, originatingUserId o affectedUserId.");
+        throw new BadRequestException("Especificá operationId, originatingUserId o affectedUserId.", "");
     }
 }

@@ -36,12 +36,12 @@ export function OrganizationSection({ org }: { org: Organization }) {
     <Card className="overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]">
       <CardHeader className="border-b border-border px-5 py-5 sm:px-6">
         <CardTitle className="flex items-center gap-3 text-base tracking-[-0.02em]">
-          <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary">
+          <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-foreground">
             <Building2 className="size-5" aria-hidden="true" />
           </span>
           <span>
             <span className="block">Datos del negocio</span>
-            <span className="mt-1 block text-xs font-normal text-muted">El nombre con el que te ven tus clientes en la app.</span>
+            <span className="mt-1 block text-xs font-normal text-foreground/80">El nombre con el que te ven tus clientes en la app.</span>
           </span>
         </CardTitle>
       </CardHeader>

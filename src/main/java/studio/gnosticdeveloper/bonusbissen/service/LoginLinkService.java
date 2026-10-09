@@ -7,11 +7,9 @@ import java.util.Base64;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import studio.gnosticdeveloper.bonusbissen.email.EmailSender;
 import studio.gnosticdeveloper.bonusbissen.entity.LoginLinkToken;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
@@ -102,10 +100,12 @@ public class LoginLinkService {
         maybeUser
             .filter(User::isActive)
             .filter(User::isEmailVerified)
-            .flatMap(user -> organizationStaffRepository
-                .findByUserIdAndActiveTrue(user.getId())
-                .filter(staff -> staff.getOrganization().getId().equals(organizationId))
-                .map(_ -> user))
+            .flatMap(user ->
+                organizationStaffRepository
+                    .findByUserIdAndActiveTrue(user.getId())
+                    .filter(staff -> staff.getOrganization().getId().equals(organizationId))
+                    .map(_ -> user)
+            )
             .ifPresent(user -> {
                 tokenRepository
                     .findAllByUserIdAndOrganizationIdAndConsumedAtIsNull(user.getId(), organizationId)
@@ -122,12 +122,12 @@ public class LoginLinkService {
     public User consumeUserLink(String rawToken) {
         LoginLinkToken token = findValidToken(rawToken);
         if (token.getOrganizationId() != null) {
-            throw new BadRequestException("El enlace de inicio de sesión no es válido.");
+            throw new BadRequestException("Invalid login link", "El enlace de inicio de sesión no es válido.");
         }
 
         User user = token.getUser();
         if (!user.isActive() || !user.isEmailVerified()) {
-            throw new BadRequestException("El enlace de inicio de sesión no es válido.");
+            throw new BadRequestException("Invalid login link", "El enlace de inicio de sesión no es válido.");
         }
 
         token.setConsumedAt(OffsetDateTime.now());
@@ -139,18 +139,20 @@ public class LoginLinkService {
     public StaffLoginLink consumeDashboardLink(String rawToken) {
         LoginLinkToken token = findValidToken(rawToken);
         if (token.getOrganizationId() == null) {
-            throw new BadRequestException("El enlace de inicio de sesión no es válido.");
+            throw new BadRequestException("Invalid login link", "El enlace de inicio de sesión no es válido.");
         }
 
         User user = token.getUser();
         if (!user.isActive() || !user.isEmailVerified()) {
-            throw new BadRequestException("El enlace de inicio de sesión no es válido.");
+            throw new BadRequestException("Invalid login link", "El enlace de inicio de sesión no es válido.");
         }
 
         OrganizationStaff staff = organizationStaffRepository
             .findWithStorefrontsByUserIdAndActiveTrue(user.getId())
             .filter(s -> s.getOrganization().getId().equals(token.getOrganizationId()))
-            .orElseThrow(() -> new BadRequestException("Ya no formás parte de esa organización."));
+            .orElseThrow(() ->
+                new BadRequestException("User tried to login an organization he is no longer a member of.", "Ya no formás parte de esa organización.")
+            );
 
         token.setConsumedAt(OffsetDateTime.now());
         return new StaffLoginLink(user, staff);
@@ -159,13 +161,13 @@ public class LoginLinkService {
     private LoginLinkToken findValidToken(String rawToken) {
         LoginLinkToken token = tokenRepository
             .findByToken(rawToken)
-            .orElseThrow(() -> new BadRequestException("El enlace de inicio de sesión no es válido."));
+            .orElseThrow(() -> new BadRequestException("Invalid login token", "El enlace de inicio de sesión no es válido."));
 
         if (token.isConsumed()) {
-            throw new BadRequestException("Este enlace de inicio de sesión ya fue utilizado.");
+            throw new BadRequestException("The login token has already being used", "Este enlace de inicio de sesión ya fue utilizado.");
         }
         if (token.isExpired()) {
-            throw new BadRequestException("El enlace de inicio de sesión expiró. Pedí uno nuevo.");
+            throw new BadRequestException("Expired login token", "El enlace de inicio de sesión expiró. Pedí uno nuevo.");
         }
         return token;
     }

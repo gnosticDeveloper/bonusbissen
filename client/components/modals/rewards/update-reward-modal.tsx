@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AlertCircle, ImagePlus, Loader2, Upload, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertCircle, ImagePlus, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { appendRewardFields, isValidImage } from "./helpers";
@@ -14,10 +15,10 @@ interface Props {
 }
 
 export function UpdateRewardModal({ reward }: Props) {
-  const { close } = useModal();
+  const router = useRouter();
+  const { close, runAction } = useModal();
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(reward?.imagePath ?? null);
   const [removeImage, setRemoveImage] = useState(false);
@@ -61,16 +62,22 @@ export function UpdateRewardModal({ reward }: Props) {
     );
 
     data.set("removeImage", String(removeImage));
-    setPending(true);
 
-    try {
-      await editReward(reward.id, data);
+    const result = await runAction(() => editReward(reward.id, data), {
+      loading: {
+        title: "Actualizando recompensa",
+        description: `Estamos guardando los cambios de ${title}.`,
+      },
+      success: (updated) => ({
+        title: "Recompensa actualizada",
+        description: `Los cambios de ${updated.title} se guardaron correctamente.`,
+      }),
+      errorTitle: "No pudimos actualizar la recompensa",
+    });
+
+    if (result.ok) {
       formRef.current?.reset();
-      close();
-    } catch {
-      setError("No se pudo guardar la recompensa. Intentá de nuevo.");
-    } finally {
-      setPending(false);
+      router.refresh();
     }
   }
 
@@ -83,7 +90,7 @@ export function UpdateRewardModal({ reward }: Props) {
           required
           defaultValue={reward?.title ?? ""}
           placeholder="Ej. Café gratis"
-          className="h-11 rounded-xl border-border bg-background px-3.5 text-sm shadow-none placeholder:text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+          className="h-11 rounded-xl border-border bg-background px-3.5 text-sm shadow-none placeholder:text-foreground/70 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-foreground/70"
         />
       </label>
 
@@ -93,7 +100,7 @@ export function UpdateRewardModal({ reward }: Props) {
           name="description"
           defaultValue={reward?.description ?? ""}
           placeholder="Contale a tus clientes qué incluye esta recompensa"
-          className="min-h-24 resize-none rounded-xl border-border bg-background px-3.5 py-3 text-sm shadow-none placeholder:text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+          className="min-h-24 resize-none rounded-xl border-border bg-background px-3.5 py-3 text-sm shadow-none placeholder:text-foreground/70 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-foreground/70"
         />
       </label>
 
@@ -108,9 +115,9 @@ export function UpdateRewardModal({ reward }: Props) {
               step="1"
               required
               defaultValue={reward?.costPoints ?? ""}
-              className="h-11 rounded-xl border-border bg-background px-3.5 pr-16 text-sm shadow-none placeholder:text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+              className="h-11 rounded-xl border-border bg-background px-3.5 pr-16 text-sm shadow-none placeholder:text-foreground/70 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-foreground/70"
             />
-            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-muted">puntos</span>
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-foreground/80">puntos</span>
           </div>
         </label>
 
@@ -124,9 +131,9 @@ export function UpdateRewardModal({ reward }: Props) {
               step="0.01"
               required
               defaultValue={reward?.discountValue ?? ""}
-              className="h-11 rounded-xl border-border bg-background px-3.5 pr-10 text-sm shadow-none placeholder:text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+              className="h-11 rounded-xl border-border bg-background px-3.5 pr-10 text-sm shadow-none placeholder:text-foreground/70 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-foreground/70"
             />
-            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-muted">%</span>
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-foreground/80">%</span>
           </div>
         </label>
       </div>
@@ -134,7 +141,7 @@ export function UpdateRewardModal({ reward }: Props) {
       <div className="grid gap-2">
         <div>
           <p className="text-sm font-medium">Imagen de la recompensa</p>
-          <p className="mt-1 text-xs leading-4 text-muted">Podés mantener la actual, reemplazarla o eliminarla.</p>
+          <p className="mt-1 text-xs leading-4 text-foreground/80">Podés mantener la actual, reemplazarla o eliminarla.</p>
         </div>
 
         <input
@@ -159,7 +166,7 @@ export function UpdateRewardModal({ reward }: Props) {
                 if (fileRef.current) fileRef.current.value = "";
               }}
               aria-label="Quitar imagen"
-              className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-foreground/80 text-primary-foreground shadow-sm transition-colors hover:bg-foreground"
+              className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-foreground text-background shadow-sm transition-colors hover:bg-foreground/90"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -170,12 +177,12 @@ export function UpdateRewardModal({ reward }: Props) {
             onClick={() => fileRef.current?.click()}
             className="flex min-h-36 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-background px-5 text-center transition-colors hover:border-primary hover:bg-primary/5"
           >
-            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-primary">
+            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-foreground">
               <ImagePlus className="h-5 w-5" aria-hidden="true" />
             </span>
             <span>
               <span className="block text-sm font-semibold">{removeImage ? "Imagen eliminada" : "Subir una imagen"}</span>
-              <span className="mt-1 block text-xs text-muted">JPG, PNG o WEBP</span>
+              <span className="mt-1 block text-xs text-foreground/80">JPG, PNG o WEBP</span>
             </span>
           </button>
         )}
@@ -192,7 +199,7 @@ export function UpdateRewardModal({ reward }: Props) {
           </Button>
         ) : null}
 
-        <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-background px-3.5 py-3 text-xs text-muted transition-colors hover:border-primary/50">
+        <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-background px-3.5 py-3 text-xs text-foreground/80 transition-colors hover:border-primary/50">
           <input
             type="checkbox"
             checked={removeImage}
@@ -211,7 +218,7 @@ export function UpdateRewardModal({ reward }: Props) {
 
       {error ? (
         <div role="alert" className="flex items-start gap-3 rounded-xl border border-primary/25 bg-primary/10 px-3.5 py-3 text-sm text-foreground">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-foreground" aria-hidden="true" />
           <p>{error}</p>
         </div>
       ) : null}
@@ -221,7 +228,6 @@ export function UpdateRewardModal({ reward }: Props) {
           type="button"
           variant="outline"
           onClick={close}
-          disabled={pending}
           className="h-11 rounded-xl border-border bg-card text-sm text-foreground hover:bg-background"
         >
           Cancelar
@@ -229,17 +235,9 @@ export function UpdateRewardModal({ reward }: Props) {
 
         <Button
           type="submit"
-          disabled={pending}
           className="h-11 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:bg-primary/90 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60"
         >
-          {pending ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              Guardando...
-            </>
-          ) : (
-            "Guardar cambios"
-          )}
+          Guardar cambios
         </Button>
       </div>
     </form>

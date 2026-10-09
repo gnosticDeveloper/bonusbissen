@@ -21,9 +21,8 @@ export async function createReward(formData: FormData) {
     body: formData,
   });
 
-  if (!res.ok) throw new Error("Error creando la recompensa.");
-  updateTag("reward-list");
-  return res.data;
+  if (res.ok) updateTag("reward-list");
+  return res;
 }
 
 export async function editReward(id: string, formData: FormData) {
@@ -32,15 +31,14 @@ export async function editReward(id: string, formData: FormData) {
     body: formData,
   });
 
-  if (!res.ok) throw new Error("Error creando la recompensa.");
-  updateTag("reward-list");
-  return res.data;
+  if (res.ok) updateTag("reward-list");
+  return res;
 }
 export async function deleteReward(id: string) {
-  const res = await dashboardRequest(`/rewards/${id}`, {
+  const res = await dashboardRequest<void>(`/rewards/${id}`, {
     method: "DELETE",
   });
-  updateTag("reward-list");
 
-  if (!res.ok) throw new Error("Error eliminando la recompensa.");
+  if (res.ok) updateTag("reward-list");
+  return res;
 }
