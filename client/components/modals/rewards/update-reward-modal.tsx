@@ -19,7 +19,7 @@ export function UpdateRewardModal({ reward }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<string | null>(reward?.imagePath ?? null);
+  const [preview, setPreview] = useState<string | null>(reward?.imageUrl ?? null);
   const [removeImage, setRemoveImage] = useState(false);
 
   function handleFileChange(file?: File) {

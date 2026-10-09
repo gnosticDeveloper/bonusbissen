@@ -7,4 +7,6 @@ public interface StorageService {
     String store(byte[] data, String extension) throws IOException;
 
     void delete(String storageKey) throws IOException;
+
+    String resolveUrl(String storageKey, DeliveryVariant variant);
 }

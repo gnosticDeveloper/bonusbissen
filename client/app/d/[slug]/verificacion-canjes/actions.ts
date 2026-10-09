@@ -11,7 +11,7 @@ export interface ExchangeResponse {
   rewardId: string;
   rewardTitle: string;
   rewardDescription: string;
-  rewardImagePath: string;
+  rewardImageUrl: string;
   rewardDiscountValue: number;
   rewardCostPoints: number;
   state: "pending" | "delivered" | "cancelled";

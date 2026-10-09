@@ -18,6 +18,9 @@ public class LocalFileStorageService implements StorageService {
     @Value("${app.uploads.dir}")
     private String uploadsDir;
 
+    @Value("${app.storage.assets-url}")
+    private String assetsUrl;
+
     @Override
     public String store(byte[] data, String extension) throws IOException {
         String filename = UUID.randomUUID() + "." + extension;
@@ -31,5 +34,14 @@ public class LocalFileStorageService implements StorageService {
     public void delete(String storageKey) throws IOException {
         Path filePath = Paths.get(uploadsDir, storageKey.replaceFirst("^" + FOLDER + "/", ""));
         Files.deleteIfExists(filePath);
+    }
+
+    @Override
+    public String resolveUrl(String storageKey, DeliveryVariant variant) {
+        // Sin transformaciones en el mock local: nginx sirve el archivo tal
+        // cual. A diferencia de Cloudinary, acá armamos nosotros mismos la URL
+        // absoluta -- el caller ya no antepone ningún prefijo por su cuenta.
+        String base = assetsUrl.endsWith("/") ? assetsUrl : assetsUrl + "/";
+        return base + storageKey;
     }
 }

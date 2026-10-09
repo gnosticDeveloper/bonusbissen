@@ -4,7 +4,6 @@ import { RewardCard } from "./reward-card";
 import { formatPoints } from "@/lib/helpers/format";
 import { Carousel } from "./carousel";
 import Link from "next/link";
-import { resolveAssetUrl } from "@/lib/helpers/assets";
 
 interface BusinessListProps {
   businesses: Business[];
@@ -30,11 +29,6 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
   return (
     <section className="grid gap-7">
       {businesses.map((storefront) => {
-        const rewards = storefront.rewards.map((reward) => ({
-          ...reward,
-          imagePath: resolveAssetUrl(reward.imagePath),
-        }));
-
         return (
           <article key={storefront.id} className="overflow-hidden border-b border-border bg-background pb-7">
             <header className="flex items-center gap-3 px-5 pb-3">
@@ -70,7 +64,7 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
             <Carousel
               autoSlideInterval={30000}
               className="w-full"
-              items={rewards}
+              items={storefront.rewards}
               renderItem={(reward) => <RewardCard reward={reward} pointsLabel={storefront.pointLabel} color={storefront.color} />}
             />
 

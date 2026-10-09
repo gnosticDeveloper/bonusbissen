@@ -76,9 +76,9 @@ export function RewardClaimModal({ reward }: RewardClaimModalProps) {
     <div className="flex flex-col gap-4">
       <div className="flex gap-3">
         <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[18px] bg-muted/20">
-          {reward.imagePath ? (
+          {reward.imageThumbnailUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={reward.imagePath} alt={reward.title} className="h-full w-full object-cover" />
+            <img src={reward.imageThumbnailUrl} alt={reward.title} className="h-full w-full object-cover" />
           ) : (
             <div className="grid h-full w-full place-items-center text-muted-foreground">
               <Gift className="h-7 w-7" aria-hidden="true" />

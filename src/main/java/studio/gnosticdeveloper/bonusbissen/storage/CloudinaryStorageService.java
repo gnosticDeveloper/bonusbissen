@@ -1,6 +1,7 @@
 package studio.gnosticdeveloper.bonusbissen.storage;
 
 import com.cloudinary.Cloudinary;
+import com.cloudinary.Transformation;
 import com.cloudinary.utils.ObjectUtils;
 import java.io.IOException;
 import java.util.Map;
@@ -25,10 +26,12 @@ public class CloudinaryStorageService implements StorageService {
     public String store(byte[] data, String extension) throws IOException {
         Map<String, Object> options = ObjectUtils.asMap(
             "public_id", FOLDER + "/" + UUID.randomUUID(),
+            "asset_folder", FOLDER,
             "resource_type", "image",
             "format", extension,
             "overwrite", false,
-            "unique_filename", false
+            "unique_filename", false,
+            "context", ObjectUtils.asMap("source", "web_admin_dashboard")
         );
 
         try {
@@ -51,5 +54,16 @@ public class CloudinaryStorageService implements StorageService {
         } catch (RuntimeException e) {
             throw new IOException(e.getMessage(), e);
         }
+    }
+
+    @Override
+    public String resolveUrl(String storageKey, DeliveryVariant variant) {
+        Transformation<?> transformation = switch (variant) {
+            case CARD -> new Transformation<>().width(800).crop("limit");
+            case THUMBNAIL -> new Transformation<>().width(160).height(160).crop("fill");
+        };
+        transformation.fetchFormat("auto").quality("auto");
+
+        return cloudinary.url().secure(true).transformation(transformation).generate(storageKey);
     }
 }

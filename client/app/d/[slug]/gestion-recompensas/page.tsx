@@ -3,7 +3,6 @@ import { getRewards } from "./actions";
 import { CreateRewardButton } from "@/components/create-reward-button";
 import { getCurrentUser } from "../actions";
 import { UserRole } from "@/lib/definitions";
-import { resolveAssetUrl } from "@/lib/helpers/assets";
 import { SearchParamsPaginationControls } from "@/components/search-params-pagination-controls";
 import { cookies } from "next/headers";
 import { RewardViewToggle } from "@/components/reward-view-toggle";
@@ -19,11 +18,6 @@ export default async function RewardsPage({ searchParams }: { searchParams: Prom
   const isAdmin = currentUser.ok && currentUser.data.role.toUpperCase() === UserRole.ADMIN;
   const rewards = rewardsResult.ok ? rewardsResult.data.items : [];
   const totalPages = rewardsResult.ok ? rewardsResult.data.totalPages : 0;
-
-  const transformedRewards = rewards.map((reward) => ({
-    ...reward,
-    imagePath: reward.imagePath ? resolveAssetUrl(reward.imagePath) : null,
-  }));
 
   return (
     <div className="flex min-h-0 h-full flex-col gap-5">
@@ -46,7 +40,7 @@ export default async function RewardsPage({ searchParams }: { searchParams: Prom
 
       {totalPages > 1 ? <SearchParamsPaginationControls page={page} totalPages={totalPages} /> : null}
 
-      <RewardsList rewards={transformedRewards} isAdmin={isAdmin} view={view} />
+      <RewardsList rewards={rewards} isAdmin={isAdmin} view={view} />
     </div>
   );
 }

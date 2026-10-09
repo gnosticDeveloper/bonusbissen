@@ -68,6 +68,9 @@ app:
     # rewards/ location -- no Cloudinary account needed for local dev. Set to
     # "cloudinary" to use the real account (requires CLOUDINARY_* below).
     provider: ${STORAGE_PROVIDER:local}
+    # Only used by the local provider, to turn a relative path into the
+    # absolute URL callers expect (Cloudinary's URLs are already absolute).
+    assets-url: ${ASSETS_URL:https://localhost/}
   cloudinary:
     cloud-name: ${CLOUDINARY_CLOUD_NAME:unset}
     api-key: ${CLOUDINARY_API_KEY:unset}

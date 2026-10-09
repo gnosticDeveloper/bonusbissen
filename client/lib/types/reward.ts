@@ -2,7 +2,8 @@ export interface Reward {
   id: string;
   title: string;
   description: string;
-  imagePath?: string | null;
+  imageUrl?: string | null;
+  imageThumbnailUrl?: string | null;
   costPoints: number;
   discountValue: number;
   active: boolean;

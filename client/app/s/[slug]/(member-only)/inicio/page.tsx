@@ -1,7 +1,6 @@
 import { ChevronRight, Gift, MapPin } from "lucide-react";
 import { getBusinessByStorefrontId } from "./actions";
 import Link from "next/link";
-import { resolveAssetUrl } from "@/lib/helpers/assets";
 import { Reward } from "@/lib/types/reward";
 
 export default async function MemberOnlyHomePage({ params }: { params: Promise<{ slug: string }> }) {
@@ -86,7 +85,7 @@ export default async function MemberOnlyHomePage({ params }: { params: Promise<{
 }
 
 function RewardPreviewCard({ reward, pointLabel }: { reward: Reward; pointLabel?: string }) {
-  const imageUrl = resolveAssetUrl(reward.imagePath);
+  const imageUrl = reward.imageThumbnailUrl;
 
   return (
     <article className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">

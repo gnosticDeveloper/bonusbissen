@@ -23,7 +23,7 @@ export default function RewardsList({ rewards, isAdmin, view }: { rewards: Rewar
             }
           >
             <img
-              src={reward.imagePath || "/placeholder.svg"}
+              src={reward.imageUrl || "/placeholder.svg"}
               alt={reward.title}
               className={
                 view === "grid"
