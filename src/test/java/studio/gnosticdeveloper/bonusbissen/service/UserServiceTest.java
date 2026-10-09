@@ -39,6 +39,7 @@ import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
@@ -65,6 +66,8 @@ class UserServiceTest {
     @Mock
     private PointTransactionRepository pointTransactionRepository;
     @Mock
+    private PointProgramRepository pointProgramRepository;
+    @Mock
     private RewardRepository rewardRepository;
     @Mock
     private ExchangeCodeRepository exchangeCodeRepository;
@@ -90,6 +93,7 @@ class UserServiceTest {
 
     private static final UUID EMPLOYEE_ID = UUID.randomUUID();
     private static final UUID PROGRAM_ID = UUID.randomUUID();
+    private static final UUID ORGANIZATION_ID = UUID.randomUUID();
     private static final UUID STOREFRONT_ID = UUID.randomUUID();
 
     private OrganizationStaff employeeWithOrganization() {
@@ -149,7 +153,7 @@ class UserServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         when(userRepository.search(isNull(), eq(pageable))).thenReturn(Page.empty());
 
-        userService.search("   ", null, pageable);
+        userService.search("   ", null, ORGANIZATION_ID, null, pageable);
 
         verify(userRepository).search(isNull(), eq(pageable));
     }
@@ -164,11 +168,13 @@ class UserServiceTest {
         user.setCreatedAt(java.time.OffsetDateTime.now());
 
         when(userRepository.search(eq("abc"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
+        when(pointProgramRepository.existsByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(true);
         when(pointTransactionRepository.calculateBalance(user.getId(), PROGRAM_ID)).thenReturn(50);
 
-        Page<UserPointsResponse> result = userService.search("  abc  ", PROGRAM_ID, pageable);
+        Page<UserPointsResponse> result = userService.search("  abc  ", PROGRAM_ID, ORGANIZATION_ID, STOREFRONT_ID, pageable);
 
         assertThat(result.getContent()).containsExactly(UserPointsResponse.from(user, 50));
+        verify(storefrontRepository, never()).findById(any());
     }
 
     @Test
@@ -182,9 +188,61 @@ class UserServiceTest {
 
         when(userRepository.search(isNull(), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
 
-        Page<UserPointsResponse> result = userService.search(null, null, pageable);
+        Page<UserPointsResponse> result = userService.search(null, null, ORGANIZATION_ID, null, pageable);
 
         assertThat(result.getContent()).containsExactly(UserPointsResponse.from(user, null));
+    }
+
+    @Test
+    void searchUsesSelectedStorefrontActiveProgramForBalances() {
+        Pageable pageable = PageRequest.of(0, 10);
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setName("Someone");
+        user.setUsername("someone");
+        user.setCreatedAt(java.time.OffsetDateTime.now());
+        Organization organization = new Organization();
+        organization.setId(ORGANIZATION_ID);
+        PointProgram program = new PointProgram();
+        program.setId(PROGRAM_ID);
+        program.setActive(true);
+        program.setOrganization(organization);
+        Storefront storefront = new Storefront();
+        storefront.setPointProgram(program);
+        when(storefrontRepository.findById(STOREFRONT_ID)).thenReturn(Optional.of(storefront));
+        when(userRepository.search(isNull(), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
+        when(pointTransactionRepository.calculateBalance(user.getId(), PROGRAM_ID)).thenReturn(75);
+
+        Page<UserPointsResponse> result = userService.search(null, null, ORGANIZATION_ID, STOREFRONT_ID, pageable);
+
+        assertThat(result.getContent()).containsExactly(UserPointsResponse.from(user, 75));
+    }
+
+    @Test
+    void searchWithInactiveStorefrontProgramReturnsNullPoints() {
+        Pageable pageable = PageRequest.of(0, 10);
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setName("Someone");
+        user.setUsername("someone");
+        user.setCreatedAt(java.time.OffsetDateTime.now());
+        PointProgram program = new PointProgram();
+        program.setActive(false);
+        Storefront storefront = new Storefront();
+        storefront.setPointProgram(program);
+        when(storefrontRepository.findById(STOREFRONT_ID)).thenReturn(Optional.of(storefront));
+        when(userRepository.search(isNull(), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
+
+        Page<UserPointsResponse> result = userService.search(null, null, ORGANIZATION_ID, STOREFRONT_ID, pageable);
+
+        assertThat(result.getContent()).containsExactly(UserPointsResponse.from(user, null));
+    }
+
+    @Test
+    void searchRejectsProgramOutsideOrganization() {
+        assertThatThrownBy(() -> userService.search(null, PROGRAM_ID, ORGANIZATION_ID, STOREFRONT_ID, PageRequest.of(0, 10)))
+            .isInstanceOf(NotFoundException.class);
+        verify(userRepository, never()).search(any(), any());
     }
 
     @Test
@@ -428,6 +486,9 @@ class UserServiceTest {
         tx.setEmployee(employee);
         tx.setUser(user);
         tx.setPoints(50);
+        PointProgram program = new PointProgram();
+        program.setId(PROGRAM_ID);
+        tx.setPointProgram(program);
         tx.setTransactionType(TransactionType.EARN);
         tx.setState(TransactionState.DELIVERED);
         tx.setCreatedAt(java.time.OffsetDateTime.now());
@@ -435,23 +496,58 @@ class UserServiceTest {
     }
 
     @Test
-    void updateGrantChangesPointsAndNote() {
+    void grantHistoryExposesCurrentEffectiveAmountWithoutMutatingOriginal() {
+        UUID organizationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        PointTransaction original = grantTransaction(organizationId);
+        original.setPoints(-30);
+        original.setTransactionType(TransactionType.ADJUST);
+        PointTransaction correction = grantTransaction(organizationId);
+        correction.setPoints(-20);
+        correction.setTransactionType(TransactionType.ADJUST);
+        correction.setCorrectedTransaction(original);
+        when(pointTransactionRepository.findGrantHistory(eq(organizationId), eq(userId), any()))
+            .thenReturn(List.of(correction, original));
+        // Two earlier corrections may contribute to the current total, even if they fall outside the history page.
+        when(pointTransactionRepository.sumCorrectionsByOriginalIds(List.of(original.getId())))
+            .thenReturn(List.<Object[]>of(new Object[] {original.getId(), -35L}));
+
+        List<PointActionResponse> history = userService.getGrantHistory(organizationId, userId, 2);
+
+        assertThat(history.get(0).amount()).isEqualTo(-20);
+        assertThat(history.get(0).effectiveAmount()).isEqualTo(-20);
+        assertThat(history.get(1).amount()).isEqualTo(-30);
+        assertThat(history.get(1).effectiveAmount()).isEqualTo(-65);
+        assertThat(original.getPoints()).isEqualTo(-30);
+    }
+
+    @Test
+    void updateGrantAppendsDeltaWithoutChangingOriginal() {
         UUID organizationId = UUID.randomUUID();
         PointTransaction tx = grantTransaction(organizationId);
 
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
-        when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(EMPLOYEE_ID)).thenReturn(Optional.of(tx.getEmployee()));
+        when(pointTransactionRepository.save(any())).thenAnswer(invocation -> {
+            PointTransaction saved = invocation.getArgument(0);
+            saved.setId(UUID.randomUUID());
+            saved.setCreatedAt(java.time.OffsetDateTime.now());
+            return saved;
+        });
 
         PointActionResponse response = userService.updateGrant(
-            tx.getId(),
-            new GrantPointsUpdateRequest(75, "cumpleaños"),
-            organizationId
+            tx.getId(), new GrantPointsUpdateRequest(75, "cumpleaños"), organizationId, EMPLOYEE_ID
         );
 
-        assertThat(response.amount()).isEqualTo(75);
+        assertThat(response.type()).isEqualTo("edit");
+        assertThat(response.amount()).isEqualTo(25);
+        assertThat(response.effectiveAmount()).isEqualTo(25);
         assertThat(response.note()).isEqualTo("cumpleaños");
-        assertThat(tx.getPoints()).isEqualTo(75);
-        assertThat(tx.getNote()).isEqualTo("cumpleaños");
+        assertThat(response.correctedTransaction().id()).isEqualTo(tx.getId());
+        assertThat(response.correctedTransaction().amount()).isEqualTo(50);
+        assertThat(tx.getPoints()).isEqualTo(50);
+        assertThat(tx.getNote()).isNull();
+        verify(pointTransactionRepository).save(org.mockito.ArgumentMatchers.argThat(saved -> saved != tx && saved.getCorrectedTransaction() == tx));
     }
 
     @Test
@@ -459,7 +555,7 @@ class UserServiceTest {
         PointTransaction tx = grantTransaction(UUID.randomUUID());
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
 
-        assertThatThrownBy(() -> userService.updateGrant(tx.getId(), new GrantPointsUpdateRequest(75, null), UUID.randomUUID()))
+        assertThatThrownBy(() -> userService.updateGrant(tx.getId(), new GrantPointsUpdateRequest(75, "reason"), UUID.randomUUID(), EMPLOYEE_ID))
             .isInstanceOf(AccessDeniedException.class);
 
         verify(pointTransactionRepository, never()).save(any());
@@ -476,20 +572,87 @@ class UserServiceTest {
 
         when(pointTransactionRepository.findById(refund.getId())).thenReturn(Optional.of(refund));
 
-        assertThatThrownBy(() -> userService.updateGrant(refund.getId(), new GrantPointsUpdateRequest(30, null), organizationId))
+        assertThatThrownBy(() -> userService.updateGrant(refund.getId(), new GrantPointsUpdateRequest(30, "reason"), organizationId, EMPLOYEE_ID))
             .isInstanceOf(NotFoundException.class);
     }
 
     @Test
-    void deleteGrantRemovesTheTransaction() {
+    void correctionThatExceedsBalanceRequiresConfirmedDebt() {
         UUID organizationId = UUID.randomUUID();
         PointTransaction tx = grantTransaction(organizationId);
-
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
+        when(pointTransactionRepository.calculateBalance(tx.getUser().getId(), PROGRAM_ID)).thenReturn(10);
 
-        userService.deleteGrant(tx.getId(), organizationId);
+        assertThatThrownBy(() -> userService.updateGrant(tx.getId(), new GrantPointsUpdateRequest(-1, "error"), organizationId, EMPLOYEE_ID))
+            .isInstanceOfSatisfying(ConflictException.class, error -> {
+                assertThat(error.getPublicMessage()).startsWith("La resta supera el saldo disponible.");
+                assertThat(error.getPublicMessage()).contains("Saldo disponible: 10 puntos").doesNotContain("allowDebt");
+            });
+        verify(pointTransactionRepository, never()).save(any());
+    }
 
-        verify(pointTransactionRepository).delete(tx);
+    @Test
+    void correctionOfManualDebitUsesSignedTargetAndPreservesOriginal() {
+        UUID organizationId = UUID.randomUUID();
+        PointTransaction original = grantTransaction(organizationId);
+        original.setTransactionType(TransactionType.ADJUST);
+        original.setPoints(-30);
+        when(pointTransactionRepository.findById(original.getId())).thenReturn(Optional.of(original));
+        when(pointTransactionRepository.calculateBalance(original.getUser().getId(), PROGRAM_ID)).thenReturn(70);
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(EMPLOYEE_ID)).thenReturn(Optional.of(original.getEmployee()));
+        when(pointTransactionRepository.save(any())).thenAnswer(invocation -> {
+            PointTransaction saved = invocation.getArgument(0);
+            saved.setId(UUID.randomUUID());
+            saved.setCreatedAt(java.time.OffsetDateTime.now());
+            return saved;
+        });
+
+        PointActionResponse response = userService.updateGrant(original.getId(),
+            new GrantPointsUpdateRequest(-50, "se restaron 20 más"), organizationId, EMPLOYEE_ID);
+
+        assertThat(response.type()).isEqualTo("edit");
+        assertThat(response.amount()).isEqualTo(-20);
+        assertThat(response.correctedTransaction().id()).isEqualTo(original.getId());
+        assertThat(response.correctedTransaction().amount()).isEqualTo(-30);
+        assertThat(original.getPoints()).isEqualTo(-30);
+        verify(pointTransactionRepository).save(org.mockito.ArgumentMatchers.argThat(saved -> saved != original && saved.getCorrectedTransaction() == original));
+    }
+
+    @Test
+    void correctionToZeroAppendsFullReversalWithoutChangingOriginal() {
+        UUID organizationId = UUID.randomUUID();
+        PointTransaction original = grantTransaction(organizationId);
+        original.setPoints(100);
+        when(pointTransactionRepository.findById(original.getId())).thenReturn(Optional.of(original));
+        when(pointTransactionRepository.calculateBalance(original.getUser().getId(), PROGRAM_ID)).thenReturn(100);
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(EMPLOYEE_ID)).thenReturn(Optional.of(original.getEmployee()));
+        when(pointTransactionRepository.save(any())).thenAnswer(invocation -> {
+            PointTransaction saved = invocation.getArgument(0);
+            saved.setId(UUID.randomUUID());
+            saved.setCreatedAt(java.time.OffsetDateTime.now());
+            return saved;
+        });
+
+        PointActionResponse response = userService.updateGrant(original.getId(),
+            new GrantPointsUpdateRequest(0, "anulación completa"), organizationId, EMPLOYEE_ID);
+
+        assertThat(response.amount()).isEqualTo(-100);
+        assertThat(response.effectiveAmount()).isEqualTo(-100);
+        assertThat(response.correctedTransaction().amount()).isEqualTo(100);
+        assertThat(original.getPoints()).isEqualTo(100);
+        verify(pointTransactionRepository).calculateBalance(original.getUser().getId(), PROGRAM_ID);
+        verify(pointTransactionRepository).save(org.mockito.ArgumentMatchers.argThat(saved ->
+            saved != original && saved.getCorrectedTransaction() == original && saved.getPoints() == -100));
+    }
+
+    @Test
+    void correctionWithZeroDeltaIsRejected() {
+        UUID organizationId = UUID.randomUUID();
+        PointTransaction original = grantTransaction(organizationId);
+        when(pointTransactionRepository.findById(original.getId())).thenReturn(Optional.of(original));
+        assertThatThrownBy(() -> userService.updateGrant(original.getId(), new GrantPointsUpdateRequest(50, "sin cambios"), organizationId, EMPLOYEE_ID))
+            .isInstanceOf(BadRequestException.class);
+        verify(pointTransactionRepository, never()).save(any());
     }
 
     @Test

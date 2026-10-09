@@ -10,6 +10,10 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.request.JoinPointProgramRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
@@ -89,6 +93,90 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void correctionAppendsSignedDeltaAndPreservesOriginal() {
+        createEmployee("cashier-correction", "password123", StaffRole.CASHIER);
+        String token = loginEmployee("cashier-correction", "password123");
+        User user = createUser("+5493462001099");
+        grant(token, user.getId(), 100);
+        UUID originalId = restTemplate.exchange(
+            baseUrl() + "/users/grant/history?of=" + user.getId(), HttpMethod.GET, authed(token),
+            new ParameterizedTypeReference<List<PointActionResponse>>() {}
+        ).getBody().get(0).id();
+
+        ResponseEntity<PointActionResponse> corrected = restTemplate.exchange(
+            baseUrl() + "/users/grant/" + originalId, HttpMethod.PATCH,
+            authed(token, new GrantPointsUpdateRequest(40, "error de carga")), PointActionResponse.class
+        );
+        assertThat(corrected.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(corrected.getBody().type()).isEqualTo("edit");
+        assertThat(corrected.getBody().amount()).isEqualTo(-60);
+        assertThat(corrected.getBody().correctedTransaction().id()).isEqualTo(originalId);
+        assertThat(corrected.getBody().correctedTransaction().amount()).isEqualTo(100);
+        assertThat(getBalance(token, user.getId()).points()).isEqualTo(40);
+
+        ResponseEntity<String> missingNote = restTemplate.exchange(
+            baseUrl() + "/users/grant/" + originalId, HttpMethod.PATCH,
+            authed(token, new GrantPointsUpdateRequest(20, "")), String.class
+        );
+        assertThat(missingNote.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        ResponseEntity<String> insufficient = restTemplate.exchange(
+            baseUrl() + "/users/grant/" + originalId, HttpMethod.PATCH,
+            authed(token, new GrantPointsUpdateRequest(-10, "ajuste")), String.class
+        );
+        assertThat(insufficient.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(insufficient.getBody()).contains("La resta supera el saldo disponible.", "Saldo disponible: 40 puntos")
+            .doesNotContain("allowDebt");
+        assertThat(getBalance(token, user.getId()).points()).isEqualTo(40);
+
+        List<PointActionResponse> history = restTemplate.exchange(
+            baseUrl() + "/users/grant/history?of=" + user.getId(), HttpMethod.GET, authed(token),
+            new ParameterizedTypeReference<List<PointActionResponse>>() {}
+        ).getBody();
+        assertThat(history).extracting(PointActionResponse::id).contains(originalId, corrected.getBody().id());
+        PointActionResponse original = history.stream().filter(h -> h.id().equals(originalId)).findFirst().orElseThrow();
+        assertThat(original.amount()).isEqualTo(100);
+        assertThat(original.effectiveAmount()).isEqualTo(40);
+        assertThat(history.stream().filter(h -> h.id().equals(corrected.getBody().id())).findFirst().orElseThrow().effectiveAmount())
+            .isEqualTo(-60);
+
+        List<MovementResponse> movements = restTemplate.exchange(
+            baseUrl() + "/users/" + user.getId() + "/movements?storefrontId=" + defaultStorefront().getId(),
+            HttpMethod.GET, authed(token), new ParameterizedTypeReference<List<MovementResponse>>() {}
+        ).getBody();
+        assertThat(movements.stream().filter(MovementResponse::correction).findFirst().orElseThrow().correctedTransactionId()).isEqualTo(originalId);
+
+        ResponseEntity<String> delete = restTemplate.exchange(
+            baseUrl() + "/users/grant/" + originalId, HttpMethod.DELETE, authed(token), String.class
+        );
+        assertThat(delete.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
+    }
+
+    @Test
+    void manualDebitAndDebtConfirmation() {
+        createEmployee("cashier-debit", "password123", StaffRole.CASHIER);
+        String token = loginEmployee("cashier-debit", "password123");
+        User user = createUser("+5493462001098");
+        grant(token, user.getId(), 30);
+
+        ResponseEntity<String> rejected = restTemplate.exchange(baseUrl() + "/users/grant", HttpMethod.POST,
+            authed(token, new GrantPointsRequest(user.getId(), -40, "ajuste")), String.class);
+        assertThat(rejected.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(rejected.getBody()).contains("La resta supera el saldo disponible.", "Saldo disponible: 30 puntos")
+            .doesNotContain("allowDebt");
+
+        ResponseEntity<UserPointsAwardResponse> accepted = restTemplate.exchange(baseUrl() + "/users/grant", HttpMethod.POST,
+            authed(token, new GrantPointsRequest(user.getId(), -40, "ajuste", true)), UserPointsAwardResponse.class);
+        assertThat(accepted.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(getBalance(token, user.getId()).points()).isEqualTo(-10);
+        List<PointActionResponse> history = restTemplate.exchange(baseUrl() + "/users/grant/history?of=" + user.getId(),
+            HttpMethod.GET, authed(token), new ParameterizedTypeReference<List<PointActionResponse>>() {}).getBody();
+        assertThat(history).anySatisfy(action -> {
+            assertThat(action.type()).isEqualTo("subtract");
+            assertThat(action.amount()).isEqualTo(-40);
+        });
+    }
+
+    @Test
     void grantPointsToInactiveUserReturnsNotFound() {
         User cashier = createEmployee("cashier-grant-inactive", "password123", StaffRole.CASHIER);
         String token = loginEmployee("cashier-grant-inactive", "password123");
@@ -102,6 +190,70 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void correctionToZeroFullyReversesGrantWithoutDeletingIt() {
+        createEmployee("cashier-reversal", "password123", StaffRole.CASHIER);
+        String token = loginEmployee("cashier-reversal", "password123");
+        User user = createUser("+5493462001095");
+        grant(token, user.getId(), 100);
+        UUID originalId = restTemplate.exchange(baseUrl() + "/users/grant/history?of=" + user.getId(),
+            HttpMethod.GET, authed(token), new ParameterizedTypeReference<List<PointActionResponse>>() {})
+            .getBody().get(0).id();
+
+        ResponseEntity<PointActionResponse> correction = restTemplate.exchange(baseUrl() + "/users/grant/" + originalId,
+            HttpMethod.PATCH, authed(token, new GrantPointsUpdateRequest(0, "anulación completa")), PointActionResponse.class);
+
+        assertThat(correction.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(correction.getBody().amount()).isEqualTo(-100);
+        assertThat(correction.getBody().correctedTransaction().id()).isEqualTo(originalId);
+        assertThat(getBalance(token, user.getId()).points()).isZero();
+        List<PointActionResponse> history = restTemplate.exchange(baseUrl() + "/users/grant/history?of=" + user.getId(),
+            HttpMethod.GET, authed(token), new ParameterizedTypeReference<List<PointActionResponse>>() {}).getBody();
+        assertThat(history.stream().filter(action -> action.id().equals(originalId)).findFirst().orElseThrow().amount()).isEqualTo(100);
+        assertThat(history.stream().filter(action -> action.id().equals(originalId)).findFirst().orElseThrow().effectiveAmount()).isZero();
+    }
+
+    @Test
+    void correctingManualDebitKeepsSignedOriginalAndAppendsDifference() {
+        createEmployee("cashier-debit-correction", "password123", StaffRole.CASHIER);
+        String token = loginEmployee("cashier-debit-correction", "password123");
+        User user = createUser("+5493462001096");
+        grant(token, user.getId(), 100);
+        restTemplate.exchange(baseUrl() + "/users/grant", HttpMethod.POST,
+            authed(token, new GrantPointsRequest(user.getId(), -30, "retiro")), UserPointsAwardResponse.class);
+        List<PointActionResponse> before = restTemplate.exchange(baseUrl() + "/users/grant/history?of=" + user.getId(),
+            HttpMethod.GET, authed(token), new ParameterizedTypeReference<List<PointActionResponse>>() {}).getBody();
+        UUID debitId = before.stream().filter(action -> action.amount() == -30).findFirst().orElseThrow().id();
+
+        ResponseEntity<PointActionResponse> corrected = restTemplate.exchange(baseUrl() + "/users/grant/" + debitId,
+            HttpMethod.PATCH, authed(token, new GrantPointsUpdateRequest(-50, "faltaban 20")), PointActionResponse.class);
+
+        assertThat(corrected.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(corrected.getBody().type()).isEqualTo("edit");
+        assertThat(corrected.getBody().amount()).isEqualTo(-20);
+        assertThat(corrected.getBody().correctedTransaction().id()).isEqualTo(debitId);
+        assertThat(corrected.getBody().correctedTransaction().amount()).isEqualTo(-30);
+        assertThat(getBalance(token, user.getId()).points()).isEqualTo(50);
+    }
+
+    @Test
+    void staffSearchWithoutProgramUsesSelectedStorefrontBalance() {
+        createEmployee("cashier-search-balance", "password123", StaffRole.CASHIER);
+        String token = loginEmployee("cashier-search-balance", "password123");
+        User user = createUser("+5493462001097");
+        grant(token, user.getId(), 65);
+
+        PagedResponse<UserPointsResponse> result = restTemplate.exchange(
+            baseUrl() + "/users?search=%2B5493462001097", HttpMethod.GET, authed(token),
+            new ParameterizedTypeReference<PagedResponse<UserPointsResponse>>() {}
+        ).getBody();
+
+        assertThat(result.items()).anySatisfy(found -> {
+            assertThat(found.id()).isEqualTo(user.getId());
+            assertThat(found.points()).isEqualTo(65);
+        });
     }
 
     @Test
