@@ -94,7 +94,7 @@ public class UserService {
         PasswordEncoder passwordEncoder,
         TraceabilityService traceabilityService,
         JdbcTemplate jdbcTemplate,
-        StorageService storageService
+        StorageService storageService,
         SessionService sessionService
     ) {
         this.userRepository = userRepository;
@@ -388,6 +388,8 @@ public class UserService {
         String rewardImagePath = mv.getReward() != null ? mv.getReward().getImagePath() : null;
         String imageUrl = rewardImagePath == null ? null : storageService.resolveUrl(rewardImagePath, DeliveryVariant.THUMBNAIL);
 
+        String formattedDate = mv.getCreatedAt().atZoneSameInstant(ZONE_ARGENTINA).format(DATE_FORMAT);
+
         return new MovementResponse(
             mv.getId(),
             mv.getTransactionType().getValue(),
@@ -397,7 +399,10 @@ public class UserService {
             mv.getOrganization() != null ? mv.getOrganization().getName() : null,
             mv.getStorefront() != null ? mv.getStorefront().getName() : null,
             mv.getPointProgram() != null ? mv.getPointProgram().getUnitLabel() : null,
-            mv.getCreatedAt().atZoneSameInstant(ZONE_ARGENTINA).format(DATE_FORMAT)
+            formattedDate,
+            mv.getCorrectedTransaction() != null,
+            mv.getCorrectedTransaction() != null ? mv.getCorrectedTransaction().getId() : null,
+            mv.getCorrectedTransaction() != null ? mv.getCorrectedTransaction().getPoints() : null
         );
     }
 
