@@ -38,7 +38,7 @@ export const NAV: NavItem[] = [
   { id: "organization", label: "Mi negocio", icon: Building2, roles: [UserRole.ADMIN], url: "/mi-negocio", available: true, show: true } as const,
   { id: "employees", label: "Empleados", icon: UserRoundGroup, roles: [UserRole.ADMIN], url: "#", available: false, show: false } as const,
   { id: "gallery", label: "Galeria", icon: Images, roles: [UserRole.ADMIN], url: "#", available: false, show: false } as const,
-  { id: "audit", label: "Auditoría", icon: ShieldAlert, roles: [UserRole.ADMIN], url: "#", available: false, show: false } as const,
+  { id: "audit", label: "Auditoría", icon: ShieldAlert, roles: [UserRole.ADMIN], url: "/auditoria", available: true, show: true } as const,
   { id: "analytics", label: "Reportes", icon: ChartColumn, roles: [UserRole.ADMIN], url: "#", available: false, show: false } as const,
 ];
 
