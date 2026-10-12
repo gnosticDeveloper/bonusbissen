@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is([data-theme="dark"] *));
+@custom-variant dark (&:is([data-theme="dark"] *, [data-theme="abismo"] *));
 
 @theme inline {
     --color-background: var(--background);
@@ -30,6 +30,16 @@
     --primary-foreground: #1a1a1a;
     --card: #252321;
     --border: #3a3632;
+    --muted: #aaa198;
+}
+
+[data-theme="abismo"] {
+    --background: #070809;
+    --foreground: #e4dbca;
+    --primary: #d4822b;
+    --primary-foreground: #1a1a1a;
+    --card: #111315;
+    --border: #292b2d;
     --muted: #aaa198;
 }
 

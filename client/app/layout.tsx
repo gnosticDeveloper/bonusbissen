@@ -44,7 +44,7 @@ const THEME_INIT_SCRIPT = `
       }
     }
 
-    if (theme === "light" || theme === "dark") {
+    if (theme === "light" || theme === "dark" || theme === "abismo") {
       document.documentElement.setAttribute("data-theme", theme);
     }
     // si no hay cookie ni legacy: no seteamos nada, el CSS con
