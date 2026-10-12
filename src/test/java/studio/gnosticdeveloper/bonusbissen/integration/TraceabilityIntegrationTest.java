@@ -25,8 +25,11 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.StaffResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
+import studio.gnosticdeveloper.bonusbissen.entity.Organization;
+import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
+import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.TraceabilityLog;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
@@ -154,9 +157,8 @@ class TraceabilityIntegrationTest extends AbstractIntegrationTest {
             Map.of()
         );
 
-        List<TraceabilityLog> logs = traceabilityService.find(operationId, null, null);
-        assertThat(logs).hasSize(1);
-        assertThat(logs.get(0).getAffectedUserIds()).containsExactlyInAnyOrder(affectedOne.getId(), affectedTwo.getId());
+        TraceabilityLog log = traceabilityLogRepository.findById(operationId).orElseThrow();
+        assertThat(log.getAffectedUserIds()).containsExactlyInAnyOrder(affectedOne.getId(), affectedTwo.getId());
     }
 
     @Test
@@ -365,5 +367,235 @@ class TraceabilityIntegrationTest extends AbstractIntegrationTest {
         List<TraceabilityLog> cancelLogs = logsFor(user.getId(), OperationType.EXCHANGE_USER_CANCEL);
         assertThat(cancelLogs).hasSize(1);
         assertThat(cancelLogs.get(0).getOriginatingUser().getId()).isEqualTo(user.getId());
+    }
+
+    @Test
+    void traceabilityEndpointReturnsTypedDetailsForTheCallersOrganization() {
+        User cashier = createEmployee("trace-api-cashier", TEST_USER_PASSWORD, StaffRole.CASHIER);
+        String cashierToken = loginEmployee("trace-api-cashier", TEST_USER_PASSWORD);
+        String adminToken = adminToken("trace-api-admin");
+        User user = createUser("trace-api-grant-me");
+
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
+            HttpMethod.POST,
+            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
+            Void.class
+        );
+        restTemplate.exchange(
+            baseUrl() + "/users/grant",
+            HttpMethod.POST,
+            authed(cashierToken, new GrantPointsRequest(user.getId(), 25, null)),
+            UserPointsAwardResponse.class
+        );
+
+        ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
+            baseUrl() + "/traceability?affectedUserId=" + user.getId(),
+            HttpMethod.GET,
+            authed(adminToken),
+            new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).hasSize(1);
+        Map<String, Object> row = response.getBody().get(0);
+        assertThat(row.get("operationType")).isEqualTo("POINTS_GRANT");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> originatingUser = (Map<String, Object>) row.get("originatingUser");
+        assertThat(originatingUser.get("id")).isEqualTo(cashier.getId().toString());
+        assertThat(originatingUser.get("username")).isEqualTo("trace-api-cashier");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> details = (Map<String, Object>) row.get("details");
+        assertThat(details.get("points")).isEqualTo(25);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> program = (Map<String, Object>) details.get("program");
+        assertThat(program.get("name")).isEqualTo(defaultProgram().getName());
+    }
+
+    @Test
+    void traceabilityEndpointCanBeFilteredByOperationType() {
+        User cashier = createEmployee("trace-type-cashier", TEST_USER_PASSWORD, StaffRole.CASHIER);
+        String cashierToken = loginEmployee("trace-type-cashier", TEST_USER_PASSWORD);
+        String adminToken = adminToken("trace-type-admin");
+        User user = createUser("trace-type-grant-me");
+
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
+            HttpMethod.POST,
+            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
+            Void.class
+        );
+        restTemplate.exchange(
+            baseUrl() + "/users/grant",
+            HttpMethod.POST,
+            authed(cashierToken, new GrantPointsRequest(user.getId(), 25, null)),
+            UserPointsAwardResponse.class
+        );
+
+        ResponseEntity<List<Map<String, Object>>> matching = restTemplate.exchange(
+            baseUrl() + "/traceability?operationType=POINTS_GRANT",
+            HttpMethod.GET,
+            authed(adminToken),
+            new ParameterizedTypeReference<>() {}
+        );
+        assertThat(matching.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(matching.getBody())
+            .extracting(row -> row.get("operationType"))
+            .allMatch("POINTS_GRANT"::equals);
+        assertThat(matching.getBody()).anySatisfy(row -> {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> affectedUsers = (List<Map<String, Object>>) row.get("affectedUsers");
+            assertThat(affectedUsers).anySatisfy(affected -> assertThat(affected.get("id")).isEqualTo(user.getId().toString()));
+        });
+
+        ResponseEntity<List<Map<String, Object>>> nonMatching = restTemplate.exchange(
+            baseUrl() + "/traceability?operationType=SESSION_REVOKE",
+            HttpMethod.GET,
+            authed(adminToken),
+            new ParameterizedTypeReference<>() {}
+        );
+        // The shared default org may carry SESSION_REVOKE rows from other tests, but
+        // none of them should be this test's POINTS_GRANT user.
+        assertThat(nonMatching.getBody()).noneSatisfy(row -> {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> affectedUsers = (List<Map<String, Object>>) row.get("affectedUsers");
+            assertThat(affectedUsers).anySatisfy(affected -> assertThat(affected.get("id")).isEqualTo(user.getId().toString()));
+        });
+    }
+
+    @Test
+    void traceabilityEndpointCombinesFiltersWithAnd() {
+        User cashier = createEmployee("trace-combo-cashier", TEST_USER_PASSWORD, StaffRole.CASHIER);
+        String cashierToken = loginEmployee("trace-combo-cashier", TEST_USER_PASSWORD);
+        String adminToken = adminToken("trace-combo-admin");
+        User userA = createUser("trace-combo-grant-a");
+        User userB = createUser("trace-combo-grant-b");
+
+        for (User target : List.of(userA, userB)) {
+            restTemplate.exchange(
+                baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
+                HttpMethod.POST,
+                authed(cashierToken, new JoinPointProgramRequest(target.getId())),
+                Void.class
+            );
+            restTemplate.exchange(
+                baseUrl() + "/users/grant",
+                HttpMethod.POST,
+                authed(cashierToken, new GrantPointsRequest(target.getId(), 25, null)),
+                UserPointsAwardResponse.class
+            );
+        }
+
+        // operationType + originatingUserId alone match both grants.
+        ResponseEntity<List<Map<String, Object>>> byTypeAndOriginator = restTemplate.exchange(
+            baseUrl() + "/traceability?operationType=POINTS_GRANT&originatingUserId=" + cashier.getId(),
+            HttpMethod.GET,
+            authed(adminToken),
+            new ParameterizedTypeReference<>() {}
+        );
+        assertThat(byTypeAndOriginator.getBody())
+            .hasSize(2)
+            .allSatisfy(row -> assertThat(row.get("operationType")).isEqualTo("POINTS_GRANT"));
+
+        // Adding affectedUserId narrows it down to exactly userA's row.
+        ResponseEntity<List<Map<String, Object>>> narrowed = restTemplate.exchange(
+            baseUrl() + "/traceability?operationType=POINTS_GRANT&originatingUserId=" + cashier.getId() + "&affectedUserId=" + userA.getId(),
+            HttpMethod.GET,
+            authed(adminToken),
+            new ParameterizedTypeReference<>() {}
+        );
+        assertThat(narrowed.getBody()).hasSize(1);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> affectedUsers = (List<Map<String, Object>>) narrowed.getBody().get(0).get("affectedUsers");
+        assertThat(affectedUsers).singleElement().satisfies(affected -> assertThat(affected.get("id")).isEqualTo(userA.getId().toString()));
+
+        // An operationType/originator match combined with an unrelated affectedUserId yields nothing.
+        ResponseEntity<List<Map<String, Object>>> noMatch = restTemplate.exchange(
+            baseUrl() + "/traceability?operationType=POINTS_GRANT&originatingUserId=" + cashier.getId() + "&affectedUserId=" + UUID.randomUUID(),
+            HttpMethod.GET,
+            authed(adminToken),
+            new ParameterizedTypeReference<>() {}
+        );
+        assertThat(noMatch.getBody()).isEmpty();
+    }
+
+    @Test
+    void traceabilityEndpointExcludesLogsFromOtherOrganizations() {
+        Organization otherOrg = new Organization();
+        otherOrg.setName("Other Trace Org");
+        otherOrg = organizationRepository.save(otherOrg);
+
+        PointProgram otherProgram = new PointProgram();
+        otherProgram.setOrganization(otherOrg);
+        otherProgram.setName("Other Puntos");
+        otherProgram = pointProgramRepository.save(otherProgram);
+
+        Storefront otherStorefront = new Storefront();
+        otherStorefront.setOrganization(otherOrg);
+        otherStorefront.setName("Other Storefront");
+        otherStorefront.setAddress("1 Other St");
+        otherStorefront.setPointProgram(otherProgram);
+        otherStorefront = storefrontRepository.save(otherStorefront);
+
+        User otherCashier = createEmployee("trace-other-cashier", TEST_USER_PASSWORD, StaffRole.CASHIER, otherOrg, otherStorefront);
+        String otherCashierToken = loginEmployee("trace-other-cashier", TEST_USER_PASSWORD, otherOrg.getId());
+        createEmployee("trace-other-admin", TEST_USER_PASSWORD, StaffRole.ADMIN, otherOrg, otherStorefront);
+        String otherAdminToken = loginEmployee("trace-other-admin", TEST_USER_PASSWORD, otherOrg.getId());
+        String defaultOrgAdminToken = adminToken("trace-isolation-admin");
+        User user = createUser("trace-isolation-grant-me");
+
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + otherProgram.getId() + "/members",
+            HttpMethod.POST,
+            authed(otherCashierToken, new JoinPointProgramRequest(user.getId())),
+            Void.class
+        );
+        restTemplate.exchange(
+            baseUrl() + "/users/grant",
+            HttpMethod.POST,
+            authed(otherCashierToken, new GrantPointsRequest(user.getId(), 25, null)),
+            UserPointsAwardResponse.class
+        );
+
+        ResponseEntity<List<Map<String, Object>>> sameOrgView = restTemplate.exchange(
+            baseUrl() + "/traceability?affectedUserId=" + user.getId(),
+            HttpMethod.GET,
+            authed(otherAdminToken),
+            new ParameterizedTypeReference<>() {}
+        );
+        assertThat(sameOrgView.getBody()).hasSize(1);
+
+        ResponseEntity<List<Map<String, Object>>> otherOrgView = restTemplate.exchange(
+            baseUrl() + "/traceability?affectedUserId=" + user.getId(),
+            HttpMethod.GET,
+            authed(defaultOrgAdminToken),
+            new ParameterizedTypeReference<>() {}
+        );
+        assertThat(otherOrgView.getBody()).isEmpty();
+    }
+
+    @Test
+    void traceabilityEndpointIsForbiddenForNonAdmins() {
+        String cashierToken = loginEmployee(createEmployeeCashierForForbiddenTest(), TEST_USER_PASSWORD);
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/traceability?affectedUserId=" + UUID.randomUUID(),
+            HttpMethod.GET,
+            authed(cashierToken),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    private String createEmployeeCashierForForbiddenTest() {
+        createEmployee("trace-forbidden-cashier", TEST_USER_PASSWORD, StaffRole.CASHIER);
+        return "trace-forbidden-cashier";
+    }
+
+    /** Creates an ADMIN at the default org and logs them in, returning the auth token. */
+    private String adminToken(String username) {
+        createEmployee(username, TEST_USER_PASSWORD, StaffRole.ADMIN);
+        return loginEmployee(username, TEST_USER_PASSWORD);
     }
 }
