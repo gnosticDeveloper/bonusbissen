@@ -43,9 +43,15 @@ export default function RewardsList({ rewards, isAdmin, view }: { rewards: Rewar
                 <h3 className="truncate text-base font-semibold tracking-[-0.02em] text-foreground">{reward.title}</h3>
                 <p className="mt-1 text-xs text-foreground/80">Creada {reward.createdAtFormatted}</p>
               </div>
-              <Badge tone="primary" className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-foreground">
-                {reward.discountValue}
-              </Badge>
+              {reward.discountValue === 100 ? (
+                <Badge tone="success" className="shrink-0 rounded-full px-2.5 py-1 font-semibold text-foreground">
+                  Gratis
+                </Badge>
+              ) : (
+                <Badge tone="neutral" className="shrink-0 rounded-full px-2.5 py-1 font-semibold text-foreground">
+                  Descuento del {reward.discountValue}%
+                </Badge>
+              )}
             </div>
 
             <p className="line-clamp-3 text-sm leading-5 text-foreground/80">{truncate(reward.description, view === "list" ? 180 : 96)}</p>
