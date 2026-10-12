@@ -25,8 +25,11 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.StaffResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
+import studio.gnosticdeveloper.bonusbissen.entity.Organization;
+import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
+import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.TraceabilityLog;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
@@ -365,5 +368,128 @@ class TraceabilityIntegrationTest extends AbstractIntegrationTest {
         List<TraceabilityLog> cancelLogs = logsFor(user.getId(), OperationType.EXCHANGE_USER_CANCEL);
         assertThat(cancelLogs).hasSize(1);
         assertThat(cancelLogs.get(0).getOriginatingUser().getId()).isEqualTo(user.getId());
+    }
+
+    @Test
+    void traceabilityEndpointReturnsTypedDetailsForTheCallersOrganization() {
+        User cashier = createEmployee("trace-api-cashier", TEST_USER_PASSWORD, StaffRole.CASHIER);
+        String cashierToken = loginEmployee("trace-api-cashier", TEST_USER_PASSWORD);
+        String adminToken = adminToken("trace-api-admin");
+        User user = createUser("trace-api-grant-me");
+
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
+            HttpMethod.POST,
+            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
+            Void.class
+        );
+        restTemplate.exchange(
+            baseUrl() + "/users/grant",
+            HttpMethod.POST,
+            authed(cashierToken, new GrantPointsRequest(user.getId(), 25, null)),
+            UserPointsAwardResponse.class
+        );
+
+        ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
+            baseUrl() + "/traceability?affectedUserId=" + user.getId(),
+            HttpMethod.GET,
+            authed(adminToken),
+            new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).hasSize(1);
+        Map<String, Object> row = response.getBody().get(0);
+        assertThat(row.get("operationType")).isEqualTo("POINTS_GRANT");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> originatingUser = (Map<String, Object>) row.get("originatingUser");
+        assertThat(originatingUser.get("id")).isEqualTo(cashier.getId().toString());
+        assertThat(originatingUser.get("username")).isEqualTo("trace-api-cashier");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> details = (Map<String, Object>) row.get("details");
+        assertThat(details.get("points")).isEqualTo(25);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> program = (Map<String, Object>) details.get("program");
+        assertThat(program.get("name")).isEqualTo(defaultProgram().getName());
+    }
+
+    @Test
+    void traceabilityEndpointExcludesLogsFromOtherOrganizations() {
+        Organization otherOrg = new Organization();
+        otherOrg.setName("Other Trace Org");
+        otherOrg = organizationRepository.save(otherOrg);
+
+        PointProgram otherProgram = new PointProgram();
+        otherProgram.setOrganization(otherOrg);
+        otherProgram.setName("Other Puntos");
+        otherProgram = pointProgramRepository.save(otherProgram);
+
+        Storefront otherStorefront = new Storefront();
+        otherStorefront.setOrganization(otherOrg);
+        otherStorefront.setName("Other Storefront");
+        otherStorefront.setAddress("1 Other St");
+        otherStorefront.setPointProgram(otherProgram);
+        otherStorefront = storefrontRepository.save(otherStorefront);
+
+        User otherCashier = createEmployee("trace-other-cashier", TEST_USER_PASSWORD, StaffRole.CASHIER, otherOrg, otherStorefront);
+        String otherCashierToken = loginEmployee("trace-other-cashier", TEST_USER_PASSWORD, otherOrg.getId());
+        createEmployee("trace-other-admin", TEST_USER_PASSWORD, StaffRole.ADMIN, otherOrg, otherStorefront);
+        String otherAdminToken = loginEmployee("trace-other-admin", TEST_USER_PASSWORD, otherOrg.getId());
+        String defaultOrgAdminToken = adminToken("trace-isolation-admin");
+        User user = createUser("trace-isolation-grant-me");
+
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + otherProgram.getId() + "/members",
+            HttpMethod.POST,
+            authed(otherCashierToken, new JoinPointProgramRequest(user.getId())),
+            Void.class
+        );
+        restTemplate.exchange(
+            baseUrl() + "/users/grant",
+            HttpMethod.POST,
+            authed(otherCashierToken, new GrantPointsRequest(user.getId(), 25, null)),
+            UserPointsAwardResponse.class
+        );
+
+        ResponseEntity<List<Map<String, Object>>> sameOrgView = restTemplate.exchange(
+            baseUrl() + "/traceability?affectedUserId=" + user.getId(),
+            HttpMethod.GET,
+            authed(otherAdminToken),
+            new ParameterizedTypeReference<>() {}
+        );
+        assertThat(sameOrgView.getBody()).hasSize(1);
+
+        ResponseEntity<List<Map<String, Object>>> otherOrgView = restTemplate.exchange(
+            baseUrl() + "/traceability?affectedUserId=" + user.getId(),
+            HttpMethod.GET,
+            authed(defaultOrgAdminToken),
+            new ParameterizedTypeReference<>() {}
+        );
+        assertThat(otherOrgView.getBody()).isEmpty();
+    }
+
+    @Test
+    void traceabilityEndpointIsForbiddenForNonAdmins() {
+        String cashierToken = loginEmployee(createEmployeeCashierForForbiddenTest(), TEST_USER_PASSWORD);
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/traceability?affectedUserId=" + UUID.randomUUID(),
+            HttpMethod.GET,
+            authed(cashierToken),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    private String createEmployeeCashierForForbiddenTest() {
+        createEmployee("trace-forbidden-cashier", TEST_USER_PASSWORD, StaffRole.CASHIER);
+        return "trace-forbidden-cashier";
+    }
+
+    /** Creates an ADMIN at the default org and logs them in, returning the auth token. */
+    private String adminToken(String username) {
+        createEmployee(username, TEST_USER_PASSWORD, StaffRole.ADMIN);
+        return loginEmployee(username, TEST_USER_PASSWORD);
     }
 }

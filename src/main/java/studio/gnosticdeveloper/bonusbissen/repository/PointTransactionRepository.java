@@ -219,6 +219,8 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
     @Query(value = "select t.* from point_transactions t " + ORG_JOIN + " where " + ORG_MATCH, nativeQuery = true)
     List<PointTransaction> findAllWithRelations(@Param("organizationId") UUID organizationId);
 
+    boolean existsByIdAndPointProgram_Organization_Id(UUID id, UUID organizationId);
+
     @Query(
         value = """
         select t.* from point_transactions t
