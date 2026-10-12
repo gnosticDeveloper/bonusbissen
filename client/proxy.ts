@@ -3,9 +3,11 @@ import { checkSession } from "@/lib/auth/session";
 import {
   accessCookieOptions,
   CUSTOMER_ACCESS_COOKIE,
-  CUSTOMER_REFRESH_COOKIE,
+  DASHBOARD_STOREFRONTS_COOKIE,
   refreshCookieOptions,
-  refreshCustomerSession,
+  refreshSession,
+  sessionCookies,
+  type SessionArea,
 } from "@/lib/auth/refresh";
 
 // Rutas que se dejan pasar siempre, sin importar el estado de la sesión
@@ -14,29 +16,53 @@ const ALWAYS_PUBLIC_PATHS = ["/d/sign-in", "/verify-email", "/descubrir", "/logi
 // /s/{storefrontId}/afiliarse — pública, sin importar sesión
 const AFILIARSE_PATTERN = /^\/s\/[^/]+\/afiliarse(?:\/.*)?$/;
 
+function clearSession(response: NextResponse, area: SessionArea) {
+  const names = sessionCookies[area];
+  response.cookies.delete(names.access);
+  response.cookies.delete(names.refresh);
+  if (area === "dashboard") response.cookies.delete(DASHBOARD_STOREFRONTS_COOKIE);
+}
 
-async function restoreCustomerSession(request: NextRequest, redirectTo?: string): Promise<NextResponse | null> {
-  const raw = request.cookies.get(CUSTOMER_REFRESH_COOKIE)?.value;
+async function restoreSession(request: NextRequest, area: SessionArea, redirectTo?: string): Promise<NextResponse | null> {
+  const names = sessionCookies[area];
+  const raw = request.cookies.get(names.refresh)?.value;
   if (!raw) return null;
 
-  const result = await refreshCustomerSession(raw);
+  const result = await refreshSession(raw);
   if (result.status === "retry" || result.status === "unavailable") {
     return new NextResponse("No pudimos renovar tu sesión. Probá de nuevo en un momento.", { status: 503 });
   }
   if (result.status === "expired") {
-    const response = NextResponse.redirect(new URL("/sign-in", request.url));
-    response.cookies.delete(CUSTOMER_ACCESS_COOKIE);
-    response.cookies.delete(CUSTOMER_REFRESH_COOKIE);
+    const response = NextResponse.redirect(new URL(names.signIn, request.url));
+    clearSession(response, area);
     return response;
   }
 
-  request.cookies.set(CUSTOMER_ACCESS_COOKIE, result.token);
-  request.cookies.set(CUSTOMER_REFRESH_COOKIE, result.cookie.value);
+  const session = await checkSession(result.token, area);
+  if (session.status === "unavailable") {
+    // Rotation already succeeded. Preserve its new credential even if the
+    // verification key is unavailable, without granting access to the route.
+    const response = new NextResponse("No pudimos verificar tu sesión. Probá de nuevo en un momento.", { status: 503 });
+    response.cookies.set(names.refresh, result.cookie.value, refreshCookieOptions(result.cookie.maxAge));
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
+  }
+  if (session.status !== "valid") {
+    const response = NextResponse.redirect(new URL(names.signIn, request.url));
+    clearSession(response, area);
+    return response;
+  }
+
+  // Forward the rotated cookies to this request's server components/actions as
+  // well as the browser; response cookies alone would leave them using the old JWT.
+  request.cookies.set(names.access, result.token);
+  request.cookies.set(names.refresh, result.cookie.value);
   const response = redirectTo
     ? NextResponse.redirect(new URL(redirectTo, request.url))
     : NextResponse.next({ request: { headers: request.headers } });
-  response.cookies.set(CUSTOMER_ACCESS_COOKIE, result.token, accessCookieOptions);
-  response.cookies.set(CUSTOMER_REFRESH_COOKIE, result.cookie.value, refreshCookieOptions(result.cookie.maxAge));
+  response.cookies.set(names.access, result.token, accessCookieOptions);
+  response.cookies.set(names.refresh, result.cookie.value, refreshCookieOptions(result.cookie.maxAge));
+  response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
 
@@ -48,7 +74,7 @@ export async function proxy(request: NextRequest) {
   if (AFILIARSE_PATTERN.test(pathname)) {
     const token = request.cookies.get(CUSTOMER_ACCESS_COOKIE)?.value;
     if (!token || (await checkSession(token)).status === "expired") {
-      const restored = await restoreCustomerSession(request);
+      const restored = await restoreSession(request, "customer");
       if (restored) return restored;
     }
     return NextResponse.next();
@@ -60,8 +86,8 @@ export async function proxy(request: NextRequest) {
   // porque "/descubrir" también arranca con "/d" y quedaría mal clasificado
   // como ruta de dashboard.
   const isDashboard = pathname === "/d" || pathname.startsWith("/d/");
-  const signInUrl = isDashboard ? "/d/sign-in" : "/sign-in";
-  const cookieName = isDashboard ? "d_token" : "access_token";
+  const area: SessionArea = isDashboard ? "dashboard" : "customer";
+  const { signIn: signInUrl, access: cookieName } = sessionCookies[area];
   const token = request.cookies.get(cookieName)?.value;
 
   // Rutas de auth (sign-in, sign-up): si ya hay sesión válida, no tiene sentido mostrarlas
@@ -75,7 +101,7 @@ export async function proxy(request: NextRequest) {
     const session = await checkSession(token);
     if (session.status === "valid") return NextResponse.redirect(new URL("/b", request.url));
     if (session.status === "expired" || !token) {
-      const restored = await restoreCustomerSession(request, "/b");
+      const restored = await restoreSession(request, "customer", "/b");
       if (restored) return restored;
     }
     const response = NextResponse.next();
@@ -85,8 +111,8 @@ export async function proxy(request: NextRequest) {
 
   // A partir de acá, la ruta requiere sesión.
 
-  if (!token && !isDashboard) {
-    const restored = await restoreCustomerSession(request);
+  if (!token) {
+    const restored = await restoreSession(request, area);
     if (restored) return restored;
   }
   if (!token) {
@@ -94,9 +120,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(isDashboard ? signInUrl : "/descubrir", request.url));
   }
 
-  const session = await checkSession(token, isDashboard ? "dashboard" : "customer");
-  if (!isDashboard && session.status === "expired") {
-    const restored = await restoreCustomerSession(request);
+  const session = await checkSession(token, area);
+  if (session.status === "expired") {
+    const restored = await restoreSession(request, area);
     if (restored) return restored;
   }
   if (session.status === "unavailable") {
@@ -104,7 +130,7 @@ export async function proxy(request: NextRequest) {
   }
   if (session.status === "invalid" || session.status === "expired") {
     const response = NextResponse.redirect(new URL(signInUrl, request.url));
-    response.cookies.delete(cookieName);
+    clearSession(response, area);
     return response;
   }
 

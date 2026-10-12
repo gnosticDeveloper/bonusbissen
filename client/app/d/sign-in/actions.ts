@@ -4,6 +4,13 @@ import { ActionResult } from "@/lib/action-result";
 import { dashboardRequest, publicRequest } from "@/lib/api";
 import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
 import { cookies } from "next/headers";
+import {
+  accessCookieOptions,
+  DASHBOARD_ACCESS_COOKIE,
+  DASHBOARD_REFRESH_COOKIE,
+  DASHBOARD_STOREFRONTS_COOKIE,
+  saveDashboardSession,
+} from "@/lib/auth/refresh";
 
 export type OrganizationOption = { id: string; name: string };
 
@@ -25,8 +32,6 @@ export type StorefrontSummary = {
   id: string;
   name: string;
 };
-
-const DASHBOARD_STOREFRONTS_COOKIE = "d_storefronts";
 
 export async function getDashboardStorefronts(): Promise<StorefrontSummary[]> {
   const value = (await cookies()).get(DASHBOARD_STOREFRONTS_COOKIE)?.value;
@@ -75,13 +80,10 @@ export async function signIn(formData: FormData): Promise<ActionResult<{ storefr
 
     const { token, storefronts } = (await response.json()) as { token: string; storefronts: StorefrontSummary[] };
 
+    if (!(await saveDashboardSession(response, token))) {
+      return { ok: false, error: "No pudimos iniciar sesión. Probá de nuevo." };
+    }
     const cookieStore = await cookies();
-    cookieStore.set("d_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-    });
     saveStorefronts(cookieStore, storefronts);
 
     return {
@@ -94,20 +96,20 @@ export async function signIn(formData: FormData): Promise<ActionResult<{ storefr
 }
 
 export async function selectStorefront(storefrontId: string): Promise<{ success: true } | { success: false; error: string }> {
+  const cookieStore = await cookies();
+  const refresh = cookieStore.get(DASHBOARD_REFRESH_COOKIE)?.value;
   const res = await dashboardRequest<{ token: string; storefronts: StorefrontSummary[] }>("/auth/storefront", {
     method: "POST",
     body: JSON.stringify({ storefrontId }),
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(refresh ? { Cookie: `bb_rt=${refresh}` } : {}),
+    },
+    cache: "no-store",
   });
   if (!res.ok) return { success: false, error: "No pudimos seleccionar el local." };
 
-  const cookieStore = await cookies();
-  cookieStore.set("d_token", res.data.token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-  });
+  cookieStore.set(DASHBOARD_ACCESS_COOKIE, res.data.token, accessCookieOptions);
   saveStorefronts(cookieStore, res.data.storefronts);
   return { success: true };
 }

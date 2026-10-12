@@ -1,9 +1,19 @@
 import { cookies } from "next/headers";
+import { checkSession } from "./session";
 
 // The backend's bb_rt is relayed as an opaque, HttpOnly cookie on the Next origin.
 // Browser JavaScript never reads it, and server-side fetch does not manage cookies automatically.
 export const CUSTOMER_REFRESH_COOKIE = "bb_user_rt";
 export const CUSTOMER_ACCESS_COOKIE = "access_token";
+export const DASHBOARD_REFRESH_COOKIE = "bb_dashboard_rt";
+export const DASHBOARD_ACCESS_COOKIE = "d_token";
+export const DASHBOARD_STOREFRONTS_COOKIE = "d_storefronts";
+
+export type SessionArea = "customer" | "dashboard";
+export const sessionCookies = {
+  customer: { access: CUSTOMER_ACCESS_COOKIE, refresh: CUSTOMER_REFRESH_COOKIE, signIn: "/sign-in" },
+  dashboard: { access: DASHBOARD_ACCESS_COOKIE, refresh: DASHBOARD_REFRESH_COOKIE, signIn: "/d/sign-in" },
+};
 
 export type RefreshCookie = { value: string; maxAge: number };
 
@@ -41,6 +51,15 @@ export async function saveCustomerSession(response: Response, token: string): Pr
   return true;
 }
 
+export async function saveDashboardSession(response: Response, token: string): Promise<boolean> {
+  const refresh = readBackendRefreshCookie(response);
+  if (!refresh || (await checkSession(token, "dashboard")).status !== "valid") return false;
+  const cookieStore = await cookies();
+  cookieStore.set(DASHBOARD_REFRESH_COOKIE, refresh.value, refreshCookieOptions(refresh.maxAge));
+  cookieStore.set(DASHBOARD_ACCESS_COOKIE, token, accessCookieOptions);
+  return true;
+}
+
 type RefreshResult =
   | { status: "ok"; token: string; cookie: RefreshCookie }
   | { status: "expired" }
@@ -52,7 +71,9 @@ type RefreshResult =
 const pending = new Map<string, Promise<RefreshResult>>();
 const recentlyRotated = new Map<string, number>();
 
-export async function refreshCustomerSession(rawCookie: string): Promise<RefreshResult> {
+export async function refreshSession(rawCookie: string): Promise<RefreshResult> {
+  // Only forward the backend's opaque base64url token, never arbitrary cookie/header input.
+  if (!/^[A-Za-z0-9_-]{43}$/.test(rawCookie)) return { status: "expired" };
   const inFlight = pending.get(rawCookie);
   if (inFlight) return inFlight;
   if (Date.now() < (recentlyRotated.get(rawCookie) ?? 0)) return { status: "retry" };
@@ -68,14 +89,15 @@ export async function refreshCustomerSession(rawCookie: string): Promise<Refresh
         method: "POST",
         headers: { Cookie: `bb_rt=${rawCookie}`, "X-Requested-With": "XMLHttpRequest" },
         cache: "no-store",
+        redirect: "error",
+        signal: AbortSignal.timeout(10_000),
       });
       if (response.status === 401) return { status: "expired" };
       if (!response.ok) return { status: "unavailable" };
 
-
       const { token } = (await response.json()) as { token?: string };
       const cookie = readBackendRefreshCookie(response);
-      if (!token || !cookie) return { status: "unavailable" };
+      if (typeof token !== "string" || !token || !cookie) return { status: "unavailable" };
       return { status: "ok", token, cookie };
     } catch {
       return { status: "unavailable" };
