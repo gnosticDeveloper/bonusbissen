@@ -5,10 +5,10 @@ type Tone = 'neutral' | 'success' | 'warning' | 'destructive' | 'primary'
 
 const toneClasses: Record<Tone, string> = {
   neutral: 'bg-foreground/10 text-foreground',
-  success: 'bg-green-500/20 text-green-950',
-  warning: 'bg-amber-500/20 text-amber-950',
-  destructive: 'bg-red-500/20 text-red-950',
-  primary: 'bg-primary/20 text-primary-foreground',
+  success: 'bg-green-500/20 text-foreground',
+  warning: 'bg-amber-500/20 text-foreground',
+  destructive: 'bg-red-500/20 text-foreground',
+  primary: 'bg-primary/20 text-foreground',
 }
 
 export function Badge({
