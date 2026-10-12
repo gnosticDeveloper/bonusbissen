@@ -464,6 +464,62 @@ class TraceabilityIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void traceabilityEndpointCombinesFiltersWithAnd() {
+        User cashier = createEmployee("trace-combo-cashier", TEST_USER_PASSWORD, StaffRole.CASHIER);
+        String cashierToken = loginEmployee("trace-combo-cashier", TEST_USER_PASSWORD);
+        String adminToken = adminToken("trace-combo-admin");
+        User userA = createUser("trace-combo-grant-a");
+        User userB = createUser("trace-combo-grant-b");
+
+        for (User target : List.of(userA, userB)) {
+            restTemplate.exchange(
+                baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
+                HttpMethod.POST,
+                authed(cashierToken, new JoinPointProgramRequest(target.getId())),
+                Void.class
+            );
+            restTemplate.exchange(
+                baseUrl() + "/users/grant",
+                HttpMethod.POST,
+                authed(cashierToken, new GrantPointsRequest(target.getId(), 25, null)),
+                UserPointsAwardResponse.class
+            );
+        }
+
+        // operationType + originatingUserId alone match both grants.
+        ResponseEntity<List<Map<String, Object>>> byTypeAndOriginator = restTemplate.exchange(
+            baseUrl() + "/traceability?operationType=POINTS_GRANT&originatingUserId=" + cashier.getId(),
+            HttpMethod.GET,
+            authed(adminToken),
+            new ParameterizedTypeReference<>() {}
+        );
+        assertThat(byTypeAndOriginator.getBody())
+            .hasSize(2)
+            .allSatisfy(row -> assertThat(row.get("operationType")).isEqualTo("POINTS_GRANT"));
+
+        // Adding affectedUserId narrows it down to exactly userA's row.
+        ResponseEntity<List<Map<String, Object>>> narrowed = restTemplate.exchange(
+            baseUrl() + "/traceability?operationType=POINTS_GRANT&originatingUserId=" + cashier.getId() + "&affectedUserId=" + userA.getId(),
+            HttpMethod.GET,
+            authed(adminToken),
+            new ParameterizedTypeReference<>() {}
+        );
+        assertThat(narrowed.getBody()).hasSize(1);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> affectedUsers = (List<Map<String, Object>>) narrowed.getBody().get(0).get("affectedUsers");
+        assertThat(affectedUsers).singleElement().satisfies(affected -> assertThat(affected.get("id")).isEqualTo(userA.getId().toString()));
+
+        // An operationType/originator match combined with an unrelated affectedUserId yields nothing.
+        ResponseEntity<List<Map<String, Object>>> noMatch = restTemplate.exchange(
+            baseUrl() + "/traceability?operationType=POINTS_GRANT&originatingUserId=" + cashier.getId() + "&affectedUserId=" + UUID.randomUUID(),
+            HttpMethod.GET,
+            authed(adminToken),
+            new ParameterizedTypeReference<>() {}
+        );
+        assertThat(noMatch.getBody()).isEmpty();
+    }
+
+    @Test
     void traceabilityEndpointExcludesLogsFromOtherOrganizations() {
         Organization otherOrg = new Organization();
         otherOrg.setName("Other Trace Org");

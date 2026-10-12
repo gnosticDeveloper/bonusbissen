@@ -24,7 +24,7 @@ public class TraceabilityController {
         this.traceabilityService = traceabilityService;
     }
 
-    /** Exactly one of operationType, originatingUserId or affectedUserId must be given; results are limited to the admin's own organization. */
+    /** operationType, originatingUserId and affectedUserId may be combined (ANDed) and at least one is required; results are limited to the admin's own organization. */
     @GetMapping
     public List<TraceabilityLogResponse> find(
         @RequestParam(required = false) OperationType operationType,

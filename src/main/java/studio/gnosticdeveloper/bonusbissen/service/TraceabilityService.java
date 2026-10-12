@@ -80,18 +80,13 @@ public class TraceabilityService {
         return traceabilityLogRepository.save(log).getOperationId();
     }
 
+    /** All three filters are optional and AND together when combined; at least one must be given. */
     @Transactional(readOnly = true)
     public List<TraceabilityLog> find(OperationType operationType, UUID originatingUserId, UUID affectedUserId) {
-        if (operationType != null) {
-            return traceabilityLogRepository.findAllByOperationType(operationType);
+        if (operationType == null && originatingUserId == null && affectedUserId == null) {
+            throw new BadRequestException("Especificá operationType, originatingUserId o affectedUserId.", "");
         }
-        if (originatingUserId != null) {
-            return traceabilityLogRepository.findAllByOriginatingUser_Id(originatingUserId);
-        }
-        if (affectedUserId != null) {
-            return traceabilityLogRepository.findAllByAffectedUserIdsContains(affectedUserId);
-        }
-        throw new BadRequestException("Especificá operationType, originatingUserId o affectedUserId.", "");
+        return traceabilityLogRepository.search(operationType, originatingUserId, affectedUserId);
     }
 
     /** Same lookup as {@link #find}, restricted to rows that belong to the given organization and hydrated for display. */
