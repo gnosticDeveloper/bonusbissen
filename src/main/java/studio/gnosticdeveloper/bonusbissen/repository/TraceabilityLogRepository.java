@@ -14,6 +14,8 @@ import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.TraceabilityLog;
 
 public interface TraceabilityLogRepository extends JpaRepository<TraceabilityLog, UUID> {
+    List<TraceabilityLog> findAllByOperationType(OperationType operationType);
+
     List<TraceabilityLog> findAllByOriginatingUser_Id(UUID originatingUserId);
 
     List<TraceabilityLog> findAllByAffectedUserIdsContains(UUID affectedUserId);

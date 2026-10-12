@@ -157,9 +157,8 @@ class TraceabilityIntegrationTest extends AbstractIntegrationTest {
             Map.of()
         );
 
-        List<TraceabilityLog> logs = traceabilityService.find(operationId, null, null);
-        assertThat(logs).hasSize(1);
-        assertThat(logs.get(0).getAffectedUserIds()).containsExactlyInAnyOrder(affectedOne.getId(), affectedTwo.getId());
+        TraceabilityLog log = traceabilityLogRepository.findById(operationId).orElseThrow();
+        assertThat(log.getAffectedUserIds()).containsExactlyInAnyOrder(affectedOne.getId(), affectedTwo.getId());
     }
 
     @Test
@@ -411,6 +410,57 @@ class TraceabilityIntegrationTest extends AbstractIntegrationTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> program = (Map<String, Object>) details.get("program");
         assertThat(program.get("name")).isEqualTo(defaultProgram().getName());
+    }
+
+    @Test
+    void traceabilityEndpointCanBeFilteredByOperationType() {
+        User cashier = createEmployee("trace-type-cashier", TEST_USER_PASSWORD, StaffRole.CASHIER);
+        String cashierToken = loginEmployee("trace-type-cashier", TEST_USER_PASSWORD);
+        String adminToken = adminToken("trace-type-admin");
+        User user = createUser("trace-type-grant-me");
+
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
+            HttpMethod.POST,
+            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
+            Void.class
+        );
+        restTemplate.exchange(
+            baseUrl() + "/users/grant",
+            HttpMethod.POST,
+            authed(cashierToken, new GrantPointsRequest(user.getId(), 25, null)),
+            UserPointsAwardResponse.class
+        );
+
+        ResponseEntity<List<Map<String, Object>>> matching = restTemplate.exchange(
+            baseUrl() + "/traceability?operationType=POINTS_GRANT",
+            HttpMethod.GET,
+            authed(adminToken),
+            new ParameterizedTypeReference<>() {}
+        );
+        assertThat(matching.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(matching.getBody())
+            .extracting(row -> row.get("operationType"))
+            .allMatch("POINTS_GRANT"::equals);
+        assertThat(matching.getBody()).anySatisfy(row -> {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> affectedUsers = (List<Map<String, Object>>) row.get("affectedUsers");
+            assertThat(affectedUsers).anySatisfy(affected -> assertThat(affected.get("id")).isEqualTo(user.getId().toString()));
+        });
+
+        ResponseEntity<List<Map<String, Object>>> nonMatching = restTemplate.exchange(
+            baseUrl() + "/traceability?operationType=SESSION_REVOKE",
+            HttpMethod.GET,
+            authed(adminToken),
+            new ParameterizedTypeReference<>() {}
+        );
+        // The shared default org may carry SESSION_REVOKE rows from other tests, but
+        // none of them should be this test's POINTS_GRANT user.
+        assertThat(nonMatching.getBody()).noneSatisfy(row -> {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> affectedUsers = (List<Map<String, Object>>) row.get("affectedUsers");
+            assertThat(affectedUsers).anySatisfy(affected -> assertThat(affected.get("id")).isEqualTo(user.getId().toString()));
+        });
     }
 
     @Test

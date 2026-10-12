@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TraceabilityLogResponse;
+import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
 import studio.gnosticdeveloper.bonusbissen.service.TraceabilityService;
 
@@ -23,14 +24,14 @@ public class TraceabilityController {
         this.traceabilityService = traceabilityService;
     }
 
-    /** Exactly one of operationId, originatingUserId or affectedUserId must be given; results are limited to the admin's own organization. */
+    /** Exactly one of operationType, originatingUserId or affectedUserId must be given; results are limited to the admin's own organization. */
     @GetMapping
     public List<TraceabilityLogResponse> find(
-        @RequestParam(required = false) UUID operationId,
+        @RequestParam(required = false) OperationType operationType,
         @RequestParam(required = false) UUID originatingUserId,
         @RequestParam(required = false) UUID affectedUserId,
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
-        return traceabilityService.findForOrganization(operationId, originatingUserId, affectedUserId, principal.organizationId());
+        return traceabilityService.findForOrganization(operationType, originatingUserId, affectedUserId, principal.organizationId());
     }
 }

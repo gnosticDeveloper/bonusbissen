@@ -81,9 +81,9 @@ public class TraceabilityService {
     }
 
     @Transactional(readOnly = true)
-    public List<TraceabilityLog> find(UUID operationId, UUID originatingUserId, UUID affectedUserId) {
-        if (operationId != null) {
-            return traceabilityLogRepository.findById(operationId).map(List::of).orElse(List.of());
+    public List<TraceabilityLog> find(OperationType operationType, UUID originatingUserId, UUID affectedUserId) {
+        if (operationType != null) {
+            return traceabilityLogRepository.findAllByOperationType(operationType);
         }
         if (originatingUserId != null) {
             return traceabilityLogRepository.findAllByOriginatingUser_Id(originatingUserId);
@@ -91,13 +91,13 @@ public class TraceabilityService {
         if (affectedUserId != null) {
             return traceabilityLogRepository.findAllByAffectedUserIdsContains(affectedUserId);
         }
-        throw new BadRequestException("Especificá operationId, originatingUserId o affectedUserId.", "");
+        throw new BadRequestException("Especificá operationType, originatingUserId o affectedUserId.", "");
     }
 
     /** Same lookup as {@link #find}, restricted to rows that belong to the given organization and hydrated for display. */
     @Transactional(readOnly = true)
-    public List<TraceabilityLogResponse> findForOrganization(UUID operationId, UUID originatingUserId, UUID affectedUserId, UUID organizationId) {
-        List<TraceabilityLog> logs = find(operationId, originatingUserId, affectedUserId)
+    public List<TraceabilityLogResponse> findForOrganization(OperationType operationType, UUID originatingUserId, UUID affectedUserId, UUID organizationId) {
+        List<TraceabilityLog> logs = find(operationType, originatingUserId, affectedUserId)
             .stream()
             .filter(log -> belongsToOrganization(log, organizationId))
             .toList();
