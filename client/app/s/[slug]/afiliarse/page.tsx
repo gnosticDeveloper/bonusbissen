@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getStorefrontDiscoverInfo } from "@/app/s/[slug]/afiliarse/actions";
 import { getMembership } from "@/app/s/[slug]/actions";
 import { AfiliarseView } from "@/components/afiliarse-view";
-import { getSessionToken, isSessionValid } from "@/lib/auth/session";
+import { getSessionToken, verifySession } from "@/lib/auth/session";
 
 export default async function AfiliarsePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: storefrontId } = await params;
@@ -11,7 +11,7 @@ export default async function AfiliarsePage({ params }: { params: Promise<{ slug
   let isLoggedIn = false;
 
   if (session) {
-    if (!isSessionValid(session)) {
+    if (!(await verifySession(session))) {
       // Hubo sesión real y venció: no lo tratamos como usuario nuevo.
       // Vuelve acá mismo después de loguearse.
       redirect(`/sign-in?returnTo=/s/${storefrontId}/afiliarse`);

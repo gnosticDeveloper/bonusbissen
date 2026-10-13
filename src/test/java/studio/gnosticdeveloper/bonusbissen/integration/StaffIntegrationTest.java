@@ -1,6 +1,5 @@
 package studio.gnosticdeveloper.bonusbissen.integration;
 
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;

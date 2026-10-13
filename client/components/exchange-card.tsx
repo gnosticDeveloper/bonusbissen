@@ -2,6 +2,7 @@ import { Gift, MapPin, Store } from "lucide-react";
 import { ExchangeState } from "@/lib/types/exchange";
 import { ExchangeStateBadge } from "./exchange-state-badge";
 import { CopyCodeButton } from "./copy-code-button";
+import { CancelRedemptionButton } from "./cancel-redemption-button";
 import type { HistoricalExchangeResponse } from "@/lib/types/exchange";
 
 export function ExchangeCard({
@@ -15,15 +16,15 @@ export function ExchangeCard({
     <article className="overflow-hidden rounded-3xl border border-border bg-card shadow-[0_12px_30px_rgba(20,16,25,0.05)]">
       <div className="flex gap-3 p-3.5">
         <div className="relative h-19 w-19 shrink-0 overflow-hidden rounded-[18px] bg-muted/20">
-          {exchange.rewardImagePath ? (
+          {exchange.rewardImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={exchange.rewardImagePath}
+              src={exchange.rewardImageUrl}
               alt={exchange.rewardTitle}
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="grid h-full w-full place-items-center text-muted-foreground">
+            <div className="grid h-full w-full place-items-center text-foreground/80">
               <Gift className="h-6 w-6" aria-hidden="true" />
             </div>
           )}
@@ -38,17 +39,17 @@ export function ExchangeCard({
             <ExchangeStateBadge state={exchange.state} />
           </div>
 
-          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-foreground/80">
             <Store className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <p className="truncate">{exchange.organizationName}</p>
           </div>
 
           <div className="mt-3 flex items-center justify-between gap-2">
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-[11px] text-foreground/80">
               {exchange.formattedCreatedAt}
             </span>
 
-            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-foreground">
               {exchange.costPoints.toLocaleString("es-AR")}{" "}
               {exchange.pointsUnitLabel}
             </span>
@@ -58,9 +59,12 @@ export function ExchangeCard({
 
       <div className="border-t border-border/70 px-3.5 py-3">
         {isPending ? (
-          <CopyCodeButton code={exchange.exchangeCode} />
+          <div className="space-y-2">
+            <CopyCodeButton code={exchange.exchangeCode} />
+            <CancelRedemptionButton exchange={exchange} />
+          </div>
         ) : (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-xs text-foreground/80">
             <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <p className="truncate">
               {exchange.storefrontName || "Local no especificado"}

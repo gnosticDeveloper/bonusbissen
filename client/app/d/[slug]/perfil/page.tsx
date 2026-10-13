@@ -7,7 +7,7 @@ export default async function DashboardProfilePage() {
   if (!result.ok) {
     return (
       <div className="mx-auto flex w-full max-w-107.5 flex-col px-4 pt-6">
-        <p className="text-sm text-muted">No pudimos cargar tu perfil. Probá de nuevo más tarde.</p>
+        <p className="text-sm text-foreground/80">No pudimos cargar tu perfil. Probá de nuevo más tarde.</p>
       </div>
     );
   }

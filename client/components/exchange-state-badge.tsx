@@ -13,7 +13,7 @@ const STATE_CONFIG: Record<
   [ExchangeState.PENDING]: {
     label: "Pendiente",
     Icon: Clock3,
-    className: "bg-primary/10 text-primary",
+    className: "bg-primary/10 text-foreground",
   },
   [ExchangeState.COMPLETED]: {
     label: "Entregado",
@@ -23,7 +23,7 @@ const STATE_CONFIG: Record<
   [ExchangeState.CANCELLED]: {
     label: "Anulado",
     Icon: XCircle,
-    className: "bg-muted/20 text-muted-foreground",
+    className: "bg-muted/20 text-foreground/80",
   },
 };
 

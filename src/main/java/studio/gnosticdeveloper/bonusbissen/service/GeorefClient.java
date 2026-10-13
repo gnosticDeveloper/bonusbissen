@@ -33,13 +33,13 @@ public class GeorefClient {
 
     public ResolvedAddress resolve(String rawAddress, String rawCity, String rawProvince) {
         if (rawAddress == null || rawAddress.isBlank()) {
-            throw new BadRequestException("Un local físico necesita una dirección.");
+            throw new BadRequestException("A local business needs an address", "Un local físico necesita una dirección.");
         }
         if (rawProvince == null || rawProvince.isBlank()) {
-            throw new BadRequestException("Un local físico necesita una provincia.");
+            throw new BadRequestException("A local business needs a province", "Un local físico necesita una provincia.");
         }
         if (rawCity == null || rawCity.isBlank()) {
-            throw new BadRequestException("Un local físico necesita una ciudad.");
+            throw new BadRequestException("A local business needs a city", "Un local físico necesita una ciudad.");
         }
         String address = rawAddress.trim();
         String province = rawProvince.trim();
@@ -66,12 +66,12 @@ public class GeorefClient {
                 .body(GeorefResponse.class);
         } catch (RestClientException e) {
             log.warn("Georef call failed for address '{}, {}, {}'", address, city, province, e);
-            throw new BadRequestException("No pudimos validar esa dirección en este momento. Probá de nuevo en unos minutos.");
+            throw new BadRequestException("Georef failed to retrieve a valid address based on the data provided", "No pudimos validar esa dirección en este momento. Probá de nuevo en unos minutos.");
         }
 
         if (response == null || response.direcciones() == null || response.direcciones().isEmpty()) {
             log.warn("Georef found no match for address '{}, {}, {}'", address, city, province);
-            throw new BadRequestException("No pudimos validar esa dirección. Revisá que la calle, la altura, la ciudad y la provincia sean reales.");
+            throw new BadRequestException("Georef failed on validating the address", "No pudimos validar esa dirección. Revisá que la calle, la altura, la ciudad y la provincia sean reales.");
         }
 
         return toResolvedAddress(response.direcciones().get(0), address, city, province);

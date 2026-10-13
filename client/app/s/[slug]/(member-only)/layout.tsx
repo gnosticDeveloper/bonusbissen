@@ -36,7 +36,7 @@ export default async function MemberOnlyLayout({ children, params }: { children:
 
       {children}
 
-      <SideMenu backHref="/b" backLabel="Volver a mis comercios" color={storefront.color} />
+      <SideMenu backHref="/b" color={storefront.color} />
       <MemberOnlyBottomNav slug={storefrontId} color={storefront.color} />
     </div>
   );

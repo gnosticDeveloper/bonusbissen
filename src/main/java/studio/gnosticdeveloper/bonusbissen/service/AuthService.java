@@ -2,6 +2,7 @@ package studio.gnosticdeveloper.bonusbissen.service;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,6 +17,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.UserLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserRegisterRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.LoginResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.StorefrontSummary;
+import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
@@ -24,6 +26,7 @@ import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 import studio.gnosticdeveloper.bonusbissen.security.JwtService;
+import studio.gnosticdeveloper.bonusbissen.security.SessionService;
 
 @Service
 public class AuthService {
@@ -33,24 +36,33 @@ public class AuthService {
     private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final SessionService sessionService;
+    private final TraceabilityService traceabilityService;
 
     public AuthService(
         OrganizationStaffRepository organizationStaffRepository,
         UserRepository userRepository,
         EmailVerificationService emailVerificationService,
         PasswordEncoder passwordEncoder,
-        JwtService jwtService
+        JwtService jwtService,
+        SessionService sessionService,
+        TraceabilityService traceabilityService
     ) {
         this.organizationStaffRepository = organizationStaffRepository;
         this.userRepository = userRepository;
         this.emailVerificationService = emailVerificationService;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.sessionService = sessionService;
+        this.traceabilityService = traceabilityService;
     }
+
+    /** A JWT paired with the raw refresh token for the session just created, so the controller can set the cookie. */
+    public record LoginResult(LoginResponse response, String refreshToken) {}
 
     /** A staff sign-in, guarded by the organization the dashboard is for. */
     @Transactional
-    public LoginResponse dashboardLogin(DashboardLoginRequest request) {
+    public LoginResult dashboardLogin(DashboardLoginRequest request, String userAgent) {
         User user = userRepository
             .findByUsername(request.identifier().trim().toLowerCase(Locale.ROOT))
             .filter(User::isActive)
@@ -65,28 +77,34 @@ public class AuthService {
             .filter(s -> s.getOrganization().getId().equals(request.organizationId()))
             .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
 
-        return issueStaffToken(user, staff);
+        return issueStaffToken(user, staff, userAgent);
     }
 
-    private LoginResponse issueStaffToken(User user, OrganizationStaff staff) {
+    public LoginResult issueStaffToken(User user, OrganizationStaff staff, String userAgent) {
         List<Storefront> storefronts = staff.getStorefronts().stream().toList();
         List<StorefrontSummary> summaries = storefronts.stream().map(StorefrontSummary::from).toList();
-        UUID storefrontId = storefronts.size() == 1 ? storefronts.get(0).getId() : null;
+        UUID storefrontId = storefronts.size() == 1 ? storefronts.getFirst().getId() : null;
 
-        String token = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
-        return new LoginResponse(token, summaries);
+        JwtService.Issued issued = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
+        SessionService.NewSession session = sessionService.createSession(
+            user.getId(), staff.getRole().name(), staff.getOrganization().getId(), storefrontId, user.getUsername(), userAgent);
+        sessionService.trackIssuedToken(session.sessionId(), issued.jti());
+        return new LoginResult(new LoginResponse(issued.token(), summaries), session.rawRefreshToken());
     }
 
+    /** A storefront-switch response paired with the minted token's jti, so the controller can track it against the caller's session. */
+    public record StorefrontResult(LoginResponse response, String jti) {}
+
     @Transactional
-    public LoginResponse selectStorefront(UUID userId, UUID storefrontId) {
+    public StorefrontResult selectStorefront(UUID userId, UUID storefrontId) {
         User user = userRepository
             .findById(userId)
             .filter(User::isActive)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un usuario con el ID " + userId + "."));
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un usuario con el ID " + userId + ".", "No pudimos encontrar el usuario que ingresaste. Por favor, ingresa de nuevo."));
 
         OrganizationStaff staff = organizationStaffRepository
             .findByUserIdAndActiveTrue(userId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + userId + "."));
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + userId + ".", "No pudimos encontrar a ese empleado en el local."));
 
         boolean assigned = staff.getStorefronts().stream()
             .anyMatch(s -> s.getId().equals(storefrontId) && s.getOrganization().getId().equals(staff.getOrganization().getId()));
@@ -95,20 +113,20 @@ public class AuthService {
         }
 
         List<StorefrontSummary> summaries = staff.getStorefronts().stream().map(StorefrontSummary::from).toList();
-        String token = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
-        return new LoginResponse(token, summaries);
+        JwtService.Issued issued = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
+        return new StorefrontResult(new LoginResponse(issued.token(), summaries), issued.jti());
     }
 
     @Transactional
-    public LoginResponse registerUser(UserRegisterRequest request) {
+    public LoginResult registerUser(UserRegisterRequest request, String userAgent) {
         String username = request.username().trim().toLowerCase(Locale.ROOT);
         if (userRepository.existsByUsername(username)) {
-            throw new ConflictException("Ese nombre de usuario ya está en uso.");
+            throw new ConflictException("Username " + username + " is already being used.", "El nombre de usuario " + username + " ya está ocupado. Por favor elige otro.");
         }
 
         String email = EmailVerificationService.normalizeEmail(request.email());
         if (email != null && userRepository.existsByEmail(email)) {
-            throw new ConflictException("Ese email ya está registrado.");
+            throw new ConflictException("Email " + email + " is already registered.", "El email " + email + " ya está registrado en nuestro sistema. Por favor, usa otro correo.");
         }
 
         User user = new User();
@@ -118,16 +136,16 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setEmailVerified(false);
         user = userRepository.save(user);
+        traceabilityService.record(OperationType.USER_CREATE, user.getId(), user.getId(), Map.of("username", user.getUsername()));
 
         if (email != null) {
             emailVerificationService.sendVerification(user);
         }
 
-        String token = jwtService.generateToken(user.getId(), user.getUsername(), "USER");
-        return LoginResponse.of(token);
+        return issueUserToken(user, userAgent);
     }
 
-    public LoginResponse loginUser(UserLoginRequest request) {
+    public LoginResult loginUser(UserLoginRequest request, String userAgent) {
         String identifier = request.identifier().trim().toLowerCase(Locale.ROOT);
 
         User user = resolveLoginIdentifier(identifier)
@@ -138,8 +156,16 @@ public class AuthService {
             throw new BadCredentialsException("Invalid credentials");
         }
 
-        String token = jwtService.generateToken(user.getId(), user.getUsername(), "USER");
-        return LoginResponse.of(token);
+        return issueUserToken(user, userAgent);
+    }
+
+    /** Issues a loyalty-account (non-staff) token for an already-authenticated user. */
+    public LoginResult issueUserToken(User user, String userAgent) {
+        JwtService.Issued issued = jwtService.generateToken(user.getId(), user.getUsername(), "USER");
+        SessionService.NewSession session = sessionService.createSession(
+            user.getId(), "USER", null, null, user.getUsername(), userAgent);
+        sessionService.trackIssuedToken(session.sessionId(), issued.jti());
+        return new LoginResult(LoginResponse.of(issued.token()), session.rawRefreshToken());
     }
 
     private Optional<User> resolveLoginIdentifier(String identifier) {

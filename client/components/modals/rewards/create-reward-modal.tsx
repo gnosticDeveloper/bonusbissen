@@ -1,22 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { isValidImage } from "./helpers";
 import { useModal } from "@/components/modal";
 import { Input, Textarea } from "@/components/ui/input";
-import { AlertCircle, ImagePlus, Loader2, Upload, X } from "lucide-react";
+import { AlertCircle, ImagePlus, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createReward } from "@/app/d/[slug]/gestion-recompensas/actions";
 import { getPointPrograms } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
 import { PointProgram } from "@/lib/types/point-program";
 import { useToast } from "@/components/toast";
+import { ModalContentLoader } from "@/components/modals/action-status-modal";
 
 export function CreateRewardModal() {
-  const { close } = useModal();
+  const router = useRouter();
+  const { close, runAction } = useModal();
   const notify = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [pending, setPending] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
 
   const [pointPrograms, setPointPrograms] = useState<PointProgram[] | null>(null);
@@ -64,31 +66,34 @@ export function CreateRewardModal() {
       data.set("image", image);
     }
 
-    setPending(true);
-    try {
-      await createReward(data);
+    const result = await runAction(() => createReward(data), {
+      loading: {
+        title: "Creando recompensa",
+        description: `Estamos agregando ${title} al catálogo.`,
+      },
+      success: (reward) => ({
+        title: "Recompensa creada",
+        description: `${reward.title} ya está disponible en el catálogo.`,
+      }),
+      errorTitle: "No pudimos crear la recompensa",
+    });
+
+    if (result.ok) {
       formRef.current?.reset();
-      close();
-    } catch {
-      notify("No se pudo guardar la recompensa. Inténtalo de nuevo.", "error");
-    } finally {
-      setPending(false);
+      router.refresh();
     }
   }
 
   if (pointPrograms === null && !loadError) {
     return (
-      <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        Cargando programas de puntos…
-      </div>
+      <ModalContentLoader label="Cargando programas de puntos…" />
     );
   }
 
   if (loadError) {
     return (
       <div role="alert" className="flex items-start gap-3 rounded-xl border border-primary/25 bg-primary/10 px-3.5 py-3 text-sm text-foreground">
-        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-foreground" aria-hidden="true" />
         <p>No pudimos cargar tus programas de puntos. Cerrá este panel e intentá de nuevo.</p>
       </div>
     );
@@ -97,12 +102,12 @@ export function CreateRewardModal() {
   if (pointPrograms!.length === 0) {
     return (
       <div className="flex flex-col items-center gap-4 py-6 text-center">
-        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-primary">
+        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-foreground">
           <AlertCircle className="h-5 w-5" aria-hidden="true" />
         </span>
         <div>
           <p className="text-sm font-semibold text-foreground">Necesitás un programa de puntos primero</p>
-          <p className="mt-1 text-xs leading-5 text-muted">Para crear una recompensa primero creá un programa de puntos en "Mi negocio".</p>
+          <p className="mt-1 text-xs leading-5 text-foreground/80">Para crear una recompensa primero creá un programa de puntos en "Mi negocio".</p>
         </div>
         <Button
           type="button"
@@ -126,7 +131,7 @@ export function CreateRewardModal() {
           name="title"
           required
           placeholder="Ej. Café gratis"
-          className="h-11 rounded-xl border-border bg-background px-3.5 text-sm shadow-none placeholder:text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+          className="h-11 rounded-xl border-border bg-background px-3.5 text-sm shadow-none placeholder:text-foreground/70 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-foreground/70"
         />
       </label>
 
@@ -135,7 +140,7 @@ export function CreateRewardModal() {
         <Textarea
           name="description"
           placeholder="Contale a tus clientes qué incluye esta recompensa"
-          className="min-h-24 resize-none rounded-xl border-border bg-background px-3.5 py-3 text-sm shadow-none placeholder:text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+          className="min-h-24 resize-none rounded-xl border-border bg-background px-3.5 py-3 text-sm shadow-none placeholder:text-foreground/70 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-foreground/70"
         />
       </label>
 
@@ -150,9 +155,9 @@ export function CreateRewardModal() {
               step="1"
               required
               placeholder="100"
-              className="h-11 rounded-xl border-border bg-background px-3.5 pr-16 text-sm shadow-none placeholder:text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+              className="h-11 rounded-xl border-border bg-background px-3.5 pr-16 text-sm shadow-none placeholder:text-foreground/70 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-foreground/70"
             />
-            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-muted">puntos</span>
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-foreground/80">puntos</span>
           </div>
         </label>
 
@@ -166,9 +171,9 @@ export function CreateRewardModal() {
               step="0.01"
               required
               placeholder="10"
-              className="h-11 rounded-xl border-border bg-background px-3.5 pr-10 text-sm shadow-none placeholder:text-muted focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+              className="h-11 rounded-xl border-border bg-background px-3.5 pr-10 text-sm shadow-none placeholder:text-foreground/70 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-foreground/70"
             />
-            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-muted">%</span>
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-foreground/80">%</span>
           </div>
         </label>
       </div>
@@ -178,14 +183,14 @@ export function CreateRewardModal() {
         {singleProgram ? (
           <>
             <input type="hidden" name="pointProgramId" value={singleProgram.id} />
-            <div className="flex h-11 items-center rounded-xl border border-border bg-background px-3.5 text-sm text-muted">{singleProgram.name}</div>
+            <div className="flex h-11 items-center rounded-xl border border-border bg-background px-3.5 text-sm text-foreground/80">{singleProgram.name}</div>
           </>
         ) : (
           <select
             name="pointProgramId"
             required
             defaultValue=""
-            className="h-11 rounded-xl border border-border bg-background px-3.5 text-sm shadow-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+            className="h-11 rounded-xl border border-border bg-background px-3.5 text-sm shadow-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-foreground/70"
           >
             <option value="" disabled>
               Elegí un programa
@@ -202,7 +207,7 @@ export function CreateRewardModal() {
       <div className="grid gap-2">
         <div>
           <p className="text-sm font-medium text-foreground">Imagen de la recompensa</p>
-          <p className="mt-1 text-xs leading-4 text-muted">Usá una imagen clara y fácil de reconocer.</p>
+          <p className="mt-1 text-xs leading-4 text-foreground/80">Usá una imagen clara y fácil de reconocer.</p>
         </div>
 
         <input
@@ -238,12 +243,12 @@ export function CreateRewardModal() {
             onClick={() => fileRef.current?.click()}
             className="flex min-h-36 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-background px-5 text-center transition-colors hover:border-primary hover:bg-primary/5"
           >
-            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-primary">
+            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-foreground">
               <ImagePlus className="h-5 w-5" aria-hidden="true" />
             </span>
             <span>
               <span className="block text-sm font-semibold text-foreground">Subir imagen</span>
-              <span className="mt-1 block text-xs text-muted">JPG, PNG o WEBP</span>
+              <span className="mt-1 block text-xs text-foreground/80">JPG, PNG o WEBP</span>
             </span>
           </button>
         )}
@@ -266,24 +271,15 @@ export function CreateRewardModal() {
           type="button"
           variant="outline"
           onClick={close}
-          disabled={pending}
           className="h-11 rounded-xl border-border bg-card text-sm text-foreground hover:bg-background"
         >
           Cancelar
         </Button>
         <Button
           type="submit"
-          disabled={pending}
           className="h-11 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:bg-primary/90 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60"
         >
-          {pending ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              Guardando...
-            </>
-          ) : (
-            "Crear recompensa"
-          )}
+          Crear recompensa
         </Button>
       </div>
     </form>

@@ -8,7 +8,7 @@ import { decodeJwt, getSessionToken } from "@/lib/auth/session";
 //     UUID id,
 //     String type,
 //     int points,
-//     String imagePath,
+//     String imageUrl,
 //     String title,
 //     String orgName,
 //     String storefrontName,
@@ -18,14 +18,17 @@ import { decodeJwt, getSessionToken } from "@/lib/auth/session";
 //
 export type MovementResponse = {
   id: string;
-  type: "redeem" | "earn";
+  type: "redeem" | "earn" | "adjust";
   points: number;
-  imagePath?: string;
+  imageUrl?: string;
   title: string;
   orgName?: string;
   storefrontName?: string;
   pointsLabel?: string;
   formattedCreatedAt: string;
+  correction: boolean;
+  correctedTransactionId: string | null;
+  correctedTransactionAmount: number | null;
 };
 
 export async function getMovementsHistory(storefrontId?: string) {

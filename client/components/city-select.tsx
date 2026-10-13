@@ -4,13 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { Spinner } from "./spinner";
 import { getLocations } from "@/app/b/actions";
+import { useSelectedCity, useUpdateSelectedCity } from "@/lib/preference-store";
 
-interface CitySelectProps {
-  value: string | null;
-  onChange: (city: string | null) => void;
-}
-
-export function CitySelect({ value, onChange }: CitySelectProps) {
+export function CitySelect() {
+  const updateSelectedCity = useUpdateSelectedCity();
+  const selectedCity = useSelectedCity();
   const [open, setOpen] = useState(false);
   const [cities, setCities] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -58,7 +56,7 @@ export function CitySelect({ value, onChange }: CitySelectProps) {
   }
 
   function handleSelect(city: string | null) {
-    onChange(city);
+    updateSelectedCity(city);
     setOpen(false);
   }
 
@@ -71,7 +69,7 @@ export function CitySelect({ value, onChange }: CitySelectProps) {
         aria-expanded={open}
         className="flex max-w-full items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs text-foreground transition-colors duration-240"
       >
-        <span className="truncate">{value ?? "Todas las zonas"}</span>
+        <span className="truncate">{selectedCity ?? "Todas las zonas"}</span>
         <ChevronDown size={13} className={`shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -82,35 +80,35 @@ export function CitySelect({ value, onChange }: CitySelectProps) {
         }`}
       >
         {loading ? (
-          <div className="flex items-center justify-center gap-2.25 px-3 py-4 text-[11px] text-muted">
+          <div className="flex items-center justify-center gap-2.25 px-3 py-4 text-[11px] text-foreground/80">
             <Spinner />
             <span>Buscando zonas...</span>
           </div>
         ) : error ? (
-          <div className="px-3 py-4 text-center text-[11px] text-muted">No pudimos cargar las zonas :(</div>
+          <div className="px-3 py-4 text-center text-[11px] text-foreground/80">No pudimos cargar las zonas :(</div>
         ) : (
           <>
             <button
               type="button"
               role="option"
-              aria-selected={value === null}
+              aria-selected={selectedCity === null}
               onClick={() => handleSelect(null)}
               className="flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-left text-xs text-foreground transition-colors duration-240 hover:bg-background"
             >
               <span>Todas las zonas</span>
-              {value === null && <Check size={16} className="shrink-0 text-primary" />}
+              {selectedCity === null && <Check size={16} className="shrink-0 text-foreground" />}
             </button>
             {cities?.map((city) => (
               <button
                 key={city}
                 type="button"
                 role="option"
-                aria-selected={value === city}
+                aria-selected={selectedCity === city}
                 onClick={() => handleSelect(city)}
                 className="flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-left text-xs text-foreground transition-colors duration-240 hover:bg-background"
               >
                 <span className="truncate">{city}</span>
-                {value === city && <Check size={16} className="shrink-0 text-primary" />}
+                {selectedCity === city && <Check size={16} className="shrink-0 text-foreground" />}
               </button>
             ))}
           </>

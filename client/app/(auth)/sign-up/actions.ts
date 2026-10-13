@@ -3,7 +3,7 @@
 import { ActionResult } from "@/lib/api";
 import { SignInUser } from "@/lib/definitions";
 import { userRegisterSchema } from "@/schemas/user";
-import { cookies } from "next/headers";
+import { saveCustomerSession } from "@/lib/auth/refresh";
 
 export async function signUp(formData: FormData): Promise<ActionResult<SignInUser>> {
   const raw = {
@@ -35,13 +35,7 @@ export async function signUp(formData: FormData): Promise<ActionResult<SignInUse
     if (!text) return { ok: false, error: "No pudimos completar la solicitud." };
     const result = JSON.parse(text) as { token: string };
 
-    (await cookies()).set("access_token", result.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30,
-    });
+    if (!(await saveCustomerSession(response, result.token))) return { ok: false, error: "No pudimos crear la sesión. Probá de nuevo." };
     return { ok: true, data: { name, avatarUrl: null } };
   } catch {
     return { ok: false, error: "El servicio no está disponible en este momento." };

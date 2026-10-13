@@ -4,7 +4,7 @@ export interface Customer {
   username: string;
   email: string;
   emailVerified: boolean;
-  points: number;
+  points: number | null;
   formattedCreatedAt: string;
 }
 

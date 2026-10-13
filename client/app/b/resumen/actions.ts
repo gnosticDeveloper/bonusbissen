@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { ActionResult } from "@/lib/action-result";
 import { request } from "@/lib/api";
 import { decodeJwt, getSessionToken } from "@/lib/auth/session";
@@ -18,4 +19,15 @@ export async function getExchangeHistory(sId?: string): Promise<ActionResult<His
   if (sId) params.append("storefrontId", sId);
 
   return await request<HistoricalExchangeResponse[]>(`/users/${userId}/exchanges?${params.toString()}`);
+}
+
+export async function cancelRedemption(exchangeId: string): Promise<ActionResult<void>> {
+  const result = await request<void>("/exchanges/user-cancel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ exchangeId }),
+  });
+
+  if (result.ok) revalidatePath("/b", "layout");
+  return result;
 }

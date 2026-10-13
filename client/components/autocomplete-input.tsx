@@ -48,7 +48,7 @@ function Meta({ parts }: { parts: ReactNode[] }) {
   const visible = parts.filter((p) => p !== null && p !== undefined && p !== "");
   if (visible.length === 0) return null;
   return (
-    <span className="truncate text-xs text-muted">
+    <span className="truncate text-xs text-foreground/80">
       {visible.map((part, i) => (
         <span key={i}>
           {i > 0 && " · "}
@@ -143,7 +143,7 @@ export function Autocomplete<T>({
       <div className="flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-3">
         <div className="flex min-w-0 items-center gap-3">
           {showPicture ? (
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-foreground">
               {getInitials(primary)}
             </span>
           ) : null}
@@ -155,7 +155,7 @@ export function Autocomplete<T>({
         <button
           type="button"
           onClick={onClear}
-          className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted transition-colors hover:bg-background hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-foreground/80 transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/70"
         >
           <X className="size-3.5" aria-hidden="true" /> Quitar
         </button>
@@ -169,9 +169,9 @@ export function Autocomplete<T>({
   return (
     <div className="relative">
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden="true" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-foreground/80" aria-hidden="true" />
         <Input
-          className="pl-9 text-base text-foreground placeholder:text-muted/70"
+          className="pl-9 text-base text-foreground placeholder:text-foreground/70"
           id={inputId}
           placeholder={placeholder}
           value={query}
@@ -210,13 +210,13 @@ export function Autocomplete<T>({
           role="listbox"
         >
           {loading ? (
-            <li className="flex items-center gap-2 px-3 py-2.5 text-sm text-muted">
+            <li className="flex items-center gap-2 px-3 py-2.5 text-sm text-foreground/80">
               <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Buscando…
             </li>
           ) : error ? (
-            <li className="px-3 py-2.5 text-sm text-red-500">{error}</li>
+            <li className="px-3 py-2.5 text-sm text-foreground">{error}</li>
           ) : matches.length === 0 ? (
-            <li className="px-3 py-2.5 text-sm text-muted">No se encontraron resultados con &quot;{query.trim()}&quot;.</li>
+            <li className="px-3 py-2.5 text-sm text-foreground/80">No se encontraron resultados con &quot;{query.trim()}&quot;.</li>
           ) : (
             matches.map((item, i) => {
               const id = getId(item);
@@ -233,7 +233,7 @@ export function Autocomplete<T>({
                     }}
                     onMouseEnter={() => setActiveIndex(i)}
                     className={cn(
-                      "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                      "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/70",
                       i === activeIndex ? "bg-primary/10" : "hover:bg-primary/5",
                     )}
                   >
@@ -241,7 +241,7 @@ export function Autocomplete<T>({
                       <span className="truncate text-sm font-medium text-foreground">{primary}</span>
                       <Meta parts={[secondary]} />
                     </span>
-                    {badge && <span className="shrink-0 text-xs font-semibold text-primary">{badge(item)}</span>}
+                    {badge && <span className="shrink-0 text-xs font-semibold text-foreground">{badge(item)}</span>}
                   </button>
                 </li>
               );

@@ -25,11 +25,11 @@ export default async function VerifyEmailPage({ searchParams }: { searchParams: 
   return (
     <main className="relative flex min-h-svh flex-col items-center justify-center overflow-hidden bg-background px-6">
       <div className="flex w-full max-w-sm flex-col items-center gap-6 text-center">
-        {ok ? <CheckCircle2 className="size-16 text-green-600" aria-hidden /> : <XCircle className="size-16 text-destructive" aria-hidden />}
+        {ok ? <CheckCircle2 className="size-16 text-green-500" aria-hidden /> : <XCircle className="size-16 text-red-500" aria-hidden />}
 
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight">{ok ? "Email verificado" : "No pudimos verificar tu email"}</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-foreground/75">
             {ok
               ? "Tu email fue confirmado correctamente. Ya podés usar tu cuenta."
               : "El enlace puede ser inválido, haber vencido o ya haberse usado. Probá de nuevo o pedí un enlace nuevo."}

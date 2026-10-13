@@ -5,6 +5,10 @@ spring:
     url: jdbc:postgresql://localhost:5432/${LOCAL_DB_NAME:bonusbissen}
     username: ${LOCAL_DB_USER:postgres}
     password: ${LOCAL_DB_PASSWORD:local-dev-password}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -41,12 +45,36 @@ management:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:dev-only-secret-change-me-please-01234567890123456789xdxdxdxdxdddxd123dx213dx123xd123xd12x3d1x23dx1d23x1d23x1d23x}
-    expiration-minutes: 480
+    # ECDSA (ES256, P-256) keypair, required — no default. Values are base64-encoded
+    # DER: private-key is PKCS8, public-key is X.509/SPKI. Generate with:
+    #   openssl ecparam -genkey -name prime256v1 -noout -out ec-private.pem
+    #   openssl pkcs8 -topk8 -nocrypt -in ec-private.pem -outform DER | base64 -w0
+    #   openssl ec -in ec-private.pem -pubout -outform DER | base64 -w0
+    private-key: ${JWT_PRIVATE_KEY}
+    public-key: ${JWT_PUBLIC_KEY}
+    expiration-minutes: 15
+  refresh-token:
+    ttl-days: ${REFRESH_TOKEN_TTL_DAYS:30}
+  cookie:
+    # Set to false for plain local `mvnw spring-boot:run` over http; the
+    # docker-compose/nginx deployment terminates TLS, so it stays true there.
+    secure: ${COOKIE_SECURE:true}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   uploads:
     dir: /var/lib/bonusbissen/uploads/rewards
+  storage:
+    # "local" (default): writes to app.uploads.dir, served by nginx's existing
+    # rewards/ location -- no Cloudinary account needed for local dev. Set to
+    # "cloudinary" to use the real account (requires CLOUDINARY_* below).
+    provider: ${STORAGE_PROVIDER:local}
+    # Only used by the local provider, to turn a relative path into the
+    # absolute URL callers expect (Cloudinary's URLs are already absolute).
+    assets-url: ${ASSETS_URL:https://localhost/}
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:unset}
+    api-key: ${CLOUDINARY_API_KEY:unset}
+    api-secret: ${CLOUDINARY_API_SECRET:unset}
   georef:
     # https://datos.gob.ar/georef. Disabled -> address stored as typed, city null.
     enabled: ${GEOREF_ENABLED:true}
@@ -59,6 +87,11 @@ app:
     # Frontend page that reads ?token= and POSTs it to /auth/verify-email
     verification-url: ${MAIL_VERIFICATION_URL:http://localhost:3000/verify-email}
     token-ttl-hours: ${MAIL_TOKEN_TTL_HOURS:48}
+    # One-time login link (magic link). Short TTL since it grants a live session,
+    # unlike the email-verification link above
+    login-link-ttl-minutes: ${MAIL_LOGIN_LINK_TTL_MINUTES:15}
+    login-link-url: ${MAIL_LOGIN_LINK_URL:http://localhost:3000/login-link}
+    dashboard-login-link-url: ${MAIL_DASHBOARD_LOGIN_LINK_URL:http://localhost:3000/d/login-link}
   backup:
     # DR_BACKUP_* unset (local dev/test): the placeholder endpoint below keeps the
     # S3Client bean constructible; the nightly job just fails harmlessly at
@@ -69,3 +102,6 @@ app:
       bucket: ${DR_BACKUP_S3_BUCKET:unset}
       access-key: ${DR_BACKUP_S3_ACCESS_KEY:unset}
       secret-key: ${DR_BACKUP_S3_SECRET_KEY:unset}
+  traceability:
+    retention-cron: ${TRACEABILITY_RETENTION_CRON:0 0 4 * * *}
+    retention-months: ${TRACEABILITY_RETENTION_MONTHS:6}

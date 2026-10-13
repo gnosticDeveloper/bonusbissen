@@ -3,6 +3,7 @@ import { Gift, Clock, Users, Sparkles, Trophy, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getHomeStats, getPendingExchanges, getTopClients, getTopRewards } from "../../actions";
 import { HomeStats, PendingExchangeReview, TopClient, TopReward } from "../../types";
+import { formatPoints } from "@/lib/helpers/format";
 
 export default function HomePage() {
   return (
@@ -57,7 +58,7 @@ async function TopClientsSection() {
 /* ---------- Estado de error compartido ---------- */
 
 function SectionError({ message }: { message: string }) {
-  return <section className="rounded-2xl border border-dashed border-border bg-card p-4 text-sm text-muted-foreground sm:p-6">{message}</section>;
+  return <section className="rounded-2xl border border-dashed border-border bg-card p-4 text-sm text-foreground/80 sm:p-6">{message}</section>;
 }
 
 /* ---------- Skeletons ---------- */
@@ -125,10 +126,10 @@ function StatsGrid({ stats }: { stats: HomeStats }) {
   ];
 
   const toneClasses: Record<(typeof items)[number]["tone"], string> = {
-    primary: "bg-primary/10 text-primary",
-    warning: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-    accent: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-    success: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    primary: "bg-primary/10 text-foreground",
+    warning: "bg-amber-500/15 text-foreground",
+    accent: "bg-violet-500/10 text-foreground",
+    success: "bg-green-500/15 text-foreground",
   };
 
   return (
@@ -138,7 +139,7 @@ function StatsGrid({ stats }: { stats: HomeStats }) {
         return (
           <div key={item.label} className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:p-5">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{item.label}</span>
+              <span className="text-sm text-foreground/80">{item.label}</span>
               <div className={`flex size-8 shrink-0 items-center justify-center rounded-full ${toneClasses[item.tone]}`}>
                 <Icon className="size-4" />
               </div>
@@ -155,9 +156,9 @@ function PendingExchangesCard({ items }: { items: PendingExchangeReview[] }) {
   return (
     <section className="rounded-2xl border border-border bg-card p-4 sm:p-6">
       <div className="mb-4 flex items-center gap-2">
-        <Clock className="size-4 text-amber-600 dark:text-amber-400" />
+        <Clock className="size-4 text-foreground" />
         <h2 className="font-serif text-lg font-semibold text-foreground">Canjes pendientes</h2>
-        <span className="ml-auto flex size-6 items-center justify-center rounded-full bg-amber-500/15 text-xs font-medium text-amber-600 dark:text-amber-400">
+        <span className="ml-auto flex size-6 items-center justify-center rounded-full bg-amber-500/15 text-xs font-medium text-foreground">
           {items.length}
         </span>
       </div>
@@ -169,10 +170,10 @@ function PendingExchangesCard({ items }: { items: PendingExchangeReview[] }) {
                 <p className="font-medium text-foreground">{item.customerName}</p>
                 <Badge tone="warning">Pendiente</Badge>
               </div>
-              <p className="mt-0.5 text-sm text-muted-foreground">{item.rewardTitle}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{item.createdAtFormatted}</p>
+              <p className="mt-0.5 text-sm text-foreground/80">{item.rewardTitle}</p>
+              <p className="mt-1 text-xs text-foreground/80">{item.createdAtFormatted}</p>
             </div>
-            <span className="shrink-0 text-sm font-semibold text-primary">{item.points.toLocaleString("es-AR")} pts</span>
+            <span className="shrink-0 text-sm font-semibold text-foreground">{formatPoints(Math.abs(item.points))} pts</span>
           </div>
         ))}
       </div>
@@ -184,21 +185,21 @@ function TopRewardsCard({ items }: { items: TopReward[] }) {
   return (
     <section className="rounded-2xl border border-border bg-card p-4 sm:p-6">
       <div className="mb-4 flex items-center gap-2">
-        <Trophy className="size-4 text-primary" />
+        <Trophy className="size-4 text-foreground" />
         <h2 className="font-serif text-lg font-semibold text-foreground">Top recompensas</h2>
       </div>
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Todavía no hay canjes registrados.</p>
+        <p className="text-sm text-foreground/80">Todavía no hay canjes registrados.</p>
       ) : (
         <div className="flex flex-col gap-2">
           {items.map((item, index) => (
             <div key={item.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-muted/50">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-foreground">
                 {index + 1}
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-foreground/80">
                   {item.claimCount} {item.claimCount === 1 ? "canje" : "canjes"} este mes
                 </p>
               </div>
@@ -215,20 +216,20 @@ function TopClientsCard({ items }: { items: TopClient[] }) {
   return (
     <section className="rounded-2xl border border-border bg-card p-4 sm:p-6">
       <div className="mb-4 flex items-center gap-2">
-        <Star className="size-4 text-violet-600 dark:text-violet-400" />
+        <Star className="size-4 text-foreground" />
         <h2 className="font-serif text-lg font-semibold text-foreground">Top clientes</h2>
       </div>
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Todavía no hay clientes activos.</p>
+        <p className="text-sm text-foreground/80">Todavía no hay clientes activos.</p>
       ) : (
         <div className="flex flex-col gap-2">
           {items.map((item, index) => (
             <div key={item.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-muted/50">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-violet-500/10 text-xs font-semibold text-violet-600 dark:text-violet-400">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-violet-500/10 text-xs font-semibold text-foreground">
                 {index + 1}
               </span>
               <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{item.name}</p>
-              <span className="shrink-0 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+              <span className="shrink-0 text-sm font-semibold text-foreground">
                 {item.totalPoints.toLocaleString("es-AR")} pts
               </span>
             </div>

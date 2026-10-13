@@ -21,6 +21,16 @@ public class RecordingEmailSender implements EmailSender {
         sent.add(new Sent(toEmail, toName, verificationLink));
     }
 
+    @Override
+    public void sendUserLoginLinkEmail(String toEmail, String toName, String loginLink, long ttlMinutes) {
+        sent.add(new Sent(toEmail, toName, loginLink));
+    }
+
+    @Override
+    public void sendDashboardLoginLinkEmail(String toEmail, String toName, String loginLink, long ttlMinutes) {
+        sent.add(new Sent(toEmail, toName, loginLink));
+    }
+
     public List<Sent> sent() {
         return sent;
     }

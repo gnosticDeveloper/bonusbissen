@@ -80,7 +80,7 @@ export function ProfileForm({ user }: { user: AdminUserInfo }) {
           </div>
           <div className="min-w-0">
             <p className="truncate text-base font-medium text-foreground">{current.name}</p>
-            <p className="truncate text-sm text-muted">@{current.username}</p>
+            <p className="truncate text-sm text-foreground/80">@{current.username}</p>
           </div>
         </div>
 
@@ -106,18 +106,18 @@ export function ProfileForm({ user }: { user: AdminUserInfo }) {
               className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
             />
             {email !== current.email && (
-              <span className="text-xs text-muted flex items-center gap-x-1">
+              <span className="text-xs text-foreground/80 flex items-center gap-x-1">
                 <AlertCircle size={12} /> Si cambias tu email, vas a tener que volver a verificarte.
               </span>
             )}
           </label>
 
           <div className="flex items-center gap-2 border-t border-border pt-4">
-            <span className={`size-2 rounded-full ${current.emailVerified ? "bg-primary" : "bg-muted"}`} aria-hidden="true" />
+            <span className={`size-2 rounded-full ${current.emailVerified ? "bg-primary" : "bg-foreground/10"}`} aria-hidden="true" />
             <span className="text-sm text-foreground">{current.emailVerified ? "Email verificado" : "Email sin verificar"}</span>
           </div>
 
-          {saveState === "error" && saveError && <p className="text-sm text-red-600 dark:text-red-400">{saveError}</p>}
+          {saveState === "error" && saveError && <p className="text-sm text-foreground">{saveError}</p>}
           {saveState === "saved" && <p className="text-sm text-foreground">Tus datos se actualizaron correctamente.</p>}
 
           <button
@@ -136,7 +136,7 @@ export function ProfileForm({ user }: { user: AdminUserInfo }) {
       {/* Cambiar contraseña */}
       <section className="mb-6 rounded-2xl border border-border bg-card p-5">
         <p className="mb-4 text-sm font-medium text-foreground">Cambiar contraseña</p>
-        <div className="mb-4 text-sm flex items-center gap-x-2 font-medium text-muted">
+        <div className="mb-4 text-sm flex items-center gap-x-2 font-medium text-foreground/80">
           <AlertCircle size={24} />
           <p>
             La contraseña debe tener entre 8 y 72 caracteres e incluir, al menos, una mayúscula, una minúscula, un número y un caracter especial.
@@ -180,7 +180,7 @@ export function ProfileForm({ user }: { user: AdminUserInfo }) {
             />
           </label>
 
-          {passwordState === "error" && passwordError && <p className="text-sm text-red-600 dark:text-red-400">{passwordError}</p>}
+          {passwordState === "error" && passwordError && <p className="text-sm text-foreground">{passwordError}</p>}
           {passwordState === "saved" && <p className="text-sm text-foreground">Tu contraseña se actualizó correctamente.</p>}
 
           <button

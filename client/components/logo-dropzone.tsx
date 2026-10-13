@@ -48,7 +48,7 @@ export default function LogoDropzone({ initialLogoUrl = null }: LogoDropzoneProp
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-lg text-muted-foreground">Logo (opcional)</span>
+      <span className="text-lg text-foreground/80">Logo (opcional)</span>
 
       {/* Siempre montado, solo oculto visualmente. El name condicional es
           lo que hace que "no toqué nada" no mande ningún campo "logo". */}
@@ -68,7 +68,7 @@ export default function LogoDropzone({ initialLogoUrl = null }: LogoDropzoneProp
             <button
               type="button"
               onClick={openPicker}
-              className="rounded-full bg-foreground/70 p-1.5 hover:bg-foreground/90 transition-colors"
+              className="rounded-full bg-foreground p-1.5 hover:bg-foreground/90 transition-colors"
               aria-label="Cambiar logo"
             >
               <Pencil className="h-4 w-4 text-background" />
@@ -76,7 +76,7 @@ export default function LogoDropzone({ initialLogoUrl = null }: LogoDropzoneProp
             <button
               type="button"
               onClick={handleRemove}
-              className="rounded-full bg-foreground/70 p-1.5 hover:bg-foreground/90 transition-colors"
+              className="rounded-full bg-foreground p-1.5 hover:bg-foreground/90 transition-colors"
               aria-label="Quitar logo"
             >
               <X className="h-4 w-4 text-background" />
@@ -97,11 +97,11 @@ export default function LogoDropzone({ initialLogoUrl = null }: LogoDropzoneProp
             processFile(e.dataTransfer.files?.[0]);
           }}
           className={`flex aspect-square w-full max-w-40 flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed p-3 cursor-pointer transition-colors ${
-            dragging ? "border-primary bg-primary/10" : "border-border bg-muted hover:bg-accent"
+            dragging ? "border-primary bg-primary/10" : "border-border bg-background hover:bg-foreground/10"
           }`}
         >
-          <ImagePlus className="h-6 w-6 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground text-center leading-tight">Arrastrá o hacé click</p>
+          <ImagePlus className="h-6 w-6 text-foreground/80" />
+          <p className="text-sm text-foreground/80 text-center leading-tight">Arrastrá o hacé click</p>
         </div>
       )}
 
@@ -109,7 +109,7 @@ export default function LogoDropzone({ initialLogoUrl = null }: LogoDropzoneProp
           otro caso, incluido "no toqué nada". */}
       {removed && <input type="hidden" name="removeLogo" value="true" />}
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-foreground">{error}</p>}
     </div>
   );
 }

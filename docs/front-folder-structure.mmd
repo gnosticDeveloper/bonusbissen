@@ -1,66 +1,80 @@
 treeView-beta
-    app/
-        (auth)/
-            sign-in/
-                page.tsx [✔]
-            sign-up/
-                page.tsx [✔]
-        b/
-            layout.tsx [✔]
-            page.tsx [🟡] %% Main page for BonusBissen where users can view all orgs and configurate their profile.
-            perfil/
-                page.tsx [❌] %% User profile page, where it can check his information stored in the app.
-            descubrir/
-                page.tsx [❌] %% List of all active orgs with BonusBissen. This page reassembles a "discover page" so users can have a quick look for any local business.
-        d/
-            sign-in/
-                page.tsx [❌] %% sign-in by slug input.
-            page.tsx [✔] %% redirect page to user's org dashboard using token.
-            [unique_identifier]/ %% slug based dynamic route (unique_identifier it because I didn't fully decide if I'm using the orgId or a slug here).
-                layout.tsx [❌] %% Dashboard layout where we check the user's token and role.
-                page.tsx [❌] %% redirects to /inicio
-                inicio/
-                    page.tsx [❌] %% Main dashboard page where employees can visualize basic insights and stats for their business.
-                administrar-puntos/
-                    page.tsx [❌] %% Points management page, where employees give users points on each purchase (real purchase on the business, I don't mean a purchase within this app).
-                verificacion-canjes/
-                    page.tsx [❌] %% Page for validating redemption rewards using codes.
-                gestion-recompensas/
-                    page.tsx [❌] %% Reward's list and CRUD page.
-                (admin-only)/
-                    layout.tsx [❌] %% Admin role validation layout.
-                    mi-negocio/
-                        page.tsx [❌] %% Admin-only page where users can change the org's information that's shown to customers (address, hours, logo image, description, etc.).
-        s/
-            [unique_identifier]/
-                layout.tsx [✔] %% It only validates the global session.
-                afiliarse/
-                    page.tsx [❌] %% It uses the slug, doesn't require a membership.
-                (member-only)/
-                    layout.tsx [🟡] %% Here we do validate a membership on this org.
+    client/
+        app/
+            (auth)/
+                sign-in/
+                    actions.ts [✔] %% Password and magic-link authentication actions.
+                    page.tsx [✔] %% Customer sign-in form with redirect handling.
+                sign-up/
+                    actions.ts [🟡] %% Registration works; successful response parsing needs hardening.
+                    page.tsx [✔] %% Customer registration form.
+            b/ %% Authenticated customer account area.
+                actions.ts [✔] %% Shared customer data access and sign-out actions.
+                layout.tsx [✔] %% Validates the customer session and provides account navigation.
+                page.tsx [✔] %% Customer account overview.
+                perfil/
+                    actions.ts [✔] %% Profile, password, session, and account-management actions.
+                    page.tsx [🟡] %% Profile management works but would benefit from a small refactor.
+                resumen/
+                    actions.ts [✔] %% Retrieves the customer's exchange history.
+                    loading.tsx [✔] %% Motion-aware exchange-history skeleton.
+                    page.tsx [✔] %% Exchange history with success, empty, and failure states.
+            d/ %% Authenticated business dashboard area.
+                actions.ts [✔] %% Dashboard statistics and summary data actions.
+                page.tsx [❌] %% Explicitly renders an unimplemented placeholder.
+                types.ts [✔] %% Dashboard form and data types.
+                sign-in/
+                    actions.ts [✔] %% Organization lookup, dashboard authentication, and storefront switching.
+                    page.tsx [✔] %% Dashboard sign-in with organization autocomplete.
+                [slug]/ %% Dynamic storefront slug route.
+                    actions.ts [✔] %% Current dashboard-user lookup and sign-out actions.
+                    layout.tsx [🟡] %% Validates sessions but does not confirm the URL slug matches the session storefront.
+                    page.tsx [✔] %% Redirects to the dashboard home.
                     inicio/
-                        page.tsx [❌]
-                    recompensas/
-                        page.tsx [❌]
-                    historial-canjes/
-                        page.tsx [❌]
-        favicon.ico [❌] %% App's favicon (we don't have an icon for this project yet).
-        globals.css [✔] %% Main styling sheet.
-        layout.tsx [❌] %% ThemeScript and general app set ups.
-        page.tsx [❌] %% A welcoming page for bonus bissen (this is not the landing page, just a quick with to engage new users).
-    lib/
-        auth/
-            session.ts [❌] %% getRoleFromToken | decodeJwt
-        helpers/
-            format.ts [❌]
-            utils.ts [❌]
-        types/
-            organization.ts [❌]
-            reward.ts [❌]
-        action-result.ts [❌] %% Server action wrapper to catch errors from spring boot.
-        api.ts [❌] %% Fetch wrapper that handles the token header automatically on each request (only used in server actions).
-        consts.tsx [✔] %% App constants.
-        definitions.ts [✔] %% App types definitions. These are NOT models or DTO's equivalents from Spring Boot but rather types like "NavItem"
-    components/
-        ui/ %% design system hand-built
-    proxy.ts [❌]
+                        page.tsx [✔] %% Dashboard insights and statistics with loading and error states.
+                    administrar-puntos/
+                        actions.ts [🟡] %% Points management works; cache invalidation and error handling need refinement.
+                        page.tsx [🟡] %% Customer point adjustments work; manual-limit validation needs correction.
+                    gestion-recompensas/
+                        actions.ts [✔] %% Reward CRUD actions with cache invalidation.
+                        page.tsx [🟡] %% Reward CRUD interface; request failures are displayed as an empty list.
+                    perfil/
+                        actions.ts [✔] %% Employee profile and password update actions.
+                        page.tsx [✔] %% Employee profile management page.
+                    verificacion-canjes/
+                        actions.ts [🟡] %% Redemption actions work but discard read-error detail.
+                        page.tsx [✔] %% Redemption verification and resolved-redemption views.
+                    (admin-only)/
+                        layout.tsx [✔] %% Enforces the dashboard administrator role.
+                        mi-negocio/
+                            actions.ts [🟡] %% Business settings CRUD works; invalidation and mutation-error handling need refinement.
+                            page.tsx [🟡] %% Business settings page; uncaught data-load failures need a route boundary.
+            descubrir/ %% Public business discovery route.
+                layout.tsx [✔] %% Adds authenticated customer navigation when a valid optional session exists.
+                page.tsx [✔] %% Business discovery with city filtering and pagination.
+            login-link/
+                page.tsx [✔] %% Magic-link confirmation, consumption, and redirect flow.
+            s/ %% Customer storefront and membership area.
+                [slug]/ %% Dynamic storefront slug route.
+                    actions.ts [✔] %% Storefront membership lookup.
+                    afiliarse/
+                        actions.ts [✔] %% Storefront lookup and membership enrollment actions.
+                        page.tsx [🟡] %% Enrollment flow works; unavailable storefronts lack local error/not-found UI.
+                    (member-only)/
+                        layout.tsx [✔] %% Enforces membership and provides member storefront navigation.
+                        inicio/
+                            actions.ts [🟡] %% Business and points requests work; unused points action needs cleanup.
+                            page.tsx [✔] %% Storefront home with reward, empty, and failure states.
+                        historial/
+                            actions.ts [✔] %% Member point-movement history action.
+                            page.tsx [✔] %% Point-movement history with empty and failure states.
+                        recompensas/
+                            actions.ts [🟡] %% Reward claim and pagination work; pagination validation needs refinement.
+                            page.tsx [🟡] %% Reward listing works; query pagination and retry UX need refinement.
+            verify-email/
+                page.tsx [🟡] %% Verifies email tokens; backend errors share the invalid-token state and lack recovery links.
+            favicon.ico [✔] %% Project favicon.
+            globals.css [✔] %% Application design tokens, global styles, and transitions.
+            layout.tsx [✔] %% Root metadata, font, theme initialization, and application providers.
+            not-found.tsx [✔] %% Global 404 page with discovery and sign-in navigation.
+            page.tsx [✔] %% Intentionally redirects the root route to /descubrir.

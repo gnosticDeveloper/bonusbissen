@@ -16,12 +16,12 @@ export function StorefrontsSection({ storefronts }: { storefronts: Storefront[] 
     <Card className="overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]">
       <CardHeader className="flex flex-row items-center justify-between border-b border-border px-5 py-5 sm:px-6">
         <CardTitle className="flex items-center gap-3 text-base tracking-[-0.02em]">
-          <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary">
+          <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-foreground">
             <Store className="size-5" aria-hidden="true" />
           </span>
           <span>
             <span className="block">Sucursales</span>
-            <span className="mt-1 block text-xs font-normal text-muted">Locales físicos y online donde tus clientes suman puntos.</span>
+            <span className="mt-1 block text-xs font-normal text-foreground/80">Locales físicos y online donde tus clientes suman puntos.</span>
           </span>
         </CardTitle>
         <Button type="button" variant="ghost" className="gap-1.5" onClick={() => setCreating((v) => !v)}>
@@ -33,7 +33,7 @@ export function StorefrontsSection({ storefronts }: { storefronts: Storefront[] 
         {creating && <StorefrontForm onDone={() => setCreating(false)} />}
 
         {storefronts.length === 0 && !creating && (
-          <div className="rounded-2xl border border-dashed border-border py-10 text-center text-sm text-muted">
+          <div className="rounded-2xl border border-dashed border-border py-10 text-center text-sm text-foreground/80">
             Todavía no cargaste ninguna sucursal.
           </div>
         )}

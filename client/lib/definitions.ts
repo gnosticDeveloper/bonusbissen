@@ -1,8 +1,6 @@
 import { Coins } from "lucide-react";
 import { Reward } from "@/lib/types/reward";
 
-type AdminPage = "home" | "points" | "redemptions" | "rewards" | "customers" | "organization";
-
 export enum UserRole {
   ADMIN = "ADMIN",
   CASHIER = "CASHIER",
@@ -14,15 +12,17 @@ export type AdminUserInfo = {
   name: string;
   role: UserRole;
   email: string;
-  emailVerified: string;
+  emailVerified: boolean;
 };
 
 export interface NavItem {
-  id: AdminPage;
+  id: string;
   label: string;
   icon: typeof Coins;
   roles: UserRole[];
   url: string;
+  available: boolean;
+  show: boolean;
 }
 
 export type SignInUser = { name: string; avatarUrl: string | null };
@@ -75,3 +75,10 @@ export type SearchOptions = {
 };
 
 export type PagedRequestFunction<T> = (options: SearchOptions) => Promise<PagedResponse<T>>;
+
+export type ProblemDetail = {
+  detail: string;
+  instance: string;
+  status: number;
+  title: string;
+};

@@ -1,13 +1,16 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import studio.gnosticdeveloper.bonusbissen.dto.request.StaffCreateRequest;
+import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
@@ -19,6 +22,7 @@ import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
+import studio.gnosticdeveloper.bonusbissen.security.SessionService;
 
 @Service
 public class StaffService {
@@ -27,17 +31,23 @@ public class StaffService {
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final StorefrontRepository storefrontRepository;
+    private final SessionService sessionService;
+    private final TraceabilityService traceabilityService;
 
     public StaffService(
         OrganizationStaffRepository organizationStaffRepository,
         OrganizationRepository organizationRepository,
         UserRepository userRepository,
-        StorefrontRepository storefrontRepository
+        StorefrontRepository storefrontRepository,
+        SessionService sessionService,
+        TraceabilityService traceabilityService
     ) {
         this.organizationStaffRepository = organizationStaffRepository;
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.storefrontRepository = storefrontRepository;
+        this.sessionService = sessionService;
+        this.traceabilityService = traceabilityService;
     }
 
     @Transactional(readOnly = true)
@@ -47,19 +57,32 @@ public class StaffService {
 
     /** Promotes an existing, not-already-staff {@code User} to staff of {@code organizationId}. */
     @Transactional
-    public OrganizationStaff create(StaffCreateRequest request, UUID organizationId) {
+    public OrganizationStaff create(StaffCreateRequest request, UUID organizationId, UUID actingUserId) {
         User user = userRepository
             .findById(request.userId())
             .filter(User::isActive)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un usuario con el ID " + request.userId() + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar un usuario con el ID " + request.userId() + ".",
+                    "No pudimos encontrar el usuario que ingresaste. Por favor, ingresa de nuevo."
+                )
+            );
 
         if (organizationStaffRepository.findByUserIdAndActiveTrue(user.getId()).isPresent()) {
-            throw new ConflictException("Este usuario ya es parte del staff de una organización.");
+            throw new ConflictException(
+                "Este usuario ya es parte del staff de una organización.",
+                "El usuario ya es parte del staff de una organización."
+            );
         }
 
         Organization organization = organizationRepository
             .findById(organizationId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la organización con ID " + organizationId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar la organización con ID " + organizationId + ".",
+                    "No pudimos encontrar la organización que ingresaste. Por favor, ingresa de nuevo."
+                )
+            );
 
         OrganizationStaff staff = new OrganizationStaff();
         staff.setUser(user);
@@ -69,7 +92,16 @@ public class StaffService {
             staff.getStorefronts().add(resolveOwnedStorefront(request.storefrontId(), organizationId));
         }
 
-        return saveUnique(staff);
+        staff = saveUnique(staff);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("role", staff.getRole().name());
+        payload.put("organizationId", organizationId);
+        if (request.storefrontId() != null) {
+            payload.put("storefrontId", request.storefrontId());
+        }
+        traceabilityService.record(OperationType.STAFF_CREATE, actingUserId, user.getId(), payload);
+        return staff;
     }
 
     /** Adds storefronts to an existing staff member's assignment. */
@@ -95,18 +127,41 @@ public class StaffService {
         OrganizationStaff staff = getOwned(staffId, organizationId);
         staff.setActive(false);
         organizationStaffRepository.save(staff);
+        sessionService.revokeAllForUser(staff.getUser().getId());
+    }
+
+    /**
+     * Kills every session (and already-issued access token) for a staff member
+     * without deactivating them -- e.g. a suspected account compromise where the
+     * person should still be able to log back in once they've reset their password.
+     */
+    @Transactional
+    public void revokeSessions(UUID staffId, UUID organizationId, UUID actingUserId) {
+        OrganizationStaff staff = getOwned(staffId, organizationId);
+        sessionService.revokeAllForUser(staff.getUser().getId());
+        traceabilityService.record(OperationType.SESSION_REVOKE, actingUserId, staff.getUser().getId(), Map.of());
     }
 
     private OrganizationStaff getOwned(UUID staffId, UUID organizationId) {
         return organizationStaffRepository
             .findByIdAndOrganizationId(staffId, organizationId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar un empleado con el ID " + staffId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar un empleado con el ID " + staffId + ".",
+                    "No pudimos encontrar el empleado que ingresaste. Por favor, ingresa de nuevo."
+                )
+            );
     }
 
     private Storefront resolveOwnedStorefront(UUID storefrontId, UUID organizationId) {
         return storefrontRepository
             .findByIdAndOrganizationId(storefrontId, organizationId)
-            .orElseThrow(() -> new BadRequestException("El local " + storefrontId + " no pertenece a esta organización."));
+            .orElseThrow(() ->
+                new BadRequestException(
+                    "El local " + storefrontId + " no pertenece a esta organización.",
+                    "El local no pertenece a esta organización. Por favor, ingresa de nuevo."
+                )
+            );
     }
 
     private Set<Storefront> resolveOwnedStorefronts(List<UUID> storefrontIds, UUID organizationId) {
@@ -118,7 +173,12 @@ public class StaffService {
             resolved.add(
                 storefrontRepository
                     .findByIdAndOrganizationId(storefrontId, organizationId)
-                    .orElseThrow(() -> new BadRequestException("El local " + storefrontId + " no pertenece a esta organización."))
+                    .orElseThrow(() ->
+                        new BadRequestException(
+                            "El local " + storefrontId + " no pertenece a esta organización.",
+                            "El local no pertenece a esta organización. Por favor, ingresa de nuevo."
+                        )
+                    )
             );
         }
         return resolved;
@@ -128,7 +188,10 @@ public class StaffService {
         try {
             return organizationStaffRepository.saveAndFlush(staff);
         } catch (DataIntegrityViolationException e) {
-            throw new ConflictException("Este usuario ya es parte del staff de una organización.");
+            throw new ConflictException(
+                "Este usuario ya es parte del staff de una organización.",
+                "El usuario ya es parte del staff de una organización."
+            );
         }
     }
 }

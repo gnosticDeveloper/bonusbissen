@@ -146,13 +146,13 @@ export function AfiliarseView({ storefront, isLoggedIn }: { storefront: Storefro
           </div>
 
           <div className="max-w-xs">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: "var(--storefront-color)" }}>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-foreground">
               {storefront.orgName}
             </p>
 
             <h1 className="mt-3 text-[30px] font-semibold leading-[1.05] tracking-[-0.055em] text-foreground text-balance">
               ¿Querés ser parte de {storefront.orgName} y empezar a sumar{" "}
-              <span style={{ color: "var(--storefront-color)" }}>{storefront.pointLabel ?? "puntos"}</span>?
+              <span className="underline decoration-(--storefront-color) decoration-2 underline-offset-4">{storefront.pointLabel ?? "puntos"}</span>?
             </h1>
           </div>
         </div>

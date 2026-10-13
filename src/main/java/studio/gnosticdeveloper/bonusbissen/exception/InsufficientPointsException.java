@@ -1,7 +1,15 @@
 package studio.gnosticdeveloper.bonusbissen.exception;
 
 public class InsufficientPointsException extends ConflictException {
-    public InsufficientPointsException(String message) {
-        super(message);
+
+    private String publicMessage;
+
+    public InsufficientPointsException(String message, String publicMessage) {
+        super(message, publicMessage);
+        this.publicMessage = publicMessage;
+    }
+
+    public String getPublicMessage() {
+        return this.publicMessage;
     }
 }

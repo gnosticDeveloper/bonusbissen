@@ -30,15 +30,18 @@ public class DiscoveryService {
     private final StorefrontRepository storefrontRepository;
     private final RewardRepository rewardRepository;
     private final PointTransactionRepository pointTransactionRepository;
+    private final RewardResponseMapper rewardResponseMapper;
 
     public DiscoveryService(
         StorefrontRepository storefrontRepository,
         RewardRepository rewardRepository,
-        PointTransactionRepository pointTransactionRepository
+        PointTransactionRepository pointTransactionRepository,
+        RewardResponseMapper rewardResponseMapper
     ) {
         this.storefrontRepository = storefrontRepository;
         this.rewardRepository = rewardRepository;
         this.pointTransactionRepository = pointTransactionRepository;
+        this.rewardResponseMapper = rewardResponseMapper;
     }
 
     @Transactional(readOnly = true)
@@ -55,7 +58,12 @@ public class DiscoveryService {
         BusinessResponse business = storefrontRepository
             .findById(storefrontId)
             .map(storefront -> toBusiness(storefront, viewerUserId))
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la sucursal con ID " + storefrontId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar la sucursal con ID " + storefrontId + ".",
+                    "No pudimos encontrar la sucursal seleccionada."
+                )
+            );
         return business;
     }
 
@@ -72,7 +80,9 @@ public class DiscoveryService {
     public StorefrontDiscoverResponse getStorefrontBasicInfoById(UUID id) {
         return storefrontRepository
             .getBasicInfoById(id)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la sucursal con ID " + id + "."));
+            .orElseThrow(() ->
+                new NotFoundException("No se pudo encontrar la sucursal con ID " + id + ".", "No pudimos encontrar la sucursal seleccionada.")
+            );
     }
 
     private BusinessResponse toBusiness(Storefront storefront, UUID viewerUserId) {
@@ -93,7 +103,7 @@ public class DiscoveryService {
             // I've not encounter a scenario where we need to send the cheapest rewards here. Using the latest seems ok to me.
             rewards = rewardRepository
                 .findByActiveTrue(null, null, program.getId(), PageRequest.of(0, MAX_REWARDS_PER_CARD))
-                .map(RewardResponse::from)
+                .map(rewardResponseMapper::toResponse)
                 .getContent();
         }
 

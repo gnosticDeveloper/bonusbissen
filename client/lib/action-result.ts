@@ -2,7 +2,7 @@ import { ApiError } from "@/lib/api";
 
 export type ActionResult<T> =
   | { ok: true; data: T }
-  | { ok: false; error: string; code?: string; customerId?: string };
+  | { ok: false; error: string; code?: string; customerId?: string; status?: number };
 
 /**
  * Server Actions here run in production builds, where Next.js strips

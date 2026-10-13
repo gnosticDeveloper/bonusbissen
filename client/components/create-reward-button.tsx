@@ -3,10 +3,18 @@
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { useModal } from "./modal";
-import { UpdateRewardModal } from "./modals/rewards/update-reward-modal";
+import dynamic from "next/dynamic";
 import { Reward } from "@/lib/types/reward";
+import { ModalContentLoader } from "./modals/action-status-modal";
 import { DeleteRewardModal } from "./modals/rewards/delete-reward-modal";
-import { CreateRewardModal } from "./modals/rewards/create-reward-modal";
+
+const CreateRewardModal = dynamic(() => import("./modals/rewards/create-reward-modal").then((module) => module.CreateRewardModal), {
+  loading: () => <ModalContentLoader label="Cargando formulario…" />,
+});
+
+const UpdateRewardModal = dynamic(() => import("./modals/rewards/update-reward-modal").then((module) => module.UpdateRewardModal), {
+  loading: () => <ModalContentLoader label="Cargando editor…" />,
+});
 
 export function CreateRewardButton() {
   const { open } = useModal();

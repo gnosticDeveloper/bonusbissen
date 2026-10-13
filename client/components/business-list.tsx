@@ -4,7 +4,6 @@ import { RewardCard } from "./reward-card";
 import { formatPoints } from "@/lib/helpers/format";
 import { Carousel } from "./carousel";
 import Link from "next/link";
-import { resolveAssetUrl } from "@/lib/helpers/assets";
 
 interface BusinessListProps {
   businesses: Business[];
@@ -16,7 +15,7 @@ interface BusinessListProps {
 export function BusinessList({ businesses, loading, error, emptyMessage = "Parece que no hay negocios cerca :(" }: BusinessListProps) {
   if (loading) {
     return (
-      <section className="flex min-h-28 items-center justify-center gap-2.5 text-xs text-muted">
+      <section className="flex min-h-28 items-center justify-center gap-2.5 text-xs text-foreground/80">
         <Spinner />
         <span>Buscando negocios...</span>
       </section>
@@ -24,17 +23,12 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
   }
 
   if (error || businesses.length === 0) {
-    return <section className="mx-5 rounded-2xl border border-dashed border-border px-3 py-5 text-center text-xs text-muted">{emptyMessage}</section>;
+    return <section className="mx-5 rounded-2xl border border-dashed border-border px-3 py-5 text-center text-xs text-foreground/80">{emptyMessage}</section>;
   }
 
   return (
     <section className="grid gap-7">
       {businesses.map((storefront) => {
-        const rewards = storefront.rewards.map((reward) => ({
-          ...reward,
-          imagePath: resolveAssetUrl(reward.imagePath),
-        }));
-
         return (
           <article key={storefront.id} className="overflow-hidden border-b border-border bg-background pb-7">
             <header className="flex items-center gap-3 px-5 pb-3">
@@ -54,14 +48,14 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
                 <h3 className="truncate text-sm font-semibold tracking-[-0.02em] text-foreground">
                   {storefront.orgName} • {storefront.name}
                 </h3>
-                <p className="truncate text-[11px] text-muted">
+                <p className="truncate text-[11px] text-foreground/80">
                   {storefront.address.street} • {storefront.address.city}
                 </p>
               </div>
 
               <Link
                 href={`/s/${storefront.id}/afiliarse`}
-                className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-semibold text-foreground transition-colors hover:border-primary hover:text-primary"
+                className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-semibold text-foreground transition-colors hover:border-primary hover:text-foreground"
               >
                 Unirse
               </Link>
@@ -70,16 +64,16 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
             <Carousel
               autoSlideInterval={30000}
               className="w-full"
-              items={rewards}
+              items={storefront.rewards}
               renderItem={(reward) => <RewardCard reward={reward} pointsLabel={storefront.pointLabel} color={storefront.color} />}
             />
 
             <div className="px-5 pt-3">
-              <p className="line-clamp-2 text-xs leading-5 text-muted">{storefront.description}</p>
+              <p className="line-clamp-2 text-xs leading-5 text-foreground/80">{storefront.description}</p>
 
               <div className="mt-3 flex items-center justify-between gap-3 text-[11px]">
-                <span className="truncate text-muted">{storefront.category}</span>
-                <strong className="shrink-0 font-semibold" style={{ color: storefront.color }}>
+                <span className="truncate text-foreground/80">{storefront.category}</span>
+                <strong className="shrink-0 font-semibold text-foreground underline decoration-primary underline-offset-2">
                   {formatPoints(storefront.points)} {storefront.pointLabel}
                 </strong>
               </div>
@@ -90,7 +84,7 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
 
       {businesses.length >= 1 && businesses.length <= 9 ? (
         <footer className="w-full flex flex-col items-center relative pt-20">
-          <span className="text-muted relative text-xs text-center bg-background z-30 text-shadow-lg shadow-black">
+          <span className="text-foreground/80 relative text-xs text-center bg-background z-30 text-shadow-lg shadow-black">
             llegaste al final de la lista (￣o￣) . z Z
           </span>
           <div className="absolute -top-1.75 h-25 overflow-hidden">

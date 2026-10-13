@@ -37,12 +37,12 @@ export async function completeAuthRedirect(router: ReturnType<typeof useRouter>,
     const result = await joinStorefront(joinTo);
     // Solo se llega acá si joinStorefront falló (result.ok === false).
     if (result && !result.ok) {
-      router.push(`/s/${joinTo}/afiliarse?joinError=${encodeURIComponent(result.error)}`);
+      router.replace(`/s/${joinTo}/afiliarse?joinError=${encodeURIComponent(result.error)}`);
       return;
     }
     return;
   }
 
   const returnTo = sanitizeReturnTo(searchParams.get("returnTo"));
-  router.push(returnTo ?? "/b");
+  router.replace(returnTo ?? "/b");
 }

@@ -11,6 +11,8 @@ import java.util.UUID;
 public interface OrganizationStaffRepository extends JpaRepository<OrganizationStaff, UUID> {
     Optional<OrganizationStaff> findByUserIdAndActiveTrue(UUID userId);
 
+    boolean existsByUserIdAndOrganizationIdAndActiveTrue(UUID userId, UUID organizationId);
+
     /** Active staff row with storefronts/user/organization initialised (used off-session, e.g. in the JWT filter). */
     @EntityGraph(attributePaths = { "storefronts", "user", "organization" })
     Optional<OrganizationStaff> findWithStorefrontsByUserIdAndActiveTrue(UUID userId);

@@ -45,6 +45,9 @@ public class Reward {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
+    @Transient
+    private String imageUploadError;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {

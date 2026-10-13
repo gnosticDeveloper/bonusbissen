@@ -3,7 +3,6 @@ import { Sofia_Sans } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/toast";
 import { ModalProvider } from "@/components/modal";
-import Script from "next/script";
 
 const instrumentSans = Sofia_Sans({
   subsets: ["latin"],
@@ -12,7 +11,6 @@ const instrumentSans = Sofia_Sans({
   weight: "variable",
 });
 
-// TODO: use generateMetadata() instead of static metadata obj.
 export const metadata: Metadata = {
   title: "Bonus Bissen • Página principal • Sistema de fidelización de clientes",
   description: "Sistema de puntos y recompensas para clientes frecuentes",
@@ -46,7 +44,7 @@ const THEME_INIT_SCRIPT = `
       }
     }
 
-    if (theme === "light" || theme === "dark") {
+    if (theme === "light" || theme === "dark" || theme === "abismo") {
       document.documentElement.setAttribute("data-theme", theme);
     }
     // si no hay cookie ni legacy: no seteamos nada, el CSS con

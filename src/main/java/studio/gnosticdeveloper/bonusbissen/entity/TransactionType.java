@@ -2,7 +2,8 @@ package studio.gnosticdeveloper.bonusbissen.entity;
 
 public enum TransactionType {
     REDEEM("redeem"),
-    EARN("earn");
+    EARN("earn"),
+    ADJUST("adjust");
 
     private final String value;
 

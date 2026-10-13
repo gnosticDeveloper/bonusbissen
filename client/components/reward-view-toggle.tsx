@@ -1,16 +1,13 @@
 "use client";
 
 import { LayoutGrid, List } from "lucide-react";
-import { useRouter } from "next/navigation";
+export type RewardView = "list" | "grid";
 
-type RewardView = "list" | "grid";
-
-export function RewardViewToggle({ view }: { view: RewardView }) {
-  const router = useRouter();
-
+export function RewardViewToggle({ view, onChange }: { view: RewardView; onChange: (view: RewardView) => void }) {
   function changeView(nextView: RewardView) {
+    if (nextView === view) return;
     document.cookie = `reward-view=${nextView}; Path=/; Max-Age=31536000; SameSite=Lax`;
-    router.refresh();
+    onChange(nextView);
   }
 
   return (
@@ -20,7 +17,7 @@ export function RewardViewToggle({ view }: { view: RewardView }) {
         onClick={() => changeView("grid")}
         aria-pressed={view === "grid"}
         className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors sm:flex-none ${
-          view === "grid" ? "bg-primary text-primary-foreground" : "text-muted hover:bg-muted/10"
+          view === "grid" ? "bg-primary text-primary-foreground" : "text-foreground/80 hover:bg-foreground/10"
         }`}
       >
         <LayoutGrid className="size-4" aria-hidden="true" />
@@ -31,7 +28,7 @@ export function RewardViewToggle({ view }: { view: RewardView }) {
         onClick={() => changeView("list")}
         aria-pressed={view === "list"}
         className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors sm:flex-none ${
-          view === "list" ? "bg-primary text-primary-foreground" : "text-muted hover:bg-muted/10"
+          view === "list" ? "bg-primary text-primary-foreground" : "text-foreground/80 hover:bg-foreground/10"
         }`}
       >
         <List className="size-4" aria-hidden="true" />

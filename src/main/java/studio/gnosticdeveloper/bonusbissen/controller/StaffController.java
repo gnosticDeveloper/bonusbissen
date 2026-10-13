@@ -32,7 +32,7 @@ public class StaffController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public StaffResponse create(@Valid @RequestBody StaffCreateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return StaffResponse.from(staffService.create(request, principal.organizationId()));
+        return StaffResponse.from(staffService.create(request, principal.organizationId(), principal.id()));
     }
 
     @PostMapping("/{id}/storefronts")
@@ -57,5 +57,12 @@ public class StaffController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deactivate(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         staffService.deactivate(id, principal.organizationId());
+    }
+
+    /** Kills a staff member's sessions without deactivating them (e.g. suspected account compromise). */
+    @PostMapping("/{id}/sessions/revoke")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revokeSessions(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        staffService.revokeSessions(id, principal.organizationId(), principal.id());
     }
 }

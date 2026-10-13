@@ -50,9 +50,10 @@ public class UserController {
     public PagedResponse<UserPointsResponse> search(
         @RequestParam(required = false) String search,
         @RequestParam(required = false) UUID programId,
-        Pageable pageable
+        Pageable pageable,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
-        return PagedResponse.from(userService.search(search, programId, pageable));
+        return PagedResponse.from(userService.search(search, programId, principal.organizationId(), principal.storefrontId(), pageable));
     }
 
     @PatchMapping("/{id}")
@@ -170,7 +171,7 @@ public class UserController {
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
         requireSelfIfUser(id, principal);
-        return userService.getUserPointsById(id, programId);
+        return userService.getUserPointsById(id, programId, principal.organizationId());
     }
 
     @PostMapping("/grant")
@@ -199,15 +200,9 @@ public class UserController {
         @Valid @RequestBody GrantPointsUpdateRequest request,
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
-        return userService.updateGrant(id, request, principal.organizationId());
+        return userService.updateGrant(id, request, principal.organizationId(), principal.id());
     }
 
-    @DeleteMapping("/grant/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteGrant(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        userService.deleteGrant(id, principal.organizationId());
-    }
 
     @GetMapping("/{id}/exchanges")
     public List<HistoricalExchangeResponse> getHistoricalExchanges(
@@ -216,7 +211,7 @@ public class UserController {
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
         requireSelfIfUser(id, principal);
-        return userService.getHistoricalExchangesByUserId(id, storefrontId);
+        return userService.getHistoricalExchangesByUserId(id, storefrontId, principal.organizationId());
     }
 
     @GetMapping("/{id}/movements")
@@ -226,7 +221,7 @@ public class UserController {
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
         requireSelfIfUser(id, principal);
-        return userService.getMovementsByUserId(id, storefrontId);
+        return userService.getMovementsByUserId(id, storefrontId, principal.organizationId());
     }
 
     private void requireSelfIfUser(UUID id, AuthenticatedPrincipal principal) {

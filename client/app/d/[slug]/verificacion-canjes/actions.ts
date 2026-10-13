@@ -11,7 +11,7 @@ export interface ExchangeResponse {
   rewardId: string;
   rewardTitle: string;
   rewardDescription: string;
-  rewardImagePath: string;
+  rewardImageUrl: string;
   rewardDiscountValue: number;
   rewardCostPoints: number;
   state: "pending" | "delivered" | "cancelled";
@@ -42,25 +42,21 @@ export async function validateCode(code: string) {
 }
 
 export async function confirmRedemption(id: string) {
-  const res = await dashboardRequest<void>("/exchanges/approve", {
+  return dashboardRequest<void>("/exchanges/approve", {
     method: "POST",
     body: JSON.stringify({ id }),
     headers: {
       "Content-Type": "application/json",
     },
   });
-
-  if (!res.ok) throw new Error("Error tratando de confirmar el canje. Por favor intente nuevamente.");
 }
 
 export async function annulateExchange(id: string, shouldRefundPoints: boolean = true) {
-  const res = await dashboardRequest("/exchanges/cancel", {
+  return dashboardRequest<void>("/exchanges/cancel", {
     method: "POST",
     body: JSON.stringify({ id, shouldRefundPoints }),
     headers: {
       "Content-Type": "application/json",
     },
   });
-
-  if (!res.ok) throw new Error("Error tratando de anular el canje. Por favor intente nuevamente.");
 }

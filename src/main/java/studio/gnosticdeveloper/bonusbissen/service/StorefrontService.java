@@ -19,11 +19,7 @@ public class StorefrontService {
     private final OrganizationRepository organizationRepository;
     private final GeorefClient georefClient;
 
-    public StorefrontService(
-        StorefrontRepository storefrontRepository,
-        OrganizationRepository organizationRepository,
-        GeorefClient georefClient
-    ) {
+    public StorefrontService(StorefrontRepository storefrontRepository, OrganizationRepository organizationRepository, GeorefClient georefClient) {
         this.storefrontRepository = storefrontRepository;
         this.organizationRepository = organizationRepository;
         this.georefClient = georefClient;
@@ -38,7 +34,12 @@ public class StorefrontService {
     public Storefront create(StorefrontCreateRequest request, UUID organizationId) {
         Organization organization = organizationRepository
             .findById(organizationId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar la organización con ID " + organizationId + "."));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "No se pudo encontrar la organización con ID " + organizationId + ".",
+                    "Parece que la organización seleccionada no es válida."
+                )
+            );
 
         Storefront storefront = new Storefront();
         storefront.setOrganization(organization);
@@ -82,7 +83,7 @@ public class StorefrontService {
     private Storefront getOwned(UUID id, UUID organizationId) {
         return storefrontRepository
             .findByIdAndOrganizationId(id, organizationId)
-            .orElseThrow(() -> new NotFoundException("No se pudo encontrar el local con ID " + id + "."));
+            .orElseThrow(() -> new NotFoundException("No se pudo encontrar el local con ID " + id + ".", "No se pudo encontrar la sucursal seleccionada."));
     }
 
     /** Online storefronts have no address/city/province; physical ones get all three via georef. */

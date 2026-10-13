@@ -364,18 +364,17 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         assertThat(response.getStatusCode()).isIn(HttpStatus.FORBIDDEN, HttpStatus.UNAUTHORIZED);
     }
 
-    // --- No validation on GrantPointsRequest.points: negative values aren't
-    // rejected by the app at all. The DB's CHECK constraint happens to stop
-    // the row from persisting, but there's no @ExceptionHandler for
-    // DataIntegrityViolationException, so the failure surfaces as an
-    // unhandled exception (a stack trace dumped to the logs) rather than a
-    // clean 400 — the app should validate this itself before it ever reaches
-    // the DB. ---
     @Test
-    void grantingNegativePointsDoesNotCorruptBalanceEvenThoughErrorHandlingIsUgly() {
+    void withdrawalBeyondBalanceRequiresConfirmedDebt() {
         User cashier = createEmployee("cashier-negative-grant", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-negative-grant", "password123");
         User user = createUser("+5493462003010");
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
+            HttpMethod.POST,
+            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
+            Void.class
+        );
 
         ResponseEntity<String> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
@@ -384,7 +383,9 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
             String.class
         );
 
-        assertThat(response.getStatusCode()).isNotEqualTo(HttpStatus.OK);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody()).contains("La resta supera el saldo disponible.", "Saldo disponible: 0 puntos")
+            .doesNotContain("allowDebt");
         assertThat(getBalance(cashierToken, user.getId()).points()).isZero();
     }
 
