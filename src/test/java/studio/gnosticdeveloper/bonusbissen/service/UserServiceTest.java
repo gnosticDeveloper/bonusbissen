@@ -510,7 +510,7 @@ class UserServiceTest {
         when(pointTransactionRepository.findAllByUserIdAndStorefrontIdOrderByCreatedAtDesc(userId, STOREFRONT_ID))
             .thenReturn(List.of(correction, debit, original));
 
-        List<MovementResponse> history = userService.getMovementsByUserId(userId, STOREFRONT_ID);
+        List<MovementResponse> history = userService.getMovementsByUserId(userId, STOREFRONT_ID, null);
 
         assertThat(history.get(0).title()).isEqualTo("Corrección de puntos");
         assertThat(history.get(0).points()).isEqualTo(-60);

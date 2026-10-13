@@ -171,7 +171,7 @@ public class UserController {
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
         requireSelfIfUser(id, principal);
-        return userService.getUserPointsById(id, programId);
+        return userService.getUserPointsById(id, programId, principal.organizationId());
     }
 
     @PostMapping("/grant")
@@ -211,7 +211,7 @@ public class UserController {
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
         requireSelfIfUser(id, principal);
-        return userService.getHistoricalExchangesByUserId(id, storefrontId);
+        return userService.getHistoricalExchangesByUserId(id, storefrontId, principal.organizationId());
     }
 
     @GetMapping("/{id}/movements")
@@ -221,7 +221,7 @@ public class UserController {
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
         requireSelfIfUser(id, principal);
-        return userService.getMovementsByUserId(id, storefrontId);
+        return userService.getMovementsByUserId(id, storefrontId, principal.organizationId());
     }
 
     private void requireSelfIfUser(UUID id, AuthenticatedPrincipal principal) {

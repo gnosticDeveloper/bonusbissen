@@ -13,8 +13,13 @@ function contrastRatio(l1: number, l2: number): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-/** Elige el texto que gana más contraste contra este color, no un corte fijo de luminancia. */
-export function pickCardVariant(backgroundHex: string): "light-bg" | "dark-bg" {
+/**
+ * Elige el texto que gana más contraste contra este color, no un corte fijo de luminancia.
+ * `backgroundHex` is nullable in practice (a storefront/org may not have picked a brand color
+ * yet) -- falls back to "dark-bg" (white text) rather than crashing the page that renders it.
+ */
+export function pickCardVariant(backgroundHex: string | null | undefined): "light-bg" | "dark-bg" {
+  if (!backgroundHex) return "dark-bg";
   const bgLum = relativeLuminance(backgroundHex);
   return contrastRatio(bgLum, 1) >= contrastRatio(bgLum, 0) ? "dark-bg" : "light-bg";
 }

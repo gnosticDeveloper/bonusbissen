@@ -325,7 +325,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public UserPointsResponse getUserPointsById(UUID id, UUID programId) {
+    public UserPointsResponse getUserPointsById(UUID id, UUID programId, UUID callerOrganizationId) {
         User user = userRepository
             .findById(id)
             .orElseThrow(() ->
@@ -335,13 +335,31 @@ public class UserService {
                 )
             );
 
+        if (programId != null && callerOrganizationId != null && !pointProgramRepository.existsByIdAndOrganizationId(programId, callerOrganizationId)) {
+            throw new AccessDeniedException("Point program " + programId + " is not owned by organization " + callerOrganizationId + ".");
+        }
+
         Integer points = programId != null ? getBalance(id, programId) : null;
         return UserPointsResponse.from(user, points);
     }
 
+    /**
+     * {@code callerOrganizationId} is null for a USER viewing their own history (legitimately
+     * cross-organization); for staff it is always enforced as the filter, regardless of what
+     * {@code storefrontId} resolves to, so a staff member can never see another organization's
+     * exchange history by passing a storefront/program id from outside their own org.
+     */
     @Transactional(readOnly = true)
-    public List<HistoricalExchangeResponse> getHistoricalExchangesByUserId(UUID userId, UUID storefrontId) {
-        UUID organizationId = resolveOrganizationId(storefrontId);
+    public List<HistoricalExchangeResponse> getHistoricalExchangesByUserId(UUID userId, UUID storefrontId, UUID callerOrganizationId) {
+        UUID organizationId;
+        if (callerOrganizationId != null) {
+            if (storefrontId != null && !resolveOrganizationId(storefrontId).equals(callerOrganizationId)) {
+                throw new AccessDeniedException("Storefront " + storefrontId + " does not belong to organization " + callerOrganizationId + ".");
+            }
+            organizationId = callerOrganizationId;
+        } else {
+            organizationId = resolveOrganizationId(storefrontId);
+        }
 
         List<PointTransaction> exchanges = pointTransactionRepository.findExchangeHistory(userId, TransactionType.REDEEM, organizationId);
 
@@ -377,7 +395,10 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public List<MovementResponse> getMovementsByUserId(UUID userId, UUID storefrontId) {
+    public List<MovementResponse> getMovementsByUserId(UUID userId, UUID storefrontId, UUID callerOrganizationId) {
+        if (callerOrganizationId != null && storefrontId != null && !resolveOrganizationId(storefrontId).equals(callerOrganizationId)) {
+            throw new AccessDeniedException("Storefront " + storefrontId + " does not belong to organization " + callerOrganizationId + ".");
+        }
         List<PointTransaction> movements = pointTransactionRepository.findAllByUserIdAndStorefrontIdOrderByCreatedAtDesc(userId, storefrontId);
         return movements.stream().map(this::toMovementResponse).toList();
     }

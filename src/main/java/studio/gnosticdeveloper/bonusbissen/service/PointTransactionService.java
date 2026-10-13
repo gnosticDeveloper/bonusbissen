@@ -191,7 +191,7 @@ public class PointTransactionService {
     @Transactional
     public void approveExchange(ApproveExchangeRequest request, UUID organizationId, UUID callerId) {
         PointTransaction pointTransaction = pointTransactionRepository
-            .findById(request.id())
+            .findByIdForUpdate(request.id())
             .orElseThrow(() ->
                 new NotFoundException(
                     "Point transaction not found: " + request.id(),
@@ -229,7 +229,7 @@ public class PointTransactionService {
     @Transactional
     public void cancelExchange(CancelExchangeRequest request, UUID organizationId, UUID callerId) {
         PointTransaction pointTransaction = pointTransactionRepository
-            .findById(request.id())
+            .findByIdForUpdate(request.id())
             .orElseThrow(() ->
                 new NotFoundException(
                     "Point transaction not found: " + request.id(),

@@ -2,9 +2,12 @@ package studio.gnosticdeveloper.bonusbissen.repository;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
@@ -143,12 +146,12 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
             select s.category, s.color, s.icon_path
             from storefronts s
             where s.point_program_id = pp.id and s.active
-            order by s.created_at asc
+            order by s.created_at
             limit 1
         ) sf on true
         where t.user_id = :userId
         group by pp.id, pp.unit_label, o.id, o.name, sf.category, sf.color, sf.icon_path
-        order by member_since asc
+        order by member_since
         """,
         nativeQuery = true
     )
@@ -248,4 +251,14 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
         nativeQuery = true
     )
     List<PointTransaction> findAllResolvedByOrganizationId(@Param("organizationId") UUID organizationId, Pageable pageable);
+
+    /**
+     * Row-locking read for the approve/cancel state transition: without this, two concurrent
+     * requests both read state=PENDING before either writes, and both succeed -- one of them
+     * "approving" a redemption that the other has just refunded. Holding a DB row lock for the
+     * remainder of the (short) transaction serializes the two instead.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM PointTransaction t WHERE t.id = :id")
+    Optional<PointTransaction> findByIdForUpdate(@Param("id") UUID id);
 }
