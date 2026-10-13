@@ -155,7 +155,7 @@ function OperationSelect({ selected, onChange }: { selected: OperationOption | n
       </Select.Trigger>
       <Select.Portal>
         <Select.Positioner sideOffset={6} align="start" alignItemWithTrigger={false} className="z-50">
-          <Select.Popup className="w-[var(--anchor-width)] max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-border bg-card text-foreground shadow-lg">
+          <Select.Popup className="w-(--anchor-width) max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-border bg-card text-foreground shadow-lg">
             <Select.List className="max-h-[min(24rem,var(--available-height))] overflow-y-auto p-1.5">
               {[null, ...OPERATIONS].map((operation) => (
                 <Select.Item
@@ -346,7 +346,7 @@ export default function AuditPage() {
               </span>
               <span>
                 <span className="block">Filtrar registros</span>
-                <span className="mt-1 block text-xs font-normal text-foreground/80">Elegí al menos un filtro. Los filtros se combinan con «Y».</span>
+                <span className="mt-1 block text-xs font-normal text-foreground/80">Elegí al menos un filtro. Los filtros se combinan.</span>
               </span>
             </CardTitle>
           </CardHeader>
@@ -355,7 +355,7 @@ export default function AuditPage() {
               <div className="grid gap-5 lg:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="audit-originating" className="text-xs font-semibold uppercase tracking-[0.12em] text-foreground/80">
-                    Realizó la operación
+                    Quién realizó la operación
                   </Label>
                   <Autocomplete<AuditUser>
                     inputId="audit-originating"
@@ -367,7 +367,7 @@ export default function AuditPage() {
                     displayKeys={["name", "username"]}
                     placeholder="Buscar por nombre o email…"
                   />
-                  <p className="text-xs leading-5 text-foreground/80">La persona que inició la acción: cliente o personal.</p>
+                  <p className="text-xs leading-5 text-foreground/80">La persona que inició la acción: puede ser un cliente o personal de una sucursal.</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="audit-affected" className="text-xs font-semibold uppercase tracking-[0.12em] text-foreground/80">

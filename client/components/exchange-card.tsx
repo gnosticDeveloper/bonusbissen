@@ -2,6 +2,7 @@ import { Gift, MapPin, Store } from "lucide-react";
 import { ExchangeState } from "@/lib/types/exchange";
 import { ExchangeStateBadge } from "./exchange-state-badge";
 import { CopyCodeButton } from "./copy-code-button";
+import { CancelRedemptionButton } from "./cancel-redemption-button";
 import type { HistoricalExchangeResponse } from "@/lib/types/exchange";
 
 export function ExchangeCard({
@@ -58,7 +59,10 @@ export function ExchangeCard({
 
       <div className="border-t border-border/70 px-3.5 py-3">
         {isPending ? (
-          <CopyCodeButton code={exchange.exchangeCode} />
+          <div className="space-y-2">
+            <CopyCodeButton code={exchange.exchangeCode} />
+            <CancelRedemptionButton exchange={exchange} />
+          </div>
         ) : (
           <div className="flex items-center gap-1.5 text-xs text-foreground/80">
             <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
