@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Allow 2 MB images plus multipart/Server Action overhead.
+  experimental: { serverActions: { bodySizeLimit: "3mb" } },
   images: {
     // The optimizer fetches upstream images server-side and hard-blocks any
     // URL resolving to a private/loopback IP (SSRF guard) — since ASSETS_URL
@@ -17,6 +19,7 @@ const nextConfig: NextConfig = {
   //   // Use the Rust port instead of the Babel transform
   //   turbopackRustReactCompiler: true,
   // },
+  allowedDevOrigins: ['192.168.1.73'],
 };
 
 export default nextConfig;

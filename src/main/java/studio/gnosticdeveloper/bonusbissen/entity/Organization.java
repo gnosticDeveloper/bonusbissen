@@ -22,6 +22,12 @@ public class Organization {
     @Column(nullable = false, length = 255)
     private String name;
 
+    @Column(name = "logo_path", length = 255)
+    private String logoPath;
+
+    @Column(name = "banner_path", length = 255)
+    private String bannerPath;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 

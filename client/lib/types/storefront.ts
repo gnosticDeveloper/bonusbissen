@@ -33,4 +33,6 @@ export interface StorefrontDiscoverInfo {
   color: string;
   iconUrl: string | null;
   pointLabel: string | null;
+  orgLogoUrl: string | null;
+  orgBannerUrl: string | null;
 }

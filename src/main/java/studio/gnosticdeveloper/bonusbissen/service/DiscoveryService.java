@@ -12,12 +12,15 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.CityOption;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.RewardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.StorefrontDiscoverResponse;
+import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
+import studio.gnosticdeveloper.bonusbissen.storage.DeliveryVariant;
+import studio.gnosticdeveloper.bonusbissen.storage.StorageService;
 
 /** Public "negocios cerca" feed: active storefronts, each with its latest rewards. */
 @Service
@@ -31,17 +34,20 @@ public class DiscoveryService {
     private final RewardRepository rewardRepository;
     private final PointTransactionRepository pointTransactionRepository;
     private final RewardResponseMapper rewardResponseMapper;
+    private final StorageService storageService;
 
     public DiscoveryService(
         StorefrontRepository storefrontRepository,
         RewardRepository rewardRepository,
         PointTransactionRepository pointTransactionRepository,
-        RewardResponseMapper rewardResponseMapper
+        RewardResponseMapper rewardResponseMapper,
+        StorageService storageService
     ) {
         this.storefrontRepository = storefrontRepository;
         this.rewardRepository = rewardRepository;
         this.pointTransactionRepository = pointTransactionRepository;
         this.rewardResponseMapper = rewardResponseMapper;
+        this.storageService = storageService;
     }
 
     @Transactional(readOnly = true)
@@ -80,6 +86,11 @@ public class DiscoveryService {
     public StorefrontDiscoverResponse getStorefrontBasicInfoById(UUID id) {
         return storefrontRepository
             .getBasicInfoById(id)
+            .map(info -> new StorefrontDiscoverResponse(
+                info.getId(), info.getName(), info.getOrgName(), info.getColor(), info.getIconUrl(), info.getPointLabel(),
+                imageUrl(info.getOrgLogoPath(), DeliveryVariant.THUMBNAIL),
+                imageUrl(info.getOrgBannerPath(), DeliveryVariant.CARD)
+            ))
             .orElseThrow(() ->
                 new NotFoundException("No se pudo encontrar la sucursal con ID " + id + ".", "No pudimos encontrar la sucursal seleccionada.")
             );
@@ -87,6 +98,7 @@ public class DiscoveryService {
 
     private BusinessResponse toBusiness(Storefront storefront, UUID viewerUserId) {
         PointProgram program = storefront.getPointProgram();
+        Organization organization = storefront.getOrganization();
 
         String pointLabel = DEFAULT_POINT_LABEL;
         int points = 0;
@@ -110,7 +122,7 @@ public class DiscoveryService {
         return new BusinessResponse(
             storefront.getId(),
             storefront.getName(),
-            storefront.getOrganization().getName(),
+            organization.getName(),
             storefront.getCategory(),
             storefront.getDescription(),
             storefront.getColor() != null ? storefront.getColor() : DEFAULT_COLOR,
@@ -118,7 +130,13 @@ public class DiscoveryService {
             pointLabel,
             points,
             rewards,
-            new BusinessResponse.Address(storefront.getAddress(), storefront.getCity(), storefront.getProvince())
+            new BusinessResponse.Address(storefront.getAddress(), storefront.getCity(), storefront.getProvince()),
+            imageUrl(organization.getLogoPath(), DeliveryVariant.THUMBNAIL),
+            imageUrl(organization.getBannerPath(), DeliveryVariant.CARD)
         );
+    }
+
+    private String imageUrl(String path, DeliveryVariant variant) {
+        return path == null ? null : storageService.resolveUrl(path, variant);
     }
 }

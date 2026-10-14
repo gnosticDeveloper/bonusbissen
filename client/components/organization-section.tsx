@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast";
 import { Organization } from "@/lib/types/organization";
 import { FormState } from "@/app/d/types";
-import { updateOrganization } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
+import { updateOrganization, uploadOrganizationImage } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
+import { ImageUploadField } from "@/components/image-upload-field";
 
 const initialState: FormState = { message: null, status: null };
 
@@ -55,6 +56,10 @@ export function OrganizationSection({ org }: { org: Organization }) {
             <SubmitButton />
           </div>
         </form>
+        <div className="mt-6 grid gap-6 border-t border-border pt-6 sm:grid-cols-2">
+          <ImageUploadField label="Logo" initialUrl={org.logoUrl} upload={(data) => uploadOrganizationImage("logo", data)} />
+          <ImageUploadField label="Banner" initialUrl={org.bannerUrl} shape="banner" upload={(data) => uploadOrganizationImage("banner", data)} />
+        </div>
       </CardContent>
     </Card>
   );

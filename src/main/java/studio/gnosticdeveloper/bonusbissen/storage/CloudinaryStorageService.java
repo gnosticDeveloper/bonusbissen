@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 @ConditionalOnProperty(name = "app.storage.provider", havingValue = "cloudinary")
 public class CloudinaryStorageService implements StorageService {
 
-    private static final String FOLDER = "rewards";
 
     private final Cloudinary cloudinary;
 
@@ -23,10 +22,10 @@ public class CloudinaryStorageService implements StorageService {
 
     @Override
     @SuppressWarnings("unchecked")
-    public String store(byte[] data, String extension) throws IOException {
+    public String store(byte[] data, String extension, StorageFolder folder) throws IOException {
         Map<String, Object> options = ObjectUtils.asMap(
-            "public_id", FOLDER + "/" + UUID.randomUUID(),
-            "asset_folder", FOLDER,
+            "public_id", folder.path() + "/" + UUID.randomUUID(),
+            "asset_folder", folder.path(),
             "resource_type", "image",
             "format", extension,
             "overwrite", false,
@@ -41,8 +40,8 @@ public class CloudinaryStorageService implements StorageService {
             // El SDK no es consistente: errores de red llegan como IOException,
             // pero errores de la propia API de Cloudinary (api_key inválida,
             // rate limit, parámetros rechazados) llegan como RuntimeException.
-            // Normalizamos todo a IOException para que el llamador (RewardService)
-            // los trate de forma uniforme como "no se pudo llegar a Cloudinary".
+            // Normalizamos todo a IOException para que los llamadores
+            // traten estos errores como fallas del servicio de almacenamiento.
             throw new IOException(e.getMessage(), e);
         }
     }

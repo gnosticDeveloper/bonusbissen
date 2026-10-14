@@ -12,8 +12,13 @@ export function CustomerHeader({ authenticated = true }: { authenticated?: boole
     <header className="relative z-10 mx-auto mb-6.5 flex w-full max-w-107.5 items-center justify-between px-5 pt-6">
       {authenticated ? (
         <div className="flex items-center gap-2.5">
-          <div className="grid h-10 w-10 place-items-center rounded-full border-2 border-background bg-primary text-primary-foreground shadow-[0_0_0_1px_var(--primary)]">
-            <UserRound size={17} aria-hidden="true" />
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-primary-foreground">
+            {user?.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={user.avatarUrl} alt="" className="size-full object-cover" />
+            ) : (
+              <UserRound size={20} />
+            )}
           </div>
           <div>
             <span className="mb-1 block text-[10px] font-bold tracking-[0.08em] text-foreground/80 uppercase">Buen día</span>
