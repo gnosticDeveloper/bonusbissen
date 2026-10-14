@@ -14,8 +14,11 @@ import {
   revokeDeviceSession,
   updatePassword,
   updateProfile,
+  uploadAvatar,
 } from "./actions";
 import { useUser } from "@/providers/user-provider";
+import { CitySelect } from "@/components/city-select";
+import { ImageUploadField } from "@/components/image-upload-field";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 type VerifyState = "idle" | "sending" | "sent" | "error";
@@ -305,13 +308,24 @@ export default function ProfilePage() {
 
       <section className="mb-6 rounded-2xl border border-border bg-card p-5">
         <div className="mb-5 flex items-center gap-4">
-          <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-medium text-primary-foreground">
-            {current.name ? current.name.charAt(0).toUpperCase() : "?"}
+          <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-lg font-medium text-primary-foreground">
+            {user?.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={user.avatarUrl} alt="" className="size-full object-cover" />
+            ) : current.name ? (
+              current.name.charAt(0).toUpperCase()
+            ) : (
+              "?"
+            )}
           </div>
           <div className="min-w-0">
             <p className="truncate text-base font-medium text-foreground">{current.name || "Sin nombre"}</p>
             <p className="truncate text-sm text-foreground/75">@{current.username}</p>
           </div>
+        </div>
+
+        <div className="mb-5 border-b border-border pb-5">
+          <ImageUploadField label="Foto de perfil" initialUrl={user?.avatarUrl} upload={uploadAvatar} />
         </div>
 
         <form onSubmit={handleProfileSubmit} className="flex flex-col gap-4">
@@ -384,6 +398,14 @@ export default function ProfilePage() {
             {profileState === "saving" ? "Guardando..." : "Guardar cambios"}
           </button>
         </form>
+      </section>
+
+      <section className="mb-6 rounded-2xl border border-border bg-card p-5">
+        <h2 className="mb-1 text-sm font-medium text-foreground">Ciudad preferida</h2>
+        <p className="mb-4 text-sm text-foreground/75">
+          Elegí dónde querés descubrir negocios. La selección se guarda solo en este dispositivo y se aplica automáticamente al explorar.
+        </p>
+        <CitySelect />
       </section>
 
       {!current.emailVerified && current.email && (
