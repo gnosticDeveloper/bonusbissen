@@ -14,8 +14,6 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.PreparedStatementCallback;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -77,7 +75,8 @@ public class UserService {
     private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
     private final TraceabilityService traceabilityService;
-    private final JdbcTemplate jdbcTemplate;
+    private final BalanceLockService balanceLockService;
+    private final PointLedgerService pointLedgerService;
     private final StorageService storageService;
     private final SessionService sessionService;
 
@@ -93,7 +92,8 @@ public class UserService {
         EmailVerificationService emailVerificationService,
         PasswordEncoder passwordEncoder,
         TraceabilityService traceabilityService,
-        JdbcTemplate jdbcTemplate,
+        BalanceLockService balanceLockService,
+        PointLedgerService pointLedgerService,
         StorageService storageService,
         SessionService sessionService
     ) {
@@ -108,7 +108,8 @@ public class UserService {
         this.emailVerificationService = emailVerificationService;
         this.passwordEncoder = passwordEncoder;
         this.traceabilityService = traceabilityService;
-        this.jdbcTemplate = jdbcTemplate;
+        this.balanceLockService = balanceLockService;
+        this.pointLedgerService = pointLedgerService;
         this.storageService = storageService;
         this.sessionService = sessionService;
     }
@@ -559,7 +560,7 @@ public class UserService {
         if (request.points() == 0) {
             throw new BadRequestException("Zero-point manual grant.", "Ingresá una cantidad de puntos distinta de cero.");
         }
-        lockBalance(user.getId(), program.getId());
+        balanceLockService.lock(user.getId(), program.getId());
 
         PointTransaction duplicate = findRecentDuplicateGrant(user.getId(), program.getId(), employee.getId(), request.points(), request.note());
         if (duplicate != null) {
@@ -575,9 +576,16 @@ public class UserService {
         tx.setUser(user);
         tx.setPoints(request.points());
         tx.setNote(request.note());
-        tx.setTransactionType(request.points() > 0 ? TransactionType.EARN : TransactionType.ADJUST);
+        boolean isEarn = request.points() > 0;
+        tx.setTransactionType(isEarn ? TransactionType.EARN : TransactionType.ADJUST);
         tx.setState(TransactionState.DELIVERED);
+        if (isEarn) {
+            tx.setExpiresAt(program.computeExpiresAt());
+        }
         tx = pointTransactionRepository.save(tx);
+        if (!isEarn) {
+            pointLedgerService.consumeFifo(user.getId(), program.getId(), -request.points());
+        }
 
         Map<String, Object> payload = new HashMap<>();
         payload.put("points", request.points());
@@ -604,7 +612,7 @@ public class UserService {
         OrganizationStaff employee = organizationStaffRepository.findByUserIdAndActiveTrue(callerId)
             .filter(staff -> staff.getOrganization().getId().equals(organizationId))
             .orElseThrow(() -> new AccessDeniedException("Active staff membership required for correction."));
-        lockBalance(userId, programId);
+        balanceLockService.lock(userId, programId);
         long delta = (long) request.points() - original.getPoints() - pointTransactionRepository.sumCorrections(original.getId());
         if (delta == 0 || delta > Integer.MAX_VALUE || delta < Integer.MIN_VALUE) {
             PointTransaction recent = findRecentDuplicateCorrection(original.getId(), employee.getId());
@@ -626,6 +634,16 @@ public class UserService {
         correction.setNote(request.note().trim());
         correction.setState(TransactionState.DELIVERED);
         correction = pointTransactionRepository.save(correction);
+        if (delta < 0) {
+            pointLedgerService.consumeFifo(userId, programId, -(int) delta);
+        }
+        if (request.points() <= 0) {
+            // Fully (or over-) reversed by this correction -- void it so it's inert now, and stays
+            // inert even if this program's point expiration gets disabled and re-enabled later.
+            original.setExpiresAt(null);
+            original.setVoidedAt(OffsetDateTime.now());
+            pointTransactionRepository.save(original);
+        }
         Map<String, Object> payload = new HashMap<>();
         payload.put("transactionId", correction.getId());
         payload.put("correctedTransactionId", original.getId());
@@ -719,7 +737,7 @@ public class UserService {
         // so concurrent claims racing the same check-then-insert can all see the same
         // pre-redemption balance and all pass. Serialize per (user, program) with a
         // transaction-scoped advisory lock instead -- released automatically on commit/rollback.
-        lockBalance(user.getId(), reward.getPointProgram().getId());
+        balanceLockService.lock(user.getId(), reward.getPointProgram().getId());
 
         if (getBalance(user.getId(), reward.getPointProgram().getId()) < reward.getCostPoints()) {
             throw new InsufficientPointsException(
@@ -734,6 +752,7 @@ public class UserService {
         tx.setTransactionType(TransactionType.REDEEM);
         tx.setState(TransactionState.PENDING);
         tx = pointTransactionRepository.save(tx);
+        pointLedgerService.consumeFifo(user.getId(), reward.getPointProgram().getId(), reward.getCostPoints());
 
         ExchangeCode exchangeCode = new ExchangeCode();
         exchangeCode.setOrganization(reward.getPointProgram().getOrganization());
@@ -749,32 +768,6 @@ public class UserService {
         traceabilityService.record(OperationType.REWARD_CLAIM, user.getId(), user.getId(), payload);
 
         return new ClaimRewardResponse(exchangeCode.getCode());
-    }
-
-    /** Serializes balance-affecting reads/writes for one (user, program) pair for the rest of the current transaction. */
-    private void lockBalance(UUID userId, UUID programId) {
-        long key = mix64(userId.getMostSignificantBits(), userId.getLeastSignificantBits())
-            ^ mix64(programId.getMostSignificantBits(), programId.getLeastSignificantBits());
-        jdbcTemplate.execute("SELECT pg_advisory_xact_lock(?)", (PreparedStatementCallback<Void>) ps -> {
-            ps.setLong(1, key);
-            ps.execute();
-            return null;
-        });
-    }
-
-    /**
-     * MurmurHash3 finalizer: a full-avalanche 64-bit mix, used to fold each UUID's 128 bits into one
-     * lock key. UUID.hashCode() alone only XORs the two halves down to 32 bits per ID, which is cheap
-     * to collide across unrelated (user, program) pairs and would serialize their locks together.
-     */
-    private static long mix64(long hi, long lo) {
-        long h = hi ^ lo;
-        h ^= (h >>> 33);
-        h *= 0xff51afd7ed558ccdL;
-        h ^= (h >>> 33);
-        h *= 0xc4ceb9fe1a85ec53L;
-        h ^= (h >>> 33);
-        return h;
     }
 
     private String generateExchangeCode() {

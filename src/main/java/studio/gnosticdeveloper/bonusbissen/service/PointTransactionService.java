@@ -327,6 +327,7 @@ public class PointTransactionService {
         refundTransaction.setPoints(Math.abs(pointTransaction.getPoints()));
         refundTransaction.setTransactionType(TransactionType.EARN);
         refundTransaction.setState(TransactionState.DELIVERED);
+        refundTransaction.setExpiresAt(pointTransaction.getPointProgram().computeExpiresAt());
         pointTransactionRepository.save(refundTransaction);
     }
 }

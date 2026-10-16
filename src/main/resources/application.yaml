@@ -105,3 +105,6 @@ app:
   traceability:
     retention-cron: ${TRACEABILITY_RETENTION_CRON:0 0 4 * * *}
     retention-months: ${TRACEABILITY_RETENTION_MONTHS:6}
+  points:
+    expiration-cron: ${POINTS_EXPIRATION_CRON:0 30 4 * * *}
+    expiration-batch-size: ${POINTS_EXPIRATION_BATCH_SIZE:500}
