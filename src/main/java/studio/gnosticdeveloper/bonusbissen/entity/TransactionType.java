@@ -1,9 +1,13 @@
 package studio.gnosticdeveloper.bonusbissen.entity;
 
+import lombok.Getter;
+
+@Getter
 public enum TransactionType {
     REDEEM("redeem"),
     EARN("earn"),
-    ADJUST("adjust");
+    ADJUST("adjust"),
+    EXPIRE("expire");
 
     private final String value;
 
@@ -11,7 +15,4 @@ public enum TransactionType {
         this.value = value;
     }
 
-    public String getValue() {
-        return value;
-    }
 }

@@ -205,11 +205,15 @@ class PointTransactionServiceTest {
         User user = new User();
         user.setId(UUID.randomUUID());
 
+        PointProgram program = new PointProgram();
+        program.setId(UUID.randomUUID());
+
         PointTransaction tx = new PointTransaction();
         tx.setId(UUID.randomUUID());
         tx.setState(TransactionState.PENDING);
         tx.setPoints(-15);
         tx.setUser(user);
+        tx.setPointProgram(program);
 
         when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));

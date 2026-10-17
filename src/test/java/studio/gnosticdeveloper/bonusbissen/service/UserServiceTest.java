@@ -85,7 +85,9 @@ class UserServiceTest {
     @Mock
     private TraceabilityService traceabilityService;
     @Mock
-    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    private BalanceLockService balanceLockService;
+    @Mock
+    private PointLedgerService pointLedgerService;
     @Mock
     private studio.gnosticdeveloper.bonusbissen.security.SessionService sessionService;
 

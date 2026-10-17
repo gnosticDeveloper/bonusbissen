@@ -8,6 +8,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
@@ -261,4 +262,85 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM PointTransaction t WHERE t.id = :id")
     Optional<PointTransaction> findByIdForUpdate(@Param("id") UUID id);
+
+    /** Projection of one (user, program) pair with at least one lot due for expiration processing. */
+    interface DuePair {
+        UUID getUserId();
+        UUID getPointProgramId();
+    }
+
+    /** Pairs with an earn lot past its expiry date that the expiration job hasn't settled yet. */
+    @Query(
+        value = """
+        select distinct t.user_id as userId, t.point_program_id as pointProgramId
+        from point_transactions t
+        where t.transaction_type = 'earn' and t.expires_at <= current_date and t.expiry_settled_at is null
+        """,
+        nativeQuery = true
+    )
+    List<DuePair> findPairsWithDueExpiration(Pageable pageable);
+
+    /** Due-and-unsettled lots for one (user, program) pair -- what processPair actually expires. */
+    @Query(
+        value = """
+        select t.* from point_transactions t
+        where t.user_id = :userId and t.point_program_id = :programId
+          and t.transaction_type = 'earn' and t.expires_at <= current_date and t.expiry_settled_at is null
+        """,
+        nativeQuery = true
+    )
+    List<PointTransaction> findDueLots(@Param("userId") UUID userId, @Param("programId") UUID programId);
+
+    /**
+     * The next lot consumption hasn't reached yet, walking forward from (or from the very start,
+     * when afterCreatedAt is null). Excludes already-expired lots (an expire row referencing them
+     * exists) so the cursor never tries to draw from a lot that's already been zeroed out,
+     * including the rare case where a lot expired out of creation-time order.
+     */
+    @Query(
+        value = """
+        select t.* from point_transactions t
+        where t.user_id = :userId and t.point_program_id = :programId and t.points > 0
+          and (
+            cast(:afterCreatedAt as timestamptz) is null
+            or t.created_at > :afterCreatedAt
+            or (t.created_at = :afterCreatedAt and t.id > :afterId)
+          )
+          and not exists (select 1 from point_transactions e where e.expired_transaction_id = t.id)
+        order by t.created_at asc, t.id asc
+        limit 1
+        """,
+        nativeQuery = true
+    )
+    Optional<PointTransaction> findNextOpenLot(
+        @Param("userId") UUID userId,
+        @Param("programId") UUID programId,
+        @Param("afterCreatedAt") OffsetDateTime afterCreatedAt,
+        @Param("afterId") UUID afterId
+    );
+
+    /** Enabling expiration: dates existing delivered earn lots that were never dated (and never voided), starting today. */
+    @Modifying
+    @Query(
+        value = """
+        update point_transactions
+        set expires_at = (current_date + (:months || ' months')::interval)::date
+        where point_program_id = :programId and transaction_type = 'earn'
+          and expires_at is null and expiry_settled_at is null and voided_at is null
+        """,
+        nativeQuery = true
+    )
+    void backfillExpiresAt(@Param("programId") UUID programId, @Param("months") int months);
+
+    /** Disabling expiration: un-dates lots the job hasn't settled yet, so no stray future expiration fires. */
+    @Modifying
+    @Query(
+        value = """
+        update point_transactions
+        set expires_at = null
+        where point_program_id = :programId and transaction_type = 'earn' and expiry_settled_at is null
+        """,
+        nativeQuery = true
+    )
+    void clearExpiresAt(@Param("programId") UUID programId);
 }

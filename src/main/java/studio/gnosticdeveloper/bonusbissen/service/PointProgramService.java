@@ -2,6 +2,7 @@ package studio.gnosticdeveloper.bonusbissen.service;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserPointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
@@ -25,24 +27,29 @@ import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 @Service
 public class PointProgramService {
 
+    private static final Set<Integer> ALLOWED_EXPIRATION_MONTHS = Set.of(3, 6, 9, 12);
+
     private final PointProgramRepository pointProgramRepository;
     private final StorefrontRepository storefrontRepository;
     private final OrganizationRepository organizationRepository;
     private final UserPointProgramRepository userPointProgramRepository;
     private final UserRepository userRepository;
+    private final PointTransactionRepository pointTransactionRepository;
 
     public PointProgramService(
         PointProgramRepository pointProgramRepository,
         StorefrontRepository storefrontRepository,
         OrganizationRepository organizationRepository,
         UserPointProgramRepository userPointProgramRepository,
-        UserRepository userRepository
+        UserRepository userRepository,
+        PointTransactionRepository pointTransactionRepository
     ) {
         this.pointProgramRepository = pointProgramRepository;
         this.storefrontRepository = storefrontRepository;
         this.organizationRepository = organizationRepository;
         this.userPointProgramRepository = userPointProgramRepository;
         this.userRepository = userRepository;
+        this.pointTransactionRepository = pointTransactionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -79,6 +86,23 @@ public class PointProgramService {
         program.setUnitLabel(blankToNull(request.unitLabel()));
         if (request.active() != null) {
             program.setActive(request.active());
+        }
+
+        Integer newMonths = request.expirationMonths();
+        if (newMonths != null && !ALLOWED_EXPIRATION_MONTHS.contains(newMonths)) {
+            throw new BadRequestException(
+                "Invalid expirationMonths value: " + newMonths,
+                "La duración de los puntos debe ser 3, 6, 9 o 12 meses, o ilimitada."
+            );
+        }
+        Integer oldMonths = program.getExpirationMonths();
+        if (!Objects.equals(oldMonths, newMonths)) {
+            program.setExpirationMonths(newMonths);
+            if (newMonths != null) {
+                pointTransactionRepository.backfillExpiresAt(program.getId(), newMonths);
+            } else {
+                pointTransactionRepository.clearExpiresAt(program.getId());
+            }
         }
         return saveUnique(program);
     }

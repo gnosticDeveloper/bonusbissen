@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -40,6 +41,10 @@ public class PointProgram {
     @Column(nullable = false)
     private boolean active = true;
 
+    /** Months until an earned point lot expires, or null for no expiration. Owner-configurable. */
+    @Column(name = "expiration_months")
+    private Integer expirationMonths;
+
     @OneToMany(mappedBy = "pointProgram", fetch = FetchType.LAZY)
     private Set<Storefront> storefronts = new HashSet<>();
 
@@ -51,5 +56,10 @@ public class PointProgram {
         if (createdAt == null) {
             createdAt = OffsetDateTime.now();
         }
+    }
+
+    /** The expiry date a point lot earned today should carry, or null if this program doesn't expire points. */
+    public LocalDate computeExpiresAt() {
+        return expirationMonths == null ? null : LocalDate.now().plusMonths(expirationMonths);
     }
 }
