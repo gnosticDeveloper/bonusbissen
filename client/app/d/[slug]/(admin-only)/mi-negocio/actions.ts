@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { dashboardRequest, ActionResult } from "@/lib/api";
 import { FormState } from "@/app/d/types";
 import { Organization } from "@/lib/types/organization";
+import { validateImageUpload } from "@/lib/image-upload";
 import { Storefront, StorefrontPayload } from "@/lib/types/storefront";
 import { PointProgram, PointProgramCreateRequest } from "@/lib/types/point-program";
 
@@ -48,6 +49,21 @@ export async function updateOrganization(_prev: FormState, formData: FormData): 
 
   if (result.ok) revalidatePath(PATH);
   return toFormState(result, "Datos del negocio actualizados.");
+}
+
+export async function uploadOrganizationImage(kind: "logo" | "banner", formData: FormData): Promise<ActionResult<string | null>> {
+  if (kind !== "logo" && kind !== "banner") return { ok: false, error: "Tipo de imagen no válido." };
+  const image = formData.get("image");
+  if (!(image instanceof File)) return { ok: false, error: "Seleccioná una imagen para tu negocio." };
+  const error = validateImageUpload(image);
+  if (error) return { ok: false, error };
+
+  const body = new FormData();
+  body.set("image", image);
+  const result = await dashboardRequest<Organization>(`/organization/${kind}`, { method: "POST", body });
+  if (!result.ok) return result;
+  revalidatePath("/d/[slug]/mi-negocio", "page");
+  return { ok: true, data: result.data?.[kind === "logo" ? "logoUrl" : "bannerUrl"] ?? null };
 }
 
 // --- Storefronts ---

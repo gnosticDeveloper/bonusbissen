@@ -2,6 +2,7 @@ import { Spinner } from "@/components/spinner";
 import { Business } from "@/lib/definitions";
 import { RewardCard } from "./reward-card";
 import { formatPoints } from "@/lib/helpers/format";
+import { resolveAssetUrl } from "@/lib/helpers/assets";
 import { Carousel } from "./carousel";
 import Link from "next/link";
 
@@ -29,6 +30,7 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
   return (
     <section className="grid gap-7">
       {businesses.map((storefront) => {
+        const logoUrl = storefront.orgLogoUrl ?? resolveAssetUrl(storefront.logoUrl);
         return (
           <article key={storefront.id} className="overflow-hidden border-b border-border bg-background pb-7">
             <header className="flex items-center gap-3 px-5 pb-3">
@@ -36,11 +38,11 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
                 className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-card text-base font-semibold text-foreground"
                 style={{ borderColor: `${storefront.color}55` }}
               >
-                {storefront.logoUrl ? (
+                {logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={storefront.logoUrl} alt="" className="size-full object-cover" />
+                  <img src={logoUrl} alt="" className="size-full object-cover" />
                 ) : (
-                  storefront.name.charAt(0).toUpperCase()
+                  storefront.orgName.charAt(0).toUpperCase()
                 )}
               </div>
 

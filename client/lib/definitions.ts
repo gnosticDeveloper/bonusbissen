@@ -48,7 +48,9 @@ export type Business = {
   category: string;
   description: string;
   color: string;
-  logoUrl: string;
+  logoUrl: string | null;
+  orgLogoUrl: string | null;
+  orgBannerUrl: string | null;
   pointLabel: string;
   points: number;
   rewards: Reward[];
