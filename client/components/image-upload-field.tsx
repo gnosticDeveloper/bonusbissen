@@ -2,62 +2,48 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ImagePlus } from "lucide-react";
+import { Camera, ImagePlus } from "lucide-react";
 import type { ActionResult } from "@/lib/api";
 import { IMAGE_ACCEPT, validateImageUpload } from "@/lib/image-upload";
-
 
 type Props = {
   label: string;
   initialUrl?: string | null;
-  shape?: "square" | "banner";
+  shape?: "avatar" | "square" | "banner";
+  hideLabel?: boolean;
+  showHint?: boolean;
   upload: (data: FormData) => Promise<ActionResult<string | null>>;
 };
 
-export function ImageUploadField({ label, initialUrl, shape = "square", upload }: Props) {
+export function ImageUploadField({ label, initialUrl, shape = "square", hideLabel = false, showHint = true, upload }: Props) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [savedUrl, setSavedUrl] = useState<string | null>(initialUrl ?? null);
   const [error, setError] = useState<string | null>(null);
   const [state, setState] = useState<"idle" | "uploading" | "saved">("idle");
 
   useEffect(() => {
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
-
-  useEffect(() => {
     setSavedUrl(initialUrl ?? null);
   }, [initialUrl]);
 
-  function chooseFile(selected?: File) {
-    if (!selected) return;
+  async function chooseFile(selected?: File) {
+    if (!selected || state === "uploading") return;
+    setState("idle");
     const validationError = validateImageUpload(selected);
     if (validationError) {
       setError(validationError);
       if (inputRef.current) inputRef.current.value = "";
       return;
     }
-    setError(null);
-    setState("idle");
-    setFile(selected);
-  }
 
-  async function submit() {
-    if (!file || state === "uploading") return;
-    const validationError = validateImageUpload(file);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    setState("uploading");
+    const objectUrl = URL.createObjectURL(selected);
+    setPreview(objectUrl);
     setError(null);
+    setState("uploading");
     const data = new FormData();
-    data.set("image", file);
+    data.set("image", selected);
+
     try {
       const result = await upload(data);
       if (!result.ok) {
@@ -67,52 +53,53 @@ export function ImageUploadField({ label, initialUrl, shape = "square", upload }
       }
       if (result.data) setSavedUrl(result.data);
       setState("saved");
-      setFile(null);
-      setPreview(null);
-      if (inputRef.current) inputRef.current.value = "";
       router.refresh();
     } catch {
       setError("No pudimos subir la imagen. Intentá de nuevo.");
       setState("idle");
+    } finally {
+      setPreview(null);
+      URL.revokeObjectURL(objectUrl);
+      if (inputRef.current) inputRef.current.value = "";
     }
   }
 
   const imageUrl = preview ?? savedUrl;
-  const banner = shape === "banner";
+  const shapeClass = shape === "avatar" ? "mx-auto size-24 rounded-full" : shape === "banner" ? "aspect-3/1 min-h-28 w-full rounded-xl" : "size-28 rounded-xl";
 
   return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        <p className="mt-1 text-xs text-foreground/75">WEBP, JPG, JPEG o PNG · máximo 2 MB.</p>
-      </div>
-      <div className={`flex items-center justify-center overflow-hidden rounded-2xl border border-border bg-background ${banner ? "aspect-3/1 w-full" : "size-24"}`}>
+    <div className="min-w-0 space-y-2">
+      <p className={hideLabel ? "sr-only" : "text-sm font-medium text-foreground"}>{label}</p>
+      <button
+        type="button"
+        aria-label={`${imageUrl ? "Cambiar" : "Seleccionar"} ${label.toLowerCase()}`}
+        aria-busy={state === "uploading"}
+        disabled={state === "uploading"}
+        onClick={() => inputRef.current?.click()}
+        className={`group relative grid place-items-center overflow-hidden border border-border bg-background text-foreground shadow-sm transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-wait ${shapeClass}`}
+      >
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={imageUrl} alt={`Vista previa: ${label.toLowerCase()}`} className="size-full object-cover" />
+          <img src={imageUrl} alt="" className="size-full object-cover" />
         ) : (
-          <ImagePlus className="size-7 text-foreground/60" aria-hidden="true" />
+          <ImagePlus className="size-6 text-foreground/60" aria-hidden="true" />
         )}
-      </div>
+        <span className="absolute inset-0 grid place-items-center bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+          <Camera className="size-5" aria-hidden="true" />
+        </span>
+      </button>
       <input
         ref={inputRef}
         type="file"
         accept={IMAGE_ACCEPT}
-        aria-label={`Seleccionar ${label.toLowerCase()}`}
-        disabled={state === "uploading"}
-        onChange={(event) => chooseFile(event.target.files?.[0])}
-        className="block w-full text-sm text-foreground file:mr-3 file:rounded-full file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:font-medium file:text-foreground hover:file:bg-primary/20"
+        tabIndex={-1}
+        hidden
+        onChange={(event) => void chooseFile(event.target.files?.[0])}
       />
+      {showHint && <p className="text-xs text-foreground/75">WEBP, JPG, JPEG o PNG · máximo 2 MB.</p>}
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-      {state === "saved" && <p role="status" className="text-sm text-foreground">Imagen actualizada correctamente.</p>}
-      <button
-        type="button"
-        disabled={!file || state === "uploading"}
-        onClick={() => void submit()}
-        className="w-fit rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-      >
-        {state === "uploading" ? "Subiendo..." : `Guardar ${label.toLowerCase()}`}
-      </button>
+      {state === "uploading" && <p role="status" className="text-xs text-foreground/75">Subiendo imagen...</p>}
+      {state === "saved" && <p role="status" className="text-xs text-foreground/75">Imagen actualizada.</p>}
     </div>
   );
 }

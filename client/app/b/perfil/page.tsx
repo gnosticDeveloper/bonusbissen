@@ -307,25 +307,12 @@ export default function ProfilePage() {
       <h1 className="mb-6 text-xl font-medium text-foreground">Mi perfil</h1>
 
       <section className="mb-6 rounded-2xl border border-border bg-card p-5">
-        <div className="mb-5 flex items-center gap-4">
-          <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-lg font-medium text-primary-foreground">
-            {user?.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={user.avatarUrl} alt="" className="size-full object-cover" />
-            ) : current.name ? (
-              current.name.charAt(0).toUpperCase()
-            ) : (
-              "?"
-            )}
-          </div>
-          <div className="min-w-0">
+        <div className="mb-5 flex flex-col items-center gap-3 border-b border-border pb-5 text-center">
+          <ImageUploadField label="Foto de perfil" shape="avatar" hideLabel initialUrl={user?.avatarUrl} upload={uploadAvatar} />
+          <div className="min-w-0 max-w-full">
             <p className="truncate text-base font-medium text-foreground">{current.name || "Sin nombre"}</p>
             <p className="truncate text-sm text-foreground/75">@{current.username}</p>
           </div>
-        </div>
-
-        <div className="mb-5 border-b border-border pb-5">
-          <ImageUploadField label="Foto de perfil" initialUrl={user?.avatarUrl} upload={uploadAvatar} />
         </div>
 
         <form onSubmit={handleProfileSubmit} className="flex flex-col gap-4">
