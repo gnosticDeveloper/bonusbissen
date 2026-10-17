@@ -34,6 +34,9 @@ public class User {
     @Column(nullable = false, length = 255)
     private String name;
 
+    @Column(name = "profile_picture_path", length = 255)
+    private String profilePicturePath;
+
     @Column(name = "active", nullable = false)
     private boolean active = true;
 

@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast";
 import { Organization } from "@/lib/types/organization";
 import { FormState } from "@/app/d/types";
-import { updateOrganization } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
+import { updateOrganization, uploadOrganizationImage } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
+import { ImageUploadField } from "@/components/image-upload-field";
 
 const initialState: FormState = { message: null, status: null };
 
@@ -55,6 +56,11 @@ export function OrganizationSection({ org }: { org: Organization }) {
             <SubmitButton />
           </div>
         </form>
+        <div className="mt-6 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4 border-t border-border pt-6 sm:gap-6">
+          <ImageUploadField label="Logo" initialUrl={org.logoUrl} showHint={false} upload={(data) => uploadOrganizationImage("logo", data)} />
+          <ImageUploadField label="Banner" initialUrl={org.bannerUrl} shape="banner" showHint={false} upload={(data) => uploadOrganizationImage("banner", data)} />
+          <p className="col-span-2 text-xs text-foreground/75">WEBP, JPG, JPEG o PNG · máximo 2 MB. Hacé clic en la imagen para cambiarla.</p>
+        </div>
       </CardContent>
     </Card>
   );

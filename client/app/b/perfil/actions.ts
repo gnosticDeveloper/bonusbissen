@@ -5,6 +5,7 @@ import { request } from "@/lib/api";
 import { verifySession } from "@/lib/auth/session";
 import { CUSTOMER_REFRESH_COOKIE } from "@/lib/auth/refresh";
 import { UserInfo } from "@/lib/types/customer";
+import { validateImageUpload } from "@/lib/image-upload";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
@@ -54,6 +55,20 @@ export async function updateProfile(input: { name: string; email: string }): Pro
   });
   if (result.ok) revalidatePath("/b/perfil");
   return result;
+}
+
+export async function uploadAvatar(formData: FormData): Promise<ActionResult<string | null>> {
+  const image = formData.get("image");
+  if (!(image instanceof File)) return { ok: false, error: "Seleccioná una imagen para tu perfil." };
+  const error = validateImageUpload(image);
+  if (error) return { ok: false, error };
+
+  const body = new FormData();
+  body.set("image", image);
+  const result = await request<UserInfo>("/users/me/avatar", { method: "POST", body });
+  if (!result.ok) return result;
+  revalidatePath("/b/perfil");
+  return { ok: true, data: result.data?.avatarUrl ?? null };
 }
 
 export async function updatePassword(input: { currentPassword: string; newPassword: string }): Promise<ActionResult<void>> {

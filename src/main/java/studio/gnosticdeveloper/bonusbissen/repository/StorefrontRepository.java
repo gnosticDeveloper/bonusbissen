@@ -8,7 +8,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import studio.gnosticdeveloper.bonusbissen.dto.response.StorefrontDiscoverResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 
 public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
@@ -63,10 +62,12 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
             SELECT
                 s.id AS id,
                 s.name AS name,
-                o.name AS org_name,
+                o.name AS "orgName",
                 s.color AS color,
-                s.icon_path AS icon_url,
-                pp.unit_label AS point_label
+                s.icon_path AS "iconUrl",
+                pp.unit_label AS "pointLabel",
+                o.logo_path AS "orgLogoPath",
+                o.banner_path AS "orgBannerPath"
             FROM storefronts s
             JOIN organizations o ON o.id = s.organization_id
             LEFT JOIN point_programs pp ON pp.id = s.point_program_id AND pp.active = true
@@ -74,5 +75,16 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
             """,
         nativeQuery = true
     )
-    Optional<StorefrontDiscoverResponse> getBasicInfoById(@Param("id") UUID id);
+    Optional<BasicInfo> getBasicInfoById(@Param("id") UUID id);
+
+    interface BasicInfo {
+        UUID getId();
+        String getName();
+        String getOrgName();
+        String getColor();
+        String getIconUrl();
+        String getPointLabel();
+        String getOrgLogoPath();
+        String getOrgBannerPath();
+    }
 }

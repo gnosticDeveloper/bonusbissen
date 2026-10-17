@@ -10,5 +10,10 @@ import java.util.UUID;
  * @param color
  * @param iconUrl
  * @param pointLabel
+ * @param orgLogoUrl resolved organization logo URL, or null when unset
+ * @param orgBannerUrl resolved organization banner URL, or null when unset
  */
-public record StorefrontDiscoverResponse(UUID id, String name, String orgName, String color, String iconUrl, String pointLabel) {}
+public record StorefrontDiscoverResponse(
+    UUID id, String name, String orgName, String color, String iconUrl, String pointLabel,
+    String orgLogoUrl, String orgBannerUrl
+) {}
