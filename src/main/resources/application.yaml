@@ -111,3 +111,7 @@ app:
   points:
     expiration-cron: ${POINTS_EXPIRATION_CRON:0 30 4 * * *}
     expiration-batch-size: ${POINTS_EXPIRATION_BATCH_SIZE:500}
+  billing:
+    # Daily check for organizations whose billing cycle has come due (see
+    # InvoiceGenerationService / 9__billing.sql).
+    invoice-cron: ${BILLING_INVOICE_CRON:0 15 5 * * *}

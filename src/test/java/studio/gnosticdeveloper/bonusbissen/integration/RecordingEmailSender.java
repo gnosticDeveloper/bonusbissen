@@ -31,6 +31,11 @@ public class RecordingEmailSender implements EmailSender {
         sent.add(new Sent(toEmail, toName, loginLink));
     }
 
+    @Override
+    public void sendInvoiceEmail(String toEmail, String toName, byte[] pdf, String fileName) {
+        sent.add(new Sent(toEmail, toName, fileName));
+    }
+
     public List<Sent> sent() {
         return sent;
     }
