@@ -14,7 +14,7 @@ export default async function MemberOnlyHomePage({ params }: { params: Promise<{
   const business = result.data;
 
   return (
-    <main className="mx-auto flex w-full max-w-107.5 flex-col gap-8 px-5 pb-28 pt-6 text-foreground">
+    <main className="mx-auto flex w-full max-w-107.5 flex-col gap-8 px-5 pt-6 text-foreground">
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold tracking-[-0.03em]">Recompensas destacadas</h2>
 
