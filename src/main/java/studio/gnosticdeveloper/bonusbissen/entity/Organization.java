@@ -31,6 +31,31 @@ public class Organization {
     @Column(nullable = false)
     private boolean active = true;
 
+    @Column(name = "fiscal_name")
+    private String fiscalName;
+
+    @Column(name = "tax_id", length = 32)
+    private String taxId;
+
+    @Column(name = "fiscal_address")
+    private String fiscalAddress;
+
+    @Column(name = "iva_condition", length = 32)
+    private IvaCondition ivaCondition;
+
+    @Column(name = "billing_email")
+    private String billingEmail;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "billing_plan_id")
+    private BillingPlan billingPlan;
+
+    @Column(name = "billing_cycle", length = 16)
+    private BillingCycle billingCycle;
+
+    @Column(name = "next_invoice_due_at")
+    private OffsetDateTime nextInvoiceDueAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
