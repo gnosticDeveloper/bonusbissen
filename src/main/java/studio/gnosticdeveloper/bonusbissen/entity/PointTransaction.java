@@ -2,6 +2,7 @@ package studio.gnosticdeveloper.bonusbissen.entity;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import lombok.Getter;
@@ -47,6 +48,10 @@ public class PointTransaction {
     @JoinColumn(name = "corrected_transaction_id")
     private PointTransaction correctedTransaction;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "expired_transaction_id")
+    private PointTransaction expiredTransaction;
+
     @Convert(converter = TransactionTypeConverter.class)
     @Column(name = "transaction_type", nullable = false)
     private TransactionType transactionType;
@@ -66,6 +71,18 @@ public class PointTransaction {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
+
+    /** Day this lot's points expire, or null if it never expires (not an earn row, or its program has no expiration configured). */
+    @Column(name = "expires_at")
+    private LocalDate expiresAt;
+
+    /** Set once the expiration job has evaluated this lot, whether or not it produced an expire row -- keeps the daily scan bounded. */
+    @Column(name = "expiry_settled_at")
+    private OffsetDateTime expirySettledAt;
+
+    /** Set when a full-reversal correction zeroed this lot out by hand -- excludes it from ever being re-dated if expiration is re-enabled later. */
+    @Column(name = "voided_at")
+    private OffsetDateTime voidedAt;
 
     @PrePersist
     protected void onCreate() {

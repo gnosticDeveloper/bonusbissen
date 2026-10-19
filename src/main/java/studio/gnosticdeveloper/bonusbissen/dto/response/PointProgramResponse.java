@@ -9,6 +9,7 @@ public record PointProgramResponse(
     String name,
     String unitLabel,
     boolean active,
+    Integer expirationMonths,
     List<StorefrontSummary> storefronts
 ) {
     public static PointProgramResponse from(PointProgram p) {
@@ -17,6 +18,7 @@ public record PointProgramResponse(
             p.getName(),
             p.getUnitLabel(),
             p.isActive(),
+            p.getExpirationMonths(),
             p.getStorefronts().stream().map(StorefrontSummary::from).toList()
         );
     }
