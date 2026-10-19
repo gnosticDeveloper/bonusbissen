@@ -7,8 +7,9 @@ import { Organization } from "@/lib/types/organization";
 import { validateImageUpload } from "@/lib/image-upload";
 import { Storefront, StorefrontPayload } from "@/lib/types/storefront";
 import { PointProgram, PointProgramCreateRequest } from "@/lib/types/point-program";
+import { pointProgramUpdatePayloadFrom } from "@/lib/helpers/point-program-settings";
 
-const PATH = "mi-negocio"; // TODO: revisar si necesita el slug dinámico o revalidateTag alcanza
+const PATH = "/d/[slug]/(admin-only)/mi-negocio";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
@@ -47,7 +48,7 @@ export async function updateOrganization(_prev: FormState, formData: FormData): 
     body: JSON.stringify({ name }),
   });
 
-  if (result.ok) revalidatePath(PATH);
+  if (result.ok) revalidatePath(PATH, "page");
   return toFormState(result, "Datos del negocio actualizados.");
 }
 
@@ -62,7 +63,7 @@ export async function uploadOrganizationImage(kind: "logo" | "banner", formData:
   body.set("image", image);
   const result = await dashboardRequest<Organization>(`/organization/${kind}`, { method: "POST", body });
   if (!result.ok) return result;
-  revalidatePath("/d/[slug]/mi-negocio", "page");
+  revalidatePath(PATH, "page");
   return { ok: true, data: result.data?.[kind === "logo" ? "logoUrl" : "bannerUrl"] ?? null };
 }
 
@@ -89,7 +90,7 @@ export async function createStorefront(_prev: FormState, formData: FormData): Pr
     body: JSON.stringify(storefrontPayloadFrom(formData)),
   });
 
-  if (result.ok) revalidatePath(PATH);
+  if (result.ok) revalidatePath(PATH, "page");
   return toFormState(result, "Sucursal creada.");
 }
 
@@ -102,14 +103,14 @@ export async function updateStorefront(id: string, _prev: FormState, formData: F
     body: JSON.stringify(payload),
   });
 
-  if (result.ok) revalidatePath(PATH);
+  if (result.ok) revalidatePath(PATH, "page");
   return toFormState(result, "Sucursal actualizada.");
 }
 
 export async function deactivateStorefront(id: string): Promise<void> {
   // Nota: este endpoint responde 204 — ver comentario sobre dashboardRequest más abajo.
   const result = await dashboardRequest<void>(`/storefronts/${id}`, { method: "DELETE" });
-  if (result.ok) revalidatePath(PATH);
+  if (result.ok) revalidatePath(PATH, "page");
 }
 
 // --- Point programs ---
@@ -127,14 +128,13 @@ export async function createPointProgram(_prev: FormState, formData: FormData): 
     body: JSON.stringify(payload),
   });
 
-  if (result.ok) revalidatePath(PATH);
+  if (result.ok) revalidatePath(PATH, "page");
   return toFormState(result, "Programa de puntos creado.");
 }
 
 export async function updatePointProgram(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
-  const name = formData.get("name") as string;
-  const unitLabel = (formData.get("unitLabel") as string) || undefined;
-  const active = formData.get("active") === "true";
+  const payload = pointProgramUpdatePayloadFrom(formData);
+  if (!payload.ok) return { message: payload.error, status: "error" };
 
   const selected = new Set(formData.getAll("storefrontIds") as string[]);
   const original = new Set(((formData.get("originalStorefrontIds") as string) || "").split(",").filter(Boolean));
@@ -144,7 +144,7 @@ export async function updatePointProgram(id: string, _prev: FormState, formData:
   const result = await dashboardRequest<PointProgram>(`/point-programs/${id}`, {
     method: "PATCH",
     headers: JSON_HEADERS,
-    body: JSON.stringify({ name, unitLabel, active }),
+    body: JSON.stringify(payload.data),
   });
 
   if (!result.ok) return toFormState(result, "");
@@ -164,6 +164,6 @@ export async function updatePointProgram(id: string, _prev: FormState, formData:
     });
   }
 
-  revalidatePath(PATH);
+  revalidatePath(PATH, "page");
   return toFormState(result, "Programa de puntos actualizado.");
 }

@@ -24,5 +24,5 @@ export function RewardsPaginationControls({ page, totalPages }: { page: number; 
     startTransition(() => router.replace(getPageHref(nextPage)));
   };
 
-  return <PaginationControls page={page} totalPages={totalPages} onPageChange={handlePageChange} disabled={isPending} className="mt-6 pb-12" />;
+  return <PaginationControls page={page} totalPages={totalPages} onPageChange={handlePageChange} disabled={isPending} className="mt-6" />;
 }
