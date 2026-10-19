@@ -82,9 +82,17 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
     int calculateBalance(@Param("userId") UUID userId, @Param("programId") UUID programId);
 
     @Query("""
-        SELECT t FROM PointTransaction t WHERE t.user.id = :userId
-        AND (t.storefront.id = :storefrontId OR (t.correctedTransaction IS NOT NULL
-            AND t.pointProgram.id = (SELECT s.pointProgram.id FROM Storefront s WHERE s.id = :storefrontId)))
+        SELECT t FROM PointTransaction t
+        JOIN Storefront s ON s.id = :storefrontId
+        LEFT JOIN t.correctedTransaction correction
+        LEFT JOIN t.expiredTransaction expired
+        WHERE t.user.id = :userId
+          AND t.pointProgram.organization.id = s.organization.id
+          AND (t.storefront.id = s.id
+            OR (correction IS NOT NULL AND t.pointProgram.id = s.pointProgram.id)
+            OR (expired IS NOT NULL AND expired.user.id = t.user.id
+                AND expired.pointProgram.id = t.pointProgram.id
+                AND (expired.storefront.id = s.id OR t.pointProgram.id = s.pointProgram.id)))
         ORDER BY t.createdAt DESC
         """)
     List<PointTransaction> findAllByUserIdAndStorefrontIdOrderByCreatedAtDesc(@Param("userId") UUID userId, @Param("storefrontId") UUID storefrontId);
@@ -274,7 +282,7 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
         value = """
         select distinct t.user_id as userId, t.point_program_id as pointProgramId
         from point_transactions t
-        where t.transaction_type = 'earn' and t.expires_at <= current_date and t.expiry_settled_at is null
+        where t.transaction_type = 'earn' and t.expires_at <= current_timestamp and t.expiry_settled_at is null
         """,
         nativeQuery = true
     )
@@ -285,7 +293,7 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
         value = """
         select t.* from point_transactions t
         where t.user_id = :userId and t.point_program_id = :programId
-          and t.transaction_type = 'earn' and t.expires_at <= current_date and t.expiry_settled_at is null
+          and t.transaction_type = 'earn' and t.expires_at <= current_timestamp and t.expiry_settled_at is null
         """,
         nativeQuery = true
     )
@@ -319,12 +327,12 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
         @Param("afterId") UUID afterId
     );
 
-    /** Enabling expiration: dates existing delivered earn lots that were never dated (and never voided), starting today. */
+    /** Dates only undated, unsettled, nonvoided earn lots from their creation time, preserving assigned deadlines. */
     @Modifying
     @Query(
         value = """
         update point_transactions
-        set expires_at = (current_date + (:months || ' months')::interval)::date
+        set expires_at = ((created_at at time zone 'UTC') + (:months || ' months')::interval) at time zone 'UTC'
         where point_program_id = :programId and transaction_type = 'earn'
           and expires_at is null and expiry_settled_at is null and voided_at is null
         """,
@@ -332,7 +340,7 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
     )
     void backfillExpiresAt(@Param("programId") UUID programId, @Param("months") int months);
 
-    /** Disabling expiration: un-dates lots the job hasn't settled yet, so no stray future expiration fires. */
+    /** Disabling expiration clears unsettled earn deadlines, preserving already processed history. */
     @Modifying
     @Query(
         value = """

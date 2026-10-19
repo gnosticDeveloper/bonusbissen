@@ -406,6 +406,7 @@ public class UserService {
 
     private MovementResponse toMovementResponse(PointTransaction mv) {
         String title = mv.getCorrectedTransaction() != null ? "Corrección de puntos"
+            : mv.getTransactionType() == TransactionType.EXPIRE ? "Puntos vencidos"
             : mv.getTransactionType() == TransactionType.REDEEM ? mv.getReward().getTitle()
             : mv.getPoints() < 0 ? "Restaste puntos" : "Sumaste puntos";
 
@@ -426,7 +427,10 @@ public class UserService {
             formattedDate,
             mv.getCorrectedTransaction() != null,
             mv.getCorrectedTransaction() != null ? mv.getCorrectedTransaction().getId() : null,
-            mv.getCorrectedTransaction() != null ? mv.getCorrectedTransaction().getPoints() : null
+            mv.getCorrectedTransaction() != null ? mv.getCorrectedTransaction().getPoints() : null,
+            mv.getCreatedAt().toString(),
+            mv.getApplicableExpiresAt() != null ? mv.getApplicableExpiresAt().toString() : null,
+            mv.isExpirationApplicable()
         );
     }
 
@@ -579,9 +583,6 @@ public class UserService {
         boolean isEarn = request.points() > 0;
         tx.setTransactionType(isEarn ? TransactionType.EARN : TransactionType.ADJUST);
         tx.setState(TransactionState.DELIVERED);
-        if (isEarn) {
-            tx.setExpiresAt(program.computeExpiresAt());
-        }
         tx = pointTransactionRepository.save(tx);
         if (!isEarn) {
             pointLedgerService.consumeFifo(user.getId(), program.getId(), -request.points());

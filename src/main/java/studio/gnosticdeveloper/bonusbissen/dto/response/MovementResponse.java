@@ -14,5 +14,8 @@ public record MovementResponse(
     String formattedCreatedAt,
     boolean correction,
     UUID correctedTransactionId,
-    Integer correctedTransactionAmount
+    Integer correctedTransactionAmount,
+    String createdAt,
+    String expiresAt,
+    boolean expirationApplicable
 ) {}
