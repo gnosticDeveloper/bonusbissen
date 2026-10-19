@@ -36,4 +36,15 @@ public interface EmailSender {
      * @param ttlMinutes how long the link stays valid, stated explicitly in the copy
      */
     void sendDashboardLoginLinkEmail(String toEmail, String toName, String loginLink, long ttlMinutes);
+
+    /**
+     * Send a generated invoice PDF to an organization's billing contact.
+     * Same best-effort delivery contract as {@link #sendVerificationEmail}.
+     *
+     * @param toEmail  billing contact address
+     * @param toName   organization name, for the greeting
+     * @param pdf      the invoice document bytes
+     * @param fileName attachment file name
+     */
+    void sendInvoiceEmail(String toEmail, String toName, byte[] pdf, String fileName);
 }
