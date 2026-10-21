@@ -6,6 +6,7 @@ import { Building2, ChevronDown, Menu, X } from "lucide-react";
 import { selectStorefront, type StorefrontSummary } from "@/app/d/sign-in/actions";
 import type { AdminUserInfo, UserRole } from "@/lib/definitions";
 import { cn } from "@/lib/helpers/utils";
+import { CARD_PALETTES, pickCardVariant } from "@/lib/helpers/color";
 import Sidebar, { NAV } from "./sidebar";
 import { UserMenu } from "./user-menu";
 import { BrandLockup } from "./brand";
@@ -17,6 +18,7 @@ type DashboardShellProps = {
   currentUser: AdminUserInfo | null;
   storefronts: StorefrontSummary[];
   activeStorefrontId?: string;
+  activeColor?: string | null;
   children: React.ReactNode;
 };
 
@@ -119,8 +121,12 @@ function StorefrontSwitcher({ storefronts, activeStorefrontId }: Pick<DashboardS
   );
 }
 
-export function DashboardShell({ orgId, role, children, currentUser, storefronts, activeStorefrontId }: DashboardShellProps) {
+export function DashboardShell({ orgId, role, children, currentUser, storefronts, activeStorefrontId, activeColor }: DashboardShellProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const color = activeColor && /^#[\da-f]{6}(?:[\da-f]{2})?$/i.test(activeColor) ? activeColor.slice(0, 7) : null;
+  const primaryStyle = color
+    ? ({ "--primary": color, "--primary-foreground": CARD_PALETTES[pickCardVariant(color)].text } as React.CSSProperties)
+    : undefined;
 
   const items = NAV.filter((item) => item.roles.includes(role));
 
@@ -140,7 +146,7 @@ export function DashboardShell({ orgId, role, children, currentUser, storefronts
   }, [isDrawerOpen]);
 
   return (
-    <div className="flex h-svh flex-col lg:flex-row">
+    <div className="flex h-svh flex-col lg:flex-row" style={primaryStyle}>
       {/* Sidebar fija en desktop */}
       <aside className="hidden w-64 shrink-0 flex-col gap-6 border-r border-border bg-card p-4 lg:flex">
         <div className="flex items-center justify-between">

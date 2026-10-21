@@ -7,6 +7,7 @@ import { Field, Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast";
 import { PointProgram } from "@/lib/types/point-program";
+import { POINT_EXPIRATION_MONTHS } from "@/lib/helpers/point-program-settings";
 import { Storefront } from "@/lib/types/storefront";
 import { FormState } from "@/app/d/types";
 import { createPointProgram, updatePointProgram } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
@@ -77,6 +78,29 @@ export function PointProgramForm({
       <Field label="Nombre de la unidad" htmlFor="pp-unit">
         <Input defaultValue={pointProgram?.unitLabel ?? ""} id="pp-unit" name="unitLabel" placeholder="Ej. granos (opcional, por defecto 'puntos')" />
       </Field>
+
+      {pointProgram ? (
+        <Field label="Vencimiento de puntos" htmlFor={`pp-expiration-${pointProgram.id}`}>
+          <select
+            id={`pp-expiration-${pointProgram.id}`}
+            name="expirationMonths"
+            defaultValue={pointProgram.expirationMonths ?? "none"}
+            aria-describedby={`pp-expiration-help-${pointProgram.id}`}
+            className="h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-foreground/70"
+          >
+            <option value="none">Sin vencimiento</option>
+            {POINT_EXPIRATION_MONTHS.map((months) => (
+              <option key={months} value={months}>{months} meses</option>
+            ))}
+          </select>
+          <p id={`pp-expiration-help-${pointProgram.id}`} className="text-xs leading-relaxed text-foreground/80">
+            El vencimiento se calcula desde la fecha de acreditación. Al activar, también se aplica a los puntos anteriores sin fecha de vencimiento y no anulados, que podrían vencer de inmediato.
+            Cambiar el plazo conserva las fechas ya asignadas. Desactivar quita los vencimientos aún no procesados, sin recuperar puntos ya vencidos.
+          </p>
+        </Field>
+      ) : (
+        <p className="text-xs text-foreground/80">El programa se crea sin vencimiento. Podés configurarlo al editarlo después de crearlo.</p>
+      )}
 
       <div>
         <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-foreground/80">Sucursales</p>

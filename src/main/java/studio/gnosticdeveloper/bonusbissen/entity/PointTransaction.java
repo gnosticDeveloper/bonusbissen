@@ -47,6 +47,10 @@ public class PointTransaction {
     @JoinColumn(name = "corrected_transaction_id")
     private PointTransaction correctedTransaction;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "expired_transaction_id")
+    private PointTransaction expiredTransaction;
+
     @Convert(converter = TransactionTypeConverter.class)
     @Column(name = "transaction_type", nullable = false)
     private TransactionType transactionType;
@@ -67,13 +71,39 @@ public class PointTransaction {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
+    /** Assigned earn deadline; finite period changes preserve it, disabling expiration clears unsettled deadlines. */
+    @Column(name = "expires_at")
+    private OffsetDateTime expiresAt;
+
+    /** Set once the expiration job has evaluated this lot, whether or not it produced an expire row -- keeps the daily scan bounded. */
+    @Column(name = "expiry_settled_at")
+    private OffsetDateTime expirySettledAt;
+
+    /** Set when a full-reversal correction zeroed this lot out by hand -- excludes it from ever being re-dated if expiration is re-enabled later. */
+    @Column(name = "voided_at")
+    private OffsetDateTime voidedAt;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
             createdAt = OffsetDateTime.now();
         }
+        if (transactionType == TransactionType.EARN && voidedAt == null && expiresAt == null && pointProgram != null) {
+            expiresAt = pointProgram.computeExpiresAt(createdAt);
+        }
     }
 
+    public boolean isExpirationApplicable() {
+        return voidedAt == null && (transactionType == TransactionType.EARN
+            || (transactionType == TransactionType.EXPIRE && expiredTransaction != null));
+    }
+
+    public OffsetDateTime getApplicableExpiresAt() {
+        if (!isExpirationApplicable()) {
+            return null;
+        }
+        return transactionType == TransactionType.EXPIRE ? expiredTransaction.getExpiresAt() : expiresAt;
+    }
 
     public Organization getOrganization() {
         return pointProgram != null ? pointProgram.getOrganization() : null;

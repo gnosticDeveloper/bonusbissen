@@ -4,21 +4,10 @@ import { signOut } from "@/app/b/actions";
 import { request } from "@/lib/api";
 import { decodeJwt, getSessionToken } from "@/lib/auth/session";
 
-// public record MovementResponse(
-//     UUID id,
-//     String type,
-//     int points,
-//     String imageUrl,
-//     String title,
-//     String orgName,
-//     String storefrontName,
-//     String pointsLabel,
-//     String formattedCreatedAt
-// )
-//
+
 export type MovementResponse = {
   id: string;
-  type: "redeem" | "earn" | "adjust";
+  type: "redeem" | "earn" | "adjust" | "expire";
   points: number;
   imageUrl?: string;
   title: string;
@@ -26,6 +15,9 @@ export type MovementResponse = {
   storefrontName?: string;
   pointsLabel?: string;
   formattedCreatedAt: string;
+  createdAt: string;
+  expiresAt: string | null;
+  expirationApplicable: boolean;
   correction: boolean;
   correctedTransactionId: string | null;
   correctedTransactionAmount: number | null;

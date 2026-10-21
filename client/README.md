@@ -56,6 +56,46 @@ bun test proxy.test.ts
 The tests use real ES256 JWTs with a mocked backend; they do not replace a live
 backend/browser integration test.
 
+## Point expiration
+
+Admins configure expiration under **Mi negocio → Programas de puntos → Editar**.
+The supported values are no expiration (`null`) or **3, 6, 9, or 12 months**.
+Updates always include an explicit, validated `expirationMonths` value because
+omitting it from the backend PATCH request disables expiration.
+
+Creation does not support expiration settings; create the program first, then
+edit it. New deadlines use the lot's original `createdAt` plus the selected number
+of calendar months, calculated in UTC with month-end clamping. Enabling expiration
+also dates eligible, previously undated lots from their original creation time;
+old lots can become immediately due. Changing a finite period preserves assigned
+deadlines. Disabling clears unprocessed deadlines without restoring expired points.
+
+`MovementResponse` and `PointActionResponse` expose `expiresAt` (an ISO timestamp
+with an offset, or null) and `expirationApplicable`. The latter distinguishes
+non-expiring earned points from redemptions, corrections, and voided lots, which
+have no badge. Customer movements also expose raw `createdAt` and include automatic
+`expire` transactions with the original lot's deadline.
+
+The shared badge displays the absolute deadline in Argentina time and full
+remaining 24-hour days, with singular **“Expira en 1 día”**, **“Expira en menos de
+24 horas”**, and **“Puntos expirados”** at or after the deadline. Styling escalates
+at 30 days, 7 days, and under 24 hours. Non-expiring lots show **“Sin vencimiento”**.
+One shared browser clock updates open badges every second and on visibility
+changes; initial server rendering uses a deterministic absolute-date fallback.
+
+**Deployment:** apply Flyway migration `10__point_expiration_timestamps.sql` with
+the backend release. It upgrades date-only deadlines to `TIMESTAMPTZ`, retaining
+the assigned calendar date and adding the original lot's UTC time of day rather
+than recalculating historical policy. The existing expiration worker schedule is
+unchanged: the badge marks the deadline immediately, but balance settlement and
+creation of an `expire` row occur on the next worker run.
+
+Run the expiration payload regression tests with:
+
+```bash
+bun test lib/helpers/point-program-settings.test.ts lib/helpers/point-expiration.test.ts components/point-expiration-badge.test.tsx
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

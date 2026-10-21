@@ -25,6 +25,10 @@ export function PointProgramCard({ pointProgram, onEdit }: { pointProgram: Point
         </Button>
       </div>
 
+      <p className="pl-12 text-xs text-foreground/80">
+        {pointProgram.expirationMonths == null ? "Sin vencimiento" : `Vencimiento: ${pointProgram.expirationMonths} meses`}
+      </p>
+
       <div className="flex flex-wrap gap-1.5 pl-12">
         {pointProgram.storefronts.length === 0 ? (
           <span className="text-xs text-foreground/80">Sin sucursales asignadas</span>

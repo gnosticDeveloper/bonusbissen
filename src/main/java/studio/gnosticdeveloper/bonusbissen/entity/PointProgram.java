@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -40,6 +41,10 @@ public class PointProgram {
     @Column(nullable = false)
     private boolean active = true;
 
+    /** Months until an earned point lot expires, or null for no expiration. Owner-configurable. */
+    @Column(name = "expiration_months")
+    private Integer expirationMonths;
+
     @OneToMany(mappedBy = "pointProgram", fetch = FetchType.LAZY)
     private Set<Storefront> storefronts = new HashSet<>();
 
@@ -51,5 +56,10 @@ public class PointProgram {
         if (createdAt == null) {
             createdAt = OffsetDateTime.now();
         }
+    }
+
+    /** Calendar-month arithmetic in UTC, shared with the database backfill. */
+    public OffsetDateTime computeExpiresAt(OffsetDateTime createdAt) {
+        return expirationMonths == null ? null : createdAt.withOffsetSameInstant(ZoneOffset.UTC).plusMonths(expirationMonths);
     }
 }

@@ -89,7 +89,12 @@ export function SideMenu({ backHref, color }: { backHref?: string; color?: strin
             className="mx-4 flex items-center gap-3 rounded-2xl bg-background p-4 transition-colors hover:bg-border/40"
           >
             <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-primary-foreground">
-              <UserRound size={20} />
+              {user?.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={user.avatarUrl} alt="" className="size-full object-cover" />
+              ) : (
+                <UserRound size={20} />
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium text-foreground">{user?.name ?? "Tu cuenta"}</p>

@@ -5,10 +5,12 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
@@ -30,7 +32,9 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserSelfResponse;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
+import studio.gnosticdeveloper.bonusbissen.service.AccountMediaService;
 import studio.gnosticdeveloper.bonusbissen.service.PointProgramService;
+import studio.gnosticdeveloper.bonusbissen.storage.StorageService;
 import studio.gnosticdeveloper.bonusbissen.service.UserService;
 
 @RestController
@@ -39,10 +43,14 @@ public class UserController {
 
     private final UserService userService;
     private final PointProgramService pointProgramService;
+    private final AccountMediaService accountMediaService;
+    private final StorageService storageService;
 
-    public UserController(UserService userService, PointProgramService pointProgramService) {
+    public UserController(UserService userService, PointProgramService pointProgramService, AccountMediaService accountMediaService, StorageService storageService) {
         this.userService = userService;
         this.pointProgramService = pointProgramService;
+        this.accountMediaService = accountMediaService;
+        this.storageService = storageService;
     }
 
     @GetMapping
@@ -59,7 +67,7 @@ public class UserController {
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public UserResponse update(@PathVariable UUID id, @Valid @RequestBody UserUpdateRequest request) {
-        return UserResponse.from(userService.update(id, request));
+        return UserResponse.from(userService.update(id, request), storageService);
     }
 
     @PatchMapping("/{id}/password")
@@ -84,13 +92,25 @@ public class UserController {
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
     public UserSelfResponse getSelf(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return UserSelfResponse.from(userService.getById(principal.id()), userService.getJoinedStorefrontIds(principal.id()));
+        return UserSelfResponse.from(userService.getById(principal.id()), userService.getJoinedStorefrontIds(principal.id()), storageService);
     }
 
     @PatchMapping("/me")
     @PreAuthorize("isAuthenticated()")
     public UserResponse updateSelf(@Valid @RequestBody UserUpdateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return UserResponse.from(userService.update(principal.id(), request));
+        return UserResponse.from(userService.update(principal.id(), request), storageService);
+    }
+
+    @PostMapping(path = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    public UserResponse uploadProfilePicture(@RequestPart(value = "image", required = false) MultipartFile image, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return UserResponse.from(accountMediaService.setProfilePicture(principal.id(), image), storageService);
+    }
+
+    @DeleteMapping("/me/avatar")
+    @PreAuthorize("isAuthenticated()")
+    public UserResponse deleteProfilePicture(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return UserResponse.from(accountMediaService.removeProfilePicture(principal.id()), storageService);
     }
 
     @PatchMapping("/me/password")
@@ -146,7 +166,7 @@ public class UserController {
     @PatchMapping("/{id}/reactivate")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     public UserResponse reactivate(@PathVariable UUID id) {
-        return UserResponse.from(userService.reactivate(id));
+        return UserResponse.from(userService.reactivate(id), storageService);
     }
 
     @DeleteMapping("/{id}")

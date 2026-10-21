@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PointExpirationBadge } from "@/components/point-expiration-badge";
 import { formatDateTime, formatPoints, pointActionLabel } from "@/lib/helpers/format";
 import { Button } from "@/components/ui/button";
 import { Pencil, Wallet } from "lucide-react";
@@ -131,6 +132,11 @@ export default function PointActionList({ selected, refreshKey, onBalanceChanged
                       </div>
 
                       <p className="mt-1 text-xs font-medium text-foreground">{pointActionLabel(a.type)}</p>
+                      {a.expirationApplicable && (
+                        <div className="mt-2">
+                          <PointExpirationBadge expirationApplicable={a.expirationApplicable} expiresAt={a.expiresAt} />
+                        </div>
+                      )}
 
                       {a.note ? <p className="mt-2 line-clamp-2 text-xs leading-5 text-foreground/80">{a.note}</p> : null}
                       {a.correctedTransaction && (
@@ -139,6 +145,10 @@ export default function PointActionList({ selected, refreshKey, onBalanceChanged
                             <p>Movimiento original: {formatPoints(a.correctedTransaction!.amount)} puntos</p>
                             <p>Fecha: {formatDateTime(a.correctedTransaction!.createdAt)}</p>
                             <p>Nota: {a.correctedTransaction!.note || "Sin nota"}</p>
+                            <PointExpirationBadge
+                              expirationApplicable={a.correctedTransaction!.expirationApplicable}
+                              expiresAt={a.correctedTransaction!.expiresAt}
+                            />
                             <p className="break-all text-xs">ID: {a.correctedTransaction!.id}</p>
                           </div>,
                           { title: "Movimiento original", description: "Información del movimiento que se corrigió." },

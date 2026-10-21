@@ -82,7 +82,7 @@ export function AfiliarseView({ storefront, isLoggedIn }: { storefront: Storefro
     });
   }, [storefront.id]);
 
-  const iconUrl = resolveAssetUrl(storefront.iconUrl);
+  const logoUrl = storefront.orgLogoUrl ?? resolveAssetUrl(storefront.iconUrl);
   const palette = CARD_PALETTES[pickCardVariant(storefront.color)];
 
   return (
@@ -142,7 +142,7 @@ export function AfiliarseView({ storefront, isLoggedIn }: { storefront: Storefro
             className="grid size-24 place-items-center overflow-hidden rounded-[28px] border bg-card text-3xl font-bold shadow-[0_16px_40px_rgba(25,24,23,0.1)]"
             style={{ borderColor: "var(--storefront-border)" }}
           >
-            {iconUrl ? <img src={iconUrl} alt={storefront.name} className="size-full object-cover" /> : storefront.orgName.charAt(0).toUpperCase()}
+            {logoUrl ? <img src={logoUrl} alt={`Logo de ${storefront.orgName}`} className="size-full object-cover" /> : storefront.orgName.charAt(0).toUpperCase()}
           </div>
 
           <div className="max-w-xs">

@@ -57,7 +57,7 @@ export function AddressSelector({
       <input type="hidden" name="address" value={addressValue} />
 
       <div className="flex flex-col sm:flex-row justify-between gap-3 items-stretch">
-        <Field className="w-full" label="Provincia" htmlFor="sf-province" required>
+        <Field className="min-w-0 w-full sm:flex-1" label="Provincia" htmlFor="sf-province" required>
           <Autocomplete<GeorefItem>
             inputId="sf-province"
             selected={province}
@@ -71,7 +71,7 @@ export function AddressSelector({
           />
         </Field>
 
-        <Field className="w-full" label="Localidad" htmlFor="sf-city" required>
+        <Field className="min-w-0 w-full sm:flex-1" label="Localidad" htmlFor="sf-city" required>
           {province ? (
             <Autocomplete<GeorefItem>
               key={province.nombre}

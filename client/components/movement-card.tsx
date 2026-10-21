@@ -1,5 +1,6 @@
 import { MovementResponse } from "@/app/s/[slug]/(member-only)/historial/actions";
 import { Gift, Coins, MapPin, Store } from "lucide-react";
+import { PointExpirationBadge } from "@/components/point-expiration-badge";
 
 export function MovementCard({ movement }: { movement: MovementResponse }) {
   const isEarn = movement.points > 0;
@@ -31,6 +32,16 @@ export function MovementCard({ movement }: { movement: MovementResponse }) {
             <div className="mt-1.5 flex items-center gap-1.5 text-xs text-foreground/80">
               <Store className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <p className="truncate">{movement.orgName}</p>
+            </div>
+          )}
+
+          {movement.expirationApplicable && (
+            <div className="mt-2.5">
+              <PointExpirationBadge
+                expirationApplicable={movement.expirationApplicable}
+                expiresAt={movement.expiresAt}
+                expired={movement.type === "expire"}
+              />
             </div>
           )}
 

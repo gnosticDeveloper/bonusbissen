@@ -16,22 +16,11 @@ export default async function MemberOnlyLayout({ children, params }: { children:
   if (!storefront) redirect("/b"); // sin storefront no hay con qué armar el header
 
   return (
-    <div className="min-h-svh bg-background overflow-x-clip">
+    <div className="min-h-svh overflow-x-clip bg-background pb-[calc(5rem+env(safe-area-inset-bottom))]">
       <MemberOnlyHeader storefront={storefront} />
 
-      {/* relative + overflow-hidden: contiene el blur decorativo, que antes
-              no tenía ancestro posicionado y se escapaba del viewport (causa
-              del overflow-x) */}
-      <div className="relative isolate mx-auto w-full max-w-107.5 overflow-x-clip px-4 pt-5">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-24 -top-28 z-1 size-72 rounded-full blur-3xl"
-          style={{ backgroundColor: `${storefront.color}14` }}
-        />
-
-        <div className="relative z-0">
-          <UserPointsCard storefrontId={storefrontId} pointLabel={storefront.pointLabel} />
-        </div>
+      <div className="mx-auto w-full max-w-107.5 px-5 pt-5">
+        <UserPointsCard storefrontId={storefrontId} pointLabel={storefront.pointLabel} />
       </div>
 
       {children}

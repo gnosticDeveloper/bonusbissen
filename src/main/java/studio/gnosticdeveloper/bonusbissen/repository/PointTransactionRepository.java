@@ -8,6 +8,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
@@ -81,9 +82,17 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
     int calculateBalance(@Param("userId") UUID userId, @Param("programId") UUID programId);
 
     @Query("""
-        SELECT t FROM PointTransaction t WHERE t.user.id = :userId
-        AND (t.storefront.id = :storefrontId OR (t.correctedTransaction IS NOT NULL
-            AND t.pointProgram.id = (SELECT s.pointProgram.id FROM Storefront s WHERE s.id = :storefrontId)))
+        SELECT t FROM PointTransaction t
+        JOIN Storefront s ON s.id = :storefrontId
+        LEFT JOIN t.correctedTransaction correction
+        LEFT JOIN t.expiredTransaction expired
+        WHERE t.user.id = :userId
+          AND t.pointProgram.organization.id = s.organization.id
+          AND (t.storefront.id = s.id
+            OR (correction IS NOT NULL AND t.pointProgram.id = s.pointProgram.id)
+            OR (expired IS NOT NULL AND expired.user.id = t.user.id
+                AND expired.pointProgram.id = t.pointProgram.id
+                AND (expired.storefront.id = s.id OR t.pointProgram.id = s.pointProgram.id)))
         ORDER BY t.createdAt DESC
         """)
     List<PointTransaction> findAllByUserIdAndStorefrontIdOrderByCreatedAtDesc(@Param("userId") UUID userId, @Param("storefrontId") UUID storefrontId);
@@ -261,4 +270,85 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM PointTransaction t WHERE t.id = :id")
     Optional<PointTransaction> findByIdForUpdate(@Param("id") UUID id);
+
+    /** Projection of one (user, program) pair with at least one lot due for expiration processing. */
+    interface DuePair {
+        UUID getUserId();
+        UUID getPointProgramId();
+    }
+
+    /** Pairs with an earn lot past its expiry date that the expiration job hasn't settled yet. */
+    @Query(
+        value = """
+        select distinct t.user_id as userId, t.point_program_id as pointProgramId
+        from point_transactions t
+        where t.transaction_type = 'earn' and t.expires_at <= current_timestamp and t.expiry_settled_at is null
+        """,
+        nativeQuery = true
+    )
+    List<DuePair> findPairsWithDueExpiration(Pageable pageable);
+
+    /** Due-and-unsettled lots for one (user, program) pair -- what processPair actually expires. */
+    @Query(
+        value = """
+        select t.* from point_transactions t
+        where t.user_id = :userId and t.point_program_id = :programId
+          and t.transaction_type = 'earn' and t.expires_at <= current_timestamp and t.expiry_settled_at is null
+        """,
+        nativeQuery = true
+    )
+    List<PointTransaction> findDueLots(@Param("userId") UUID userId, @Param("programId") UUID programId);
+
+    /**
+     * The next lot consumption hasn't reached yet, walking forward from (or from the very start,
+     * when afterCreatedAt is null). Excludes already-expired lots (an expire row referencing them
+     * exists) so the cursor never tries to draw from a lot that's already been zeroed out,
+     * including the rare case where a lot expired out of creation-time order.
+     */
+    @Query(
+        value = """
+        select t.* from point_transactions t
+        where t.user_id = :userId and t.point_program_id = :programId and t.points > 0
+          and (
+            cast(:afterCreatedAt as timestamptz) is null
+            or t.created_at > :afterCreatedAt
+            or (t.created_at = :afterCreatedAt and t.id > :afterId)
+          )
+          and not exists (select 1 from point_transactions e where e.expired_transaction_id = t.id)
+        order by t.created_at asc, t.id asc
+        limit 1
+        """,
+        nativeQuery = true
+    )
+    Optional<PointTransaction> findNextOpenLot(
+        @Param("userId") UUID userId,
+        @Param("programId") UUID programId,
+        @Param("afterCreatedAt") OffsetDateTime afterCreatedAt,
+        @Param("afterId") UUID afterId
+    );
+
+    /** Dates only undated, unsettled, nonvoided earn lots from their creation time, preserving assigned deadlines. */
+    @Modifying
+    @Query(
+        value = """
+        update point_transactions
+        set expires_at = ((created_at at time zone 'UTC') + (:months || ' months')::interval) at time zone 'UTC'
+        where point_program_id = :programId and transaction_type = 'earn'
+          and expires_at is null and expiry_settled_at is null and voided_at is null
+        """,
+        nativeQuery = true
+    )
+    void backfillExpiresAt(@Param("programId") UUID programId, @Param("months") int months);
+
+    /** Disabling expiration clears unsettled earn deadlines, preserving already processed history. */
+    @Modifying
+    @Query(
+        value = """
+        update point_transactions
+        set expires_at = null
+        where point_program_id = :programId and transaction_type = 'earn' and expiry_settled_at is null
+        """,
+        nativeQuery = true
+    )
+    void clearExpiresAt(@Param("programId") UUID programId);
 }

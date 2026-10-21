@@ -13,17 +13,24 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.JoinPointProgramRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.BusinessResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.CityOption;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.StorefrontDiscoverResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
+import studio.gnosticdeveloper.bonusbissen.storage.DeliveryVariant;
+import studio.gnosticdeveloper.bonusbissen.storage.StorageService;
+import org.springframework.beans.factory.annotation.Autowired;
 
 class DiscoveryIntegrationTest extends AbstractIntegrationTest {
 
     private static final ParameterizedTypeReference<PagedResponse<BusinessResponse>> PAGE = new ParameterizedTypeReference<>() {};
     private static final ParameterizedTypeReference<List<CityOption>> CITIES = new ParameterizedTypeReference<>() {};
+
+    @Autowired
+    private StorageService storageService;
 
     /** A self-contained org + physical storefront + program in its own city. */
     private record Fixture(Storefront storefront, PointProgram program) {}
@@ -97,6 +104,57 @@ class DiscoveryIntegrationTest extends AbstractIntegrationTest {
         assertThat(card.rewards()).hasSize(3);
         assertThat(card.rewards().get(0).costPoints()).isEqualTo(40);
         assertThat(card.rewards().get(2).costPoints()).isEqualTo(20);
+    }
+
+    @Test
+    void businessAndBasicInfoExposeOrganizationImagesWithoutChangingStorefrontIcon() {
+        Fixture fx = seedBusiness("pictures", "Localidad Imagen, Córdoba");
+        Organization organization = fx.storefront().getOrganization();
+        organization.setLogoPath("rewards/org-logo.png");
+        organization.setBannerPath("rewards/org-banner.webp");
+        organizationRepository.save(organization);
+        fx.storefront().setIconPath("legacy/storefront-icon.png");
+        storefrontRepository.save(fx.storefront());
+
+        String logoUrl = storageService.resolveUrl(organization.getLogoPath(), DeliveryVariant.THUMBNAIL);
+        String bannerUrl = storageService.resolveUrl(organization.getBannerPath(), DeliveryVariant.CARD);
+        BusinessResponse business = restTemplate.getForObject(
+            baseUrl() + "/discover/" + fx.storefront().getId() + "/business", BusinessResponse.class
+        );
+        assertThat(business.logoUrl()).isEqualTo("legacy/storefront-icon.png");
+        assertThat(business.orgLogoUrl()).isEqualTo(logoUrl);
+        assertThat(business.orgBannerUrl()).isEqualTo(bannerUrl);
+        assertThat(business.orgName()).isEqualTo(organization.getName());
+
+        StorefrontDiscoverResponse basic = restTemplate.getForObject(
+            baseUrl() + "/discover/storefronts/" + fx.storefront().getId(), StorefrontDiscoverResponse.class
+        );
+        assertThat(basic.iconUrl()).isEqualTo("legacy/storefront-icon.png");
+        assertThat(basic.orgLogoUrl()).isEqualTo(logoUrl);
+        assertThat(basic.orgBannerUrl()).isEqualTo(bannerUrl);
+        assertThat(basic.pointLabel()).isEqualTo("granos");
+
+        PagedResponse<BusinessResponse> listing = restTemplate.exchange(
+            baseUrl() + "/discover/storefronts?city=Localidad Imagen, Córdoba", HttpMethod.GET, null, PAGE
+        ).getBody();
+        assertThat(listing.items()).hasSize(1);
+        assertThat(listing.items().getFirst().orgLogoUrl()).isEqualTo(logoUrl);
+        assertThat(listing.items().getFirst().orgBannerUrl()).isEqualTo(bannerUrl);
+    }
+
+    @Test
+    void missingOrganizationImagesAreNullOnBothEndpoints() {
+        Fixture fx = seedBusiness("without-pictures", "Localidad Sin Fotos, Córdoba");
+        BusinessResponse business = restTemplate.getForObject(
+            baseUrl() + "/discover/" + fx.storefront().getId() + "/business", BusinessResponse.class
+        );
+        StorefrontDiscoverResponse basic = restTemplate.getForObject(
+            baseUrl() + "/discover/storefronts/" + fx.storefront().getId(), StorefrontDiscoverResponse.class
+        );
+        assertThat(business.orgLogoUrl()).isNull();
+        assertThat(business.orgBannerUrl()).isNull();
+        assertThat(basic.orgLogoUrl()).isNull();
+        assertThat(basic.orgBannerUrl()).isNull();
     }
 
     @Test

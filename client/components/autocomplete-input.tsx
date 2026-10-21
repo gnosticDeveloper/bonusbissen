@@ -140,14 +140,14 @@ export function Autocomplete<T>({
     const secondary = getDisplayValue(selected, secondaryKey);
 
     return (
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-3">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 w-full items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           {showPicture ? (
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-foreground">
               {getInitials(primary)}
             </span>
           ) : null}
-          <div className="flex min-w-0 flex-col">
+          <div className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-sm font-semibold text-foreground">{primary}</span>
             <Meta parts={[secondary, badge?.(selected)]} />
           </div>
@@ -167,7 +167,7 @@ export function Autocomplete<T>({
   const activeItem = matches[activeIndex];
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0 w-full">
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-foreground/80" aria-hidden="true" />
         <Input
