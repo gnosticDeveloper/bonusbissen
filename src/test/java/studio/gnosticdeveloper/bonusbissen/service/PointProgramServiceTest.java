@@ -14,6 +14,8 @@ import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
+import studio.gnosticdeveloper.bonusbissen.dto.request.PointProgramUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserPointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
@@ -26,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -42,6 +45,8 @@ class PointProgramServiceTest {
     private UserPointProgramRepository userPointProgramRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private PointTransactionRepository pointTransactionRepository;
 
     @InjectMocks
     private PointProgramService pointProgramService;
@@ -69,6 +74,34 @@ class PointProgramServiceTest {
         storefront.setId(STOREFRONT_ID);
         storefront.setPointProgram(program);
         return storefront;
+    }
+
+    @Test
+    void changingThePeriodOnlyBackfillsUndatedLots() {
+        PointProgram program = activeProgram();
+        program.setExpirationMonths(3);
+        when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.of(program));
+        when(pointProgramRepository.saveAndFlush(program)).thenReturn(program);
+
+        pointProgramService.update(PROGRAM_ID, new PointProgramUpdateRequest("Points", null, true, 6), ORGANIZATION_ID);
+
+        assertThat(program.getExpirationMonths()).isEqualTo(6);
+        verify(pointTransactionRepository).backfillExpiresAt(PROGRAM_ID, 6);
+        verifyNoMoreInteractions(pointTransactionRepository);
+    }
+
+    @Test
+    void disablingExpirationClearsUnprocessedDeadlines() {
+        PointProgram program = activeProgram();
+        program.setExpirationMonths(3);
+        when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.of(program));
+        when(pointProgramRepository.saveAndFlush(program)).thenReturn(program);
+
+        pointProgramService.update(PROGRAM_ID, new PointProgramUpdateRequest("Points", null, true, null), ORGANIZATION_ID);
+
+        assertThat(program.getExpirationMonths()).isNull();
+        verify(pointTransactionRepository).clearExpiresAt(PROGRAM_ID);
+        verifyNoMoreInteractions(pointTransactionRepository);
     }
 
     @Test

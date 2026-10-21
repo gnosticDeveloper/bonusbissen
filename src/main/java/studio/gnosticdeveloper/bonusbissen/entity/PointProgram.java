@@ -5,8 +5,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -58,8 +58,8 @@ public class PointProgram {
         }
     }
 
-    /** The expiry date a point lot earned today should carry, or null if this program doesn't expire points. */
-    public LocalDate computeExpiresAt() {
-        return expirationMonths == null ? null : LocalDate.now().plusMonths(expirationMonths);
+    /** Calendar-month arithmetic in UTC, shared with the database backfill. */
+    public OffsetDateTime computeExpiresAt(OffsetDateTime createdAt) {
+        return expirationMonths == null ? null : createdAt.withOffsetSameInstant(ZoneOffset.UTC).plusMonths(expirationMonths);
     }
 }
