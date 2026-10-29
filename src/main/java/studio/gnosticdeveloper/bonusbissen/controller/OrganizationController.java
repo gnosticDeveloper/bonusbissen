@@ -1,6 +1,7 @@
 package studio.gnosticdeveloper.bonusbissen.controller;
 
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -8,6 +9,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 
 import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,7 +24,6 @@ import studio.gnosticdeveloper.bonusbissen.storage.StorageService;
 
 @RestController
 @RequestMapping("/organization")
-@PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
 public class OrganizationController {
 
     private final OrganizationService organizationService;
@@ -36,6 +37,7 @@ public class OrganizationController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
     public OrganizationResponse get(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return OrganizationResponse.from(organizationService.getById(principal.organizationId()), storageService);
     }
@@ -44,6 +46,13 @@ public class OrganizationController {
     @PreAuthorize("hasRole('ADMIN')")
     public OrganizationResponse update(@Valid @RequestBody OrganizationUpdateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return OrganizationResponse.from(organizationService.update(principal.organizationId(), request), storageService);
+    }
+
+    @DeleteMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        organizationService.deactivate(principal.organizationId());
     }
 
     @PostMapping(path = "/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

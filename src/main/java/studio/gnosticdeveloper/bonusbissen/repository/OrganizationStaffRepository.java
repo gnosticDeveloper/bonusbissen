@@ -17,6 +17,8 @@ public interface OrganizationStaffRepository extends JpaRepository<OrganizationS
     @EntityGraph(attributePaths = { "storefronts", "user", "organization" })
     Optional<OrganizationStaff> findWithStorefrontsByUserIdAndActiveTrue(UUID userId);
 
+    List<OrganizationStaff> findByOrganizationIdAndActiveTrue(UUID organizationId);
+
     @EntityGraph(attributePaths = { "storefronts", "user" })
     List<OrganizationStaff> findByOrganizationIdOrderByCreatedAt(UUID organizationId);
 
