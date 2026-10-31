@@ -16,15 +16,17 @@ public interface OrganizationRepository extends JpaRepository<Organization, UUID
         value =
             """
             select * from organizations o
-            where cast(:search as text) is null
-               or lower(o.name) like lower(concat('%', cast(:search as text), '%'))
+            where o.active
+              and (cast(:search as text) is null
+               or lower(o.name) like lower(concat('%', cast(:search as text), '%')))
             order by o.name
             """,
         countQuery =
             """
             select count(*) from organizations o
-            where cast(:search as text) is null
-               or lower(o.name) like lower(concat('%', cast(:search as text), '%'))
+            where o.active
+              and (cast(:search as text) is null
+               or lower(o.name) like lower(concat('%', cast(:search as text), '%')))
             """,
         nativeQuery = true
     )

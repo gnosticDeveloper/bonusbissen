@@ -1,0 +1,70 @@
+.landing {
+  --background: #111315;
+  --foreground: #f0e5d9;
+  --primary: #d4822b;
+  --primary-foreground: #1a1a1a;
+  --card: #191b1d;
+  --border: #303234;
+  --muted: #aaa198;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.glow {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 48dvh;
+  opacity: 0.8;
+  background: linear-gradient(to top, #d4822b30, transparent);
+  mask-image: linear-gradient(to top, black 0%, black 35%, transparent 100%);
+}
+
+.particle {
+  position: absolute;
+  display: block;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--primary);
+  opacity: 0;
+  filter: blur(0.25px);
+  will-change: transform, opacity;
+  animation: landing-fire linear infinite;
+}
+
+.lower {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / 0.055), transparent 65%),
+    linear-gradient(160deg, #191b1d, #0b0d0f);
+}
+
+.closing {
+  background:
+    radial-gradient(ellipse at 50% 100%, rgb(255 255 255 / 0.045), transparent 70%),
+    linear-gradient(180deg, #111315, #090b0d);
+}
+
+@keyframes landing-fire {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.55) rotate(0deg);
+  }
+  14% {
+    opacity: 0.5;
+  }
+  78% {
+    opacity: 0.16;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--particle-drift), var(--particle-rise), 0)
+      scale(0.12) rotate(var(--particle-rotate));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .particle {
+    animation: none;
+    opacity: 0;
+  }
+}
