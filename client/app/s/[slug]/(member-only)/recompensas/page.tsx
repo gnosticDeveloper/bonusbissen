@@ -19,7 +19,7 @@ export default async function MemberOnlyRewardsPage({
 
   if (!result.ok) {
     return (
-      <main className="mx-auto flex min-h-svh w-full max-w-107.5 flex-col px-4 pb-12 pt-6">
+      <main className="mx-auto flex w-full max-w-107.5 flex-col px-4 pt-6">
         <header className="mb-6">
           <h1 className="text-xl font-medium text-foreground">Recompensas</h1>
           <p className="mt-1 text-sm text-foreground/75">Canjeá tus puntos por estas recompensas.</p>
@@ -46,7 +46,7 @@ export default async function MemberOnlyRewardsPage({
   const { totalPages } = result.data;
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-107.5 flex-col px-4 pb-12 pt-6">
+    <main className="mx-auto flex w-full max-w-107.5 flex-col px-4 pt-6">
       <header className="mb-6">
         <h1 className="text-xl font-medium text-foreground">Recompensas</h1>
         <p className="mt-1 text-sm text-foreground/75">Canjeá tus puntos por estas recompensas.</p>

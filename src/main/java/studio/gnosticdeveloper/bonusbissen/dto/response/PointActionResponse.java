@@ -14,9 +14,13 @@ public record PointActionResponse(
     UUID byUserId,
     String byUserName,
     String createdAt,
-    CorrectedTransaction correctedTransaction
+    CorrectedTransaction correctedTransaction,
+    String expiresAt,
+    boolean expirationApplicable
 ) {
-    public record CorrectedTransaction(UUID id, int amount, String note, String createdAt) {}
+    public record CorrectedTransaction(
+        UUID id, int amount, String note, String createdAt, String expiresAt, boolean expirationApplicable
+    ) {}
     public static PointActionResponse from(PointTransaction tx) {
         return from(tx, tx.getPoints());
     }
@@ -37,8 +41,16 @@ public record PointActionResponse(
                 tx.getCorrectedTransaction().getId(),
                 tx.getCorrectedTransaction().getPoints(),
                 tx.getCorrectedTransaction().getNote(),
-                tx.getCorrectedTransaction().getCreatedAt().toString()
-            )
+                tx.getCorrectedTransaction().getCreatedAt().toString(),
+                expirationTimestamp(tx.getCorrectedTransaction()),
+                tx.getCorrectedTransaction().isExpirationApplicable()
+            ),
+            expirationTimestamp(tx),
+            tx.isExpirationApplicable()
         );
+    }
+
+    private static String expirationTimestamp(PointTransaction tx) {
+        return tx.getApplicableExpiresAt() != null ? tx.getApplicableExpiresAt().toString() : null;
     }
 }

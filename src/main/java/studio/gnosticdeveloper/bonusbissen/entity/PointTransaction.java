@@ -2,7 +2,6 @@ package studio.gnosticdeveloper.bonusbissen.entity;
 
 import jakarta.persistence.*;
 
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import lombok.Getter;
@@ -72,9 +71,9 @@ public class PointTransaction {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
-    /** Day this lot's points expire, or null if it never expires (not an earn row, or its program has no expiration configured). */
+    /** Assigned earn deadline; finite period changes preserve it, disabling expiration clears unsettled deadlines. */
     @Column(name = "expires_at")
-    private LocalDate expiresAt;
+    private OffsetDateTime expiresAt;
 
     /** Set once the expiration job has evaluated this lot, whether or not it produced an expire row -- keeps the daily scan bounded. */
     @Column(name = "expiry_settled_at")
@@ -89,8 +88,22 @@ public class PointTransaction {
         if (createdAt == null) {
             createdAt = OffsetDateTime.now();
         }
+        if (transactionType == TransactionType.EARN && voidedAt == null && expiresAt == null && pointProgram != null) {
+            expiresAt = pointProgram.computeExpiresAt(createdAt);
+        }
     }
 
+    public boolean isExpirationApplicable() {
+        return voidedAt == null && (transactionType == TransactionType.EARN
+            || (transactionType == TransactionType.EXPIRE && expiredTransaction != null));
+    }
+
+    public OffsetDateTime getApplicableExpiresAt() {
+        if (!isExpirationApplicable()) {
+            return null;
+        }
+        return transactionType == TransactionType.EXPIRE ? expiredTransaction.getExpiresAt() : expiresAt;
+    }
 
     public Organization getOrganization() {
         return pointProgram != null ? pointProgram.getOrganization() : null;

@@ -524,6 +524,49 @@ class UserServiceTest {
     }
 
     @Test
+    void movementHistoryExposesRawTimestampsAndExpirationSemantics() {
+        UUID userId = UUID.randomUUID();
+        PointTransaction earn = grantTransaction(ORGANIZATION_ID);
+        earn.setExpiresAt(earn.getCreatedAt().plusHours(23).plusMinutes(59));
+        PointTransaction unlimited = grantTransaction(ORGANIZATION_ID);
+        PointTransaction voided = grantTransaction(ORGANIZATION_ID);
+        voided.setVoidedAt(voided.getCreatedAt());
+        PointTransaction expired = grantTransaction(ORGANIZATION_ID);
+        expired.setTransactionType(TransactionType.EXPIRE);
+        expired.setPoints(-50);
+        expired.setEmployee(null);
+        expired.setExpiredTransaction(earn);
+        PointTransaction adjust = grantTransaction(ORGANIZATION_ID);
+        adjust.setTransactionType(TransactionType.ADJUST);
+        PointTransaction redeem = grantTransaction(ORGANIZATION_ID);
+        redeem.setTransactionType(TransactionType.REDEEM);
+        Reward reward = new Reward();
+        reward.setTitle("Coffee");
+        redeem.setReward(reward);
+        when(pointTransactionRepository.findAllByUserIdAndStorefrontIdOrderByCreatedAtDesc(userId, STOREFRONT_ID))
+            .thenReturn(List.of(earn, unlimited, voided, expired, adjust, redeem));
+
+        List<MovementResponse> history = userService.getMovementsByUserId(userId, STOREFRONT_ID, null);
+
+        assertThat(history.get(0).createdAt()).isEqualTo(earn.getCreatedAt().toString());
+        assertThat(history.get(0).expiresAt()).isEqualTo(earn.getExpiresAt().toString());
+        assertThat(history.get(0).expirationApplicable()).isTrue();
+        assertThat(history.get(1).expirationApplicable()).isTrue();
+        assertThat(history.get(1).expiresAt()).isNull();
+        assertThat(history.get(2).expirationApplicable()).isFalse();
+        assertThat(history.get(2).expiresAt()).isNull();
+        assertThat(history.get(3).type()).isEqualTo("expire");
+        assertThat(history.get(3).title()).isEqualTo("Puntos vencidos");
+        assertThat(history.get(3).expirationApplicable()).isTrue();
+        assertThat(history.get(3).expiresAt()).isEqualTo(earn.getExpiresAt().toString());
+        assertThat(history.get(3).correction()).isFalse();
+        assertThat(history.get(4).expirationApplicable()).isFalse();
+        assertThat(history.get(4).expiresAt()).isNull();
+        assertThat(history.get(5).expirationApplicable()).isFalse();
+        assertThat(history.get(5).expiresAt()).isNull();
+    }
+
+    @Test
     void grantHistoryExposesCurrentEffectiveAmountWithoutMutatingOriginal() {
         UUID organizationId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();

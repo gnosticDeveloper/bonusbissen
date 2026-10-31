@@ -16,7 +16,7 @@ export default async function MemberOnlyLayout({ children, params }: { children:
   if (!storefront) redirect("/b"); // sin storefront no hay con qué armar el header
 
   return (
-    <div className="min-h-svh bg-background overflow-x-clip">
+    <div className="min-h-svh overflow-x-clip bg-background pb-[calc(5rem+env(safe-area-inset-bottom))]">
       <MemberOnlyHeader storefront={storefront} />
 
       <div className="mx-auto w-full max-w-107.5 px-5 pt-5">

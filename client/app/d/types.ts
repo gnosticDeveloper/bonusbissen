@@ -19,7 +19,16 @@ export type PointAction = {
   byUserId: string;
   byUserName: string;
   createdAt: string;
-  correctedTransaction: { id: string; amount: number; note: string | null; createdAt: string } | null;
+  expiresAt: string | null;
+  expirationApplicable: boolean;
+  correctedTransaction: {
+    id: string;
+    amount: number;
+    note: string | null;
+    createdAt: string;
+    expiresAt: string | null;
+    expirationApplicable: boolean;
+  } | null;
 };
 
 export type LoginState = {
