@@ -20,12 +20,16 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import studio.gnosticdeveloper.bonusbissen.dto.request.MercadoPagoCheckoutRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.OrganizationBillingInfoRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.OrganizationBillingPlanRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.OrganizationUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.BillingPlanResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.InvoiceResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.MercadoPagoCheckoutResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.OrganizationResponse;
+import studio.gnosticdeveloper.bonusbissen.entity.Organization;
+import studio.gnosticdeveloper.bonusbissen.mercadopago.MercadoPagoSubscriptionService;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
 import studio.gnosticdeveloper.bonusbissen.service.AccountMediaService;
 import studio.gnosticdeveloper.bonusbissen.service.InvoiceService;
@@ -41,17 +45,20 @@ public class OrganizationController {
     private final AccountMediaService accountMediaService;
     private final StorageService storageService;
     private final InvoiceService invoiceService;
+    private final MercadoPagoSubscriptionService mercadoPagoSubscriptionService;
 
     public OrganizationController(
         OrganizationService organizationService,
         AccountMediaService accountMediaService,
         StorageService storageService,
-        InvoiceService invoiceService
+        InvoiceService invoiceService,
+        MercadoPagoSubscriptionService mercadoPagoSubscriptionService
     ) {
         this.organizationService = organizationService;
         this.accountMediaService = accountMediaService;
         this.storageService = storageService;
         this.invoiceService = invoiceService;
+        this.mercadoPagoSubscriptionService = mercadoPagoSubscriptionService;
     }
 
     @GetMapping
@@ -106,7 +113,25 @@ public class OrganizationController {
     @PutMapping("/billing-plan")
     @PreAuthorize("hasRole('ADMIN')")
     public OrganizationResponse selectBillingPlan(@Valid @RequestBody OrganizationBillingPlanRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return OrganizationResponse.from(organizationService.selectBillingPlan(principal.organizationId(), request), storageService);
+        Organization organization = organizationService.selectBillingPlan(principal.organizationId(), request);
+        mercadoPagoSubscriptionService.syncPlanAmount(principal.organizationId());
+        return OrganizationResponse.from(organization, storageService);
+    }
+
+    /** Creates (or replaces a not-yet-authorized) Mercado Pago preapproval for the org's currently-selected plan and returns its hosted checkout link. */
+    @PostMapping("/billing/checkout")
+    @PreAuthorize("hasRole('ADMIN')")
+    public MercadoPagoCheckoutResponse createBillingCheckout(@Valid @RequestBody(required = false) MercadoPagoCheckoutRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        String payerEmail = request == null ? null : request.payerEmail();
+        return MercadoPagoCheckoutResponse.from(mercadoPagoSubscriptionService.createCheckout(principal.organizationId(), payerEmail));
+    }
+
+    /** Cancels the org's Mercado Pago subscription. Invoices and their payment status are untouched. */
+    @DeleteMapping("/billing/subscription")
+    @PreAuthorize("hasRole('ADMIN')")
+    public OrganizationResponse cancelBillingSubscription(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        mercadoPagoSubscriptionService.cancelSubscription(principal.organizationId());
+        return OrganizationResponse.from(organizationService.getById(principal.organizationId()), storageService);
     }
 
     @GetMapping("/invoices")
@@ -118,10 +143,10 @@ public class OrganizationController {
     @GetMapping("/invoices/{invoiceId}/pdf")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<byte[]> downloadInvoice(@PathVariable UUID invoiceId, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        byte[] pdf = invoiceService.getPdf(principal.organizationId(), invoiceId);
+        InvoiceService.InvoicePdf pdf = invoiceService.getPdf(principal.organizationId(), invoiceId);
         return ResponseEntity.ok()
             .contentType(MediaType.APPLICATION_PDF)
-            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=factura-" + invoiceId + ".pdf")
-            .body(pdf);
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + pdf.filename())
+            .body(pdf.content());
     }
 }

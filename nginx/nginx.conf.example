@@ -44,6 +44,20 @@ http {
         ssl_certificate     /etc/letsencrypt/live/YOUR_DOMAIN/fullchain.pem;
         ssl_certificate_key /etc/letsencrypt/live/YOUR_DOMAIN/privkey.pem;
 
+        # Mercado Pago notifications go straight to the backend (the frontend has no such
+        # route). Only this exact path is exposed, with a body cap far below the global
+        # 3m: real notifications are a few hundred bytes. Authenticity is the backend's
+        # job (x-signature HMAC); nothing here is trusted.
+        location = /webhooks/mercadopago {
+            client_max_body_size 16k;
+            proxy_pass http://backend:8080;
+            proxy_http_version 1.1;
+            proxy_set_header Host $http_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
         # Images are written to per-type folders in the shared uploads volume.
         # Resolved local URLs use ASSETS_URL + "<folder>/<uuid>.<extension>".
         location ~ ^/(?<folder>rewards|pfp|logos|banners)/(?<filename>[^/]+\.(?:jpg|jpeg|png|webp))$ {

@@ -11,6 +11,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.PaymentStatus;
 
 public record InvoiceResponse(
     UUID id,
+    long invoiceNumber,
     String billingCycle,
     OffsetDateTime dueAt,
     OffsetDateTime createdAt,
@@ -27,6 +28,7 @@ public record InvoiceResponse(
             && invoice.getDueAt().isBefore(OffsetDateTime.now());
         return new InvoiceResponse(
             invoice.getId(),
+            invoice.getInvoiceNumber(),
             invoice.getBillingCycle().getValue(),
             invoice.getDueAt(),
             invoice.getCreatedAt(),
