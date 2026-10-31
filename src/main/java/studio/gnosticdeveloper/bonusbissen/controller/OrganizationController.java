@@ -113,7 +113,6 @@ public class OrganizationController {
     }
 
     @GetMapping("/billing-plans")
-    @PreAuthorize("hasRole('ADMIN')")
     public List<BillingPlanResponse> listBillingPlans() {
         return organizationService.listActiveBillingPlans().stream().map(BillingPlanResponse::from).toList();
     }
