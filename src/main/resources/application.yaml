@@ -111,3 +111,21 @@ app:
   points:
     expiration-cron: ${POINTS_EXPIRATION_CRON:0 30 4 * * *}
     expiration-batch-size: ${POINTS_EXPIRATION_BATCH_SIZE:500}
+  billing:
+    # Daily check for organizations whose billing cycle has come due (see
+    # InvoiceGenerationService / 9__billing.sql).
+    invoice-cron: ${BILLING_INVOICE_CRON:0 15 5 * * *}
+  mercadopago:
+    # Sandbox (TEST-...) or production access token for the bonusbissen-billing
+    # MP application (Subscriptions product). See MercadoPagoClient.
+    access-token: ${MERCADOPAGO_ACCESS_TOKEN:unset}
+    base-url: ${MERCADOPAGO_BASE_URL:https://api.mercadopago.com}
+    # Frontend page the payer is sent back to after authorizing (or
+    # cancelling) the subscription at MP's hosted checkout. MP rejects
+    # "localhost" outright -- needs something that at least looks like a real
+    # public domain, even in sandbox mode.
+    back-url: ${MERCADOPAGO_BACK_URL:https://bonusbissen.store/billing}
+    # Secret configured against the webhook in the MP dev panel (mcp
+    # save_webhook tool) -- used to verify the x-signature header on inbound
+    # notifications. Unset -> webhook rejects everything (fails closed).
+    webhook-secret: ${MERCADOPAGO_WEBHOOK_SECRET:unset}

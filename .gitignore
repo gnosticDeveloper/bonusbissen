@@ -10,6 +10,7 @@ scripts/**
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+.mcp.json
 
 ### STS ###
 .apt_generated

@@ -65,11 +65,17 @@ services:
       DR_BACKUP_CRON: ${DR_BACKUP_CRON:-0 0 5 * * *}
       POINTS_EXPIRATION_CRON: ${POINTS_EXPIRATION_CRON:-0 30 4 * * *}
       POINTS_EXPIRATION_BATCH_SIZE: ${POINTS_EXPIRATION_BATCH_SIZE:-500}
+      BILLING_INVOICE_CRON: ${BILLING_INVOICE_CRON:-0 15 5 * * *}
       STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
       ASSETS_URL: ${ASSETS_URL:-https://localhost/}
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN:-unset}
+      # Mercado Pago rejects "localhost" outright as a back_url -- needs something
+      # that at least looks like a real public domain, even in sandbox mode.
+      MERCADOPAGO_BACK_URL: ${MERCADOPAGO_BACK_URL:-https://bonusbissen.store/billing}
+      MERCADOPAGO_WEBHOOK_SECRET: ${MERCADOPAGO_WEBHOOK_SECRET:-unset}
     volumes:
       - uploads:/var/lib/bonusbissen/uploads
     ports:

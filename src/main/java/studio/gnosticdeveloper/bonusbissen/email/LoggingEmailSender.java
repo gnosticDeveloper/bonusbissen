@@ -48,4 +48,15 @@ public class LoggingEmailSender implements EmailSender {
             loginLink
         );
     }
+
+    @Override
+    public void sendInvoiceEmail(String toEmail, String toName, byte[] pdf, String fileName) {
+        log.info(
+            "[mail disabled] invoice email NOT sent to {} ({}). Attachment: {} ({} bytes)",
+            toEmail,
+            toName,
+            fileName,
+            pdf.length
+        );
+    }
 }
