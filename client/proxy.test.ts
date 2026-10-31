@@ -42,6 +42,26 @@ function request(path: string, cookies: Record<string, string> = {}, action = fa
   });
 }
 
+test("landing and onboarding stay public without refreshing unrelated sessions", async () => {
+  const { getFetchCallCount } = mockBackend(() => { throw new Error("Public routes must not refresh sessions"); });
+  for (const path of ["/", "/onboarding", "/onboarding/pago"]) {
+    for (const action of [false, true]) {
+      const response = await proxy(request(path, { access_token: "expired", bb_user_rt: rawToken() }, action));
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("location"), null);
+    }
+  }
+  assert.equal(getFetchCallCount(), 0);
+});
+
+test("public landing does not open protected routes or similar prefixes", async () => {
+  for (const path of ["/b", "/d/private", "/onboarding-private"]) {
+    const response = await proxy(request(path));
+    assert.equal(response.status, 307);
+    assert.equal(new URL(response.headers.get("location")!).pathname, path.startsWith("/d/") ? "/d/sign-in" : "/descubrir");
+  }
+});
+
 function refreshed(token: string, rotated = rawToken()) {
   return Response.json({ token }, {
     headers: { "set-cookie": `bb_rt=${rotated}; Max-Age=${maxAge}; Path=/; HttpOnly; SameSite=Strict` },

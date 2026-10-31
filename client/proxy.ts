@@ -11,7 +11,7 @@ import {
 } from "@/lib/auth/refresh";
 
 // Rutas que se dejan pasar siempre, sin importar el estado de la sesión
-const ALWAYS_PUBLIC_PATHS = ["/d/sign-in", "/verify-email", "/descubrir", "/login-link"];
+const ALWAYS_PUBLIC_PATHS = ["/d/sign-in", "/verify-email", "/descubrir", "/login-link", "/onboarding"];
 
 // /s/{storefrontId}/afiliarse — pública, sin importar sesión
 const AFILIARSE_PATTERN = /^\/s\/[^/]+\/afiliarse(?:\/.*)?$/;
@@ -68,6 +68,10 @@ async function restoreSession(request: NextRequest, area: SessionArea, redirectT
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // La landing es pública incluso con una sesión vencida. No incluir "/"
+  // en la lista de prefijos: eso abriría también las rutas privadas.
+  if (pathname === "/") return NextResponse.next();
 
   // La afiliación es pública, pero conviene renovar una sesión vencida antes
   // de que la página intente consultar membresía.
