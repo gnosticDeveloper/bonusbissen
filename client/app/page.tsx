@@ -5,6 +5,7 @@ import { BrandLockup } from "@/components/brand";
 import { LandingParticles } from "@/components/landing-particles";
 import { buttonVariants } from "@/components/ui/button";
 import styles from "./landing.module.css";
+import { getBillingPlans } from "./onboarding/pago/actions";
 
 export const metadata: Metadata = {
   title: "Bonus Bissen · Dale a tus clientes una razón para volver",
@@ -34,7 +35,10 @@ const primaryCta = buttonVariants({
   className: "h-12 gap-2 rounded-2xl px-6 text-base font-semibold",
 });
 
-export default function HomePage() {
+export default async function HomePage() {
+
+  // const billingPlans = await getBillingPlans();
+
   return (
     <div className={styles.landing}>
       <a
@@ -45,7 +49,11 @@ export default function HomePage() {
       </a>
 
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-6 sm:px-10">
-        <Link href="/" aria-label="Bonus Bissen, inicio" className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">
+        <Link
+          href="/"
+          aria-label="Bonus Bissen, inicio"
+          className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+        >
           <BrandLockup size="sm" />
         </Link>
         <nav aria-label="Navegación principal" className="flex items-center gap-5 sm:gap-8">
@@ -59,12 +67,13 @@ export default function HomePage() {
       </header>
 
       <main id="contenido">
-        <section aria-labelledby="hero-title" className="relative isolate flex min-h-[min(760px,85dvh)] items-center overflow-hidden border-b border-white/10">
+        <section
+          aria-labelledby="hero-title"
+          className="relative isolate flex min-h-[min(760px,85dvh)] items-center overflow-hidden border-b border-white/10"
+        >
           <LandingParticles />
           <div className="relative z-10 mx-auto w-full max-w-4xl px-6 py-24 text-center sm:px-10 sm:py-32">
-            <p className="mb-7 text-xs font-semibold uppercase tracking-[0.22em] text-primary">
-              Grandes vínculos. Pequeñas recompensas.
-            </p>
+            <p className="mb-7 text-xs font-semibold uppercase tracking-[0.22em] text-primary">Grandes vínculos. Pequeñas recompensas.</p>
             <h1 id="hero-title" className="text-5xl leading-[1.04] font-semibold tracking-[-0.055em] text-balance sm:text-7xl lg:text-8xl">
               Que vuelvan por vos.
               <br />
@@ -74,7 +83,7 @@ export default function HomePage() {
               Convertí cada visita en puntos y cada recompensa en una razón para volver. Un programa de fidelización con tu marca.
             </p>
             <div className="mt-10 flex flex-col items-stretch justify-center gap-3 min-[400px]:flex-row min-[400px]:items-center">
-              <Link href="/onboarding/pago" className={primaryCta}>
+              <Link href="/onboarding" className={primaryCta}>
                 Empezá con tu negocio <ArrowRight aria-hidden="true" className="size-4" />
               </Link>
               <a
@@ -95,7 +104,9 @@ export default function HomePage() {
               <h2 id="steps-title" className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-balance sm:text-5xl">
                 Cuidá a quienes te eligen.
               </h2>
-              <p className="mt-5 text-lg leading-relaxed text-foreground/65">Vos te ocupás de darles una buena experiencia. Bonus Bissen te ayuda a reconocer cada visita.</p>
+              <p className="mt-5 text-lg leading-relaxed text-foreground/65">
+                Vos te ocupás de darles una buena experiencia. Bonus Bissen te ayuda a reconocer cada visita.
+              </p>
             </div>
             <ol className="mt-12 grid gap-4 md:grid-cols-3">
               {steps.map(({ icon: Icon, title, description }, index) => (
@@ -120,8 +131,10 @@ export default function HomePage() {
             <h2 id="closing-title" className="mt-5 text-4xl font-semibold tracking-[-0.045em] text-balance sm:text-5xl">
               Hacé que ser cliente tenga su recompensa.
             </h2>
-            <p className="mx-auto mt-5 max-w-md text-lg leading-relaxed text-foreground/65">Dale tu estilo. Elegí los premios. Empezá a construir una relación que dure más que una compra.</p>
-            <Link href="/onboarding/pago" className={`${primaryCta} mt-8`}>
+            <p className="mx-auto mt-5 max-w-md text-lg leading-relaxed text-foreground/65">
+              Dale tu estilo. Elegí los premios. Empezá a construir una relación que dure más que una compra.
+            </p>
+            <Link href="/onboarding" className={`${primaryCta} mt-8`}>
               Creá tu programa <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
           </div>
@@ -132,7 +145,9 @@ export default function HomePage() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-5 px-6 py-8 sm:flex-row sm:px-10">
           <BrandLockup size="sm" />
           <p className="text-sm text-foreground/50">Que cada visita cuente.</p>
-          <a href="https://demo.bonusbissen.store" className="text-sm text-foreground/70 underline-offset-4 hover:text-foreground hover:underline">Conocé la demo ↗</a>
+          <a href="https://demo.bonusbissen.store" className="text-sm text-foreground/70 underline-offset-4 hover:text-foreground hover:underline">
+            Conocé la demo ↗
+          </a>
         </div>
       </footer>
     </div>

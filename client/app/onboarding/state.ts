@@ -8,14 +8,15 @@ import type { Storefront } from "@/lib/types/storefront";
 import type { PointProgram } from "@/lib/types/point-program";
 
 export const PROGRESS_COOKIE = "onboarding_progress";
-export const PAYMENT_COOKIE = "onboarding_payment_simulated";
+
 export const cookieOptions = {
   httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const,
   path: "/onboarding", maxAge: 60 * 60 * 24 * 7,
 };
 const progressSchema = z.object({ organizationId: z.uuid(), owner: z.uuid() });
-export type Organization = { id: string; name: string };
+export type Organization = { id: string; name: string; billingPlanName?: string | null; mercadoPagoSubscriptionStatus?: string | null };
 export type OnboardingState = {
+  userId: string | null;
   customer: boolean;
   organizationId: string | null;
   organization: Organization | null;
@@ -42,18 +43,35 @@ export async function adminOrganization(): Promise<ActionResult<Organization>> {
   const organization = await dashboardRequest<Organization>("/organization", { cache: "no-store" });
   if (!organization.ok) return organization;
   const progress = await readProgress();
-  if (!progress || progress.organizationId !== organization.data.id) return { ok: false, error: "Ingresá como administrador del negocio de este recorrido.", status: 401 };
+  const customer = await customerSession();
+  if (customer.status === "valid" && customer.payload.sub !== session.payload.sub) return { ok: false, error: "Las sesiones pertenecen a cuentas distintas. Volvé a ingresar como administrador con tu cuenta actual.", status: 401 };
+  if (progress && (progress.owner !== session.payload.sub || progress.organizationId !== organization.data.id)) return { ok: false, error: "Ingresá como administrador del negocio de este recorrido.", status: 401 };
   return organization;
 }
 
 export async function loadOnboarding(): Promise<OnboardingState> {
   const progress = await readProgress();
   const session = await customerSession();
-  const customer = session.status === "valid" && (await request("/users/me", { cache: "no-store" })).ok;
-  const state: OnboardingState = { customer, organizationId: progress?.organizationId ?? null, organization: null, storefronts: [], programs: [] };
-  if (!progress) return state;
+  const me = session.status === "valid" ? await request<{ id: string }>("/users/me", { cache: "no-store" }) : null;
+  const customer = session.status === "valid" && me?.ok === true && me.data.id === session.payload.sub;
+  const admin = await checkSession(await getDashboardSessionToken(), "dashboard");
+  const userId = customer && session.status === "valid" ? session.payload.sub : null;
+  const state: OnboardingState = { userId, customer, organizationId: userId && progress?.owner === userId ? progress.organizationId : null, organization: null, storefronts: [], programs: [] };
+  // A rejected customer session must not silently switch to another dashboard identity.
+  if (session.status === "valid" && !customer) return { ...state, error: "No pudimos verificar tu cuenta. Volvé a ingresar." };
+  // No dashboard session is normal before the first administrator login, even
+  // after creating an organization. A progress hint alone does not imply expiry.
+  if (admin.status !== "valid") {
+    if (admin.status === "expired") return { ...state, error: "Tu sesión de administración venció. Volvé a ingresar en Organización." };
+    if (admin.status === "unavailable") return { ...state, error: "No pudimos verificar la sesión de administración. Probá de nuevo." };
+    if (session.status === "expired") return { ...state, error: "Tu sesión de cuenta venció. Volvé a ingresar." };
+    if (session.status === "unavailable") return { ...state, error: "No pudimos verificar tu sesión. Probá de nuevo." };
+    return state;
+  }
   const org = await adminOrganization();
   if (!org.ok) return { ...state, error: org.error };
+  state.userId = admin.payload.sub;
+  state.organizationId = org.data.id;
   const [storefronts, programs] = await Promise.all([
     dashboardRequest<Storefront[]>("/storefronts", { cache: "no-store" }),
     dashboardRequest<PointProgram[]>("/point-programs", { cache: "no-store" }),

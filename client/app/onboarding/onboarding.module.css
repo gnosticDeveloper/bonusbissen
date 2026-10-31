@@ -1,10 +1,30 @@
+.viewport {
+  min-width: 0;
+}
+
 .slide {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 1.25rem;
   animation: enter 220ms ease-out;
 }
 
+@media (min-width: 640px) {
+  .slide { padding: 2rem; }
+}
+
+@media (min-width: 1024px) {
+  .root { margin-inline: auto; }
+  .root > * + * { margin-top: 1rem; }
+  .slide { padding: 1rem 0; }
+  .organization { max-width: 32rem; margin-inline: auto; }
+  .form { max-width: 42rem; margin-inline: auto; }
+  .plans, .payment { width: 100%; }
+}
+
 @keyframes enter {
-  from { opacity: 0; transform: translateX(12px); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {

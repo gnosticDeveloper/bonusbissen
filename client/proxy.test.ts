@@ -44,7 +44,7 @@ function request(path: string, cookies: Record<string, string> = {}, action = fa
 
 test("landing and onboarding stay public without refreshing unrelated sessions", async () => {
   const { getFetchCallCount } = mockBackend(() => { throw new Error("Public routes must not refresh sessions"); });
-  for (const path of ["/", "/onboarding", "/onboarding/pago"]) {
+  for (const path of ["/", "/onboarding", "/onboarding/pago", "/billing?status=approved"]) {
     for (const action of [false, true]) {
       const response = await proxy(request(path, { access_token: "expired", bb_user_rt: rawToken() }, action));
       assert.equal(response.status, 200);
@@ -55,7 +55,7 @@ test("landing and onboarding stay public without refreshing unrelated sessions",
 });
 
 test("public landing does not open protected routes or similar prefixes", async () => {
-  for (const path of ["/b", "/d/private", "/onboarding-private"]) {
+  for (const path of ["/b", "/d/private", "/onboarding-private", "/billing-private", "/billing/private"]) {
     const response = await proxy(request(path));
     assert.equal(response.status, 307);
     assert.equal(new URL(response.headers.get("location")!).pathname, path.startsWith("/d/") ? "/d/sign-in" : "/descubrir");

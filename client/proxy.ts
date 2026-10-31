@@ -71,7 +71,7 @@ export async function proxy(request: NextRequest) {
 
   // La landing es pública incluso con una sesión vencida. No incluir "/"
   // en la lista de prefijos: eso abriría también las rutas privadas.
-  if (pathname === "/") return NextResponse.next();
+  if (pathname === "/" || pathname === "/billing") return NextResponse.next();
 
   // La afiliación es pública, pero conviene renovar una sesión vencida antes
   // de que la página intente consultar membresía.
