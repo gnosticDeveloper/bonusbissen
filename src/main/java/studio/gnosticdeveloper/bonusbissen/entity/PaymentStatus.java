@@ -2,7 +2,7 @@ package studio.gnosticdeveloper.bonusbissen.entity;
 
 import lombok.Getter;
 
-/** Only ever set to PAID by a direct database update -- no endpoint writes it (see 9__billing.sql). To be properly used after payment gateway integration */
+/** Set to PAID only when a Mercado Pago payment is applied (InvoiceService#applyPayment) -- no endpoint writes it. */
 @Getter
 public enum PaymentStatus {
     PENDING("pending"),

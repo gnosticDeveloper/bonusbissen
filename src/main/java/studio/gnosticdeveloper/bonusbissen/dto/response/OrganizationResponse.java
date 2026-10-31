@@ -17,7 +17,9 @@ public record OrganizationResponse(
     String billingEmail,
     String billingPlanName,
     String billingCycle,
-    java.time.OffsetDateTime nextInvoiceDueAt
+    java.time.OffsetDateTime nextInvoiceDueAt,
+    /** Mercado Pago preapproval status (pending/authorized/paused/cancelled), null if checkout was never started. */
+    String mercadoPagoSubscriptionStatus
 ) {
     public static OrganizationResponse from(Organization organization, StorageService storage) {
         return new OrganizationResponse(
@@ -32,7 +34,8 @@ public record OrganizationResponse(
             organization.getBillingEmail(),
             organization.getBillingPlan() == null ? null : organization.getBillingPlan().getName(),
             organization.getBillingCycle() == null ? null : organization.getBillingCycle().getValue(),
-            organization.getNextInvoiceDueAt()
+            organization.getNextInvoiceDueAt(),
+            organization.getMercadoPagoPreapprovalStatus()
         );
     }
 }

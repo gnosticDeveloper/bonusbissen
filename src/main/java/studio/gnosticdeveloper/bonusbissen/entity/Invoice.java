@@ -18,8 +18,9 @@ import org.hibernate.type.SqlTypes;
  * never alters a past invoice. No PDF is stored; {@code InvoiceDocumentService}
  * regenerates the document on demand from this snapshot.
  *
- * {@code paymentStatus} only ever moves to PAID by a direct database update --
- * there is no endpoint for it (see 9__billing.sql for why).
+ * {@code paymentStatus} moves to PAID when a Mercado Pago payment is applied to
+ * it (InvoiceService#applyPayment, from the webhook or at generation time) --
+ * there is still no endpoint for marking it paid by hand.
  */
 @Entity
 @Table(name = "invoices")
@@ -35,6 +36,10 @@ public class Invoice {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
+
+    /** Sequential number shown on the document; assigned from invoice_number_seq by InvoiceService, never reused. */
+    @Column(name = "invoice_number", nullable = false, updatable = false, unique = true)
+    private Long invoiceNumber;
 
     @Column(name = "billing_cycle", nullable = false, length = 16)
     private BillingCycle billingCycle;

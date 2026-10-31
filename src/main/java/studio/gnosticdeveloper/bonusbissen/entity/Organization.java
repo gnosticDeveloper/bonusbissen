@@ -56,6 +56,18 @@ public class Organization {
     @Column(name = "next_invoice_due_at")
     private OffsetDateTime nextInvoiceDueAt;
 
+    /** Mercado Pago's preapproval id -- the org's recurring-charge authorization (see MercadoPagoSubscriptionService). */
+    @Column(name = "mercado_pago_preapproval_id")
+    private String mercadoPagoPreapprovalId;
+
+    /** Mirrors Mercado Pago's preapproval status (pending/authorized/paused/cancelled) -- informational, kept in sync by the webhook. */
+    @Column(name = "mercado_pago_preapproval_status", length = 32)
+    private String mercadoPagoPreapprovalStatus;
+
+    /** Email of the Mercado Pago account that pays the subscription -- not billingEmail, which is only where invoices are mailed. */
+    @Column(name = "mercado_pago_payer_email")
+    private String mercadoPagoPayerEmail;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
