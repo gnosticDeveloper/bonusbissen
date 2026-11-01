@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/helpers/utils";
 import { NavItem, UserRole } from "@/lib/definitions";
-import { Award, Building2, ChartColumn, Coins, Home, Images, QrCode, ShieldAlert, UserRoundGroup } from "lucide-react";
+import { Award, Building2, ChartColumn, Coins, Home, Images, QrCode, ReceiptText, ShieldAlert, UserRoundGroup } from "lucide-react";
 
 export const NAV: NavItem[] = [
   { id: "home", label: "Inicio", icon: Home, roles: [UserRole.ADMIN, UserRole.CASHIER], url: "/inicio", available: true, show: true } as const,
@@ -36,6 +36,7 @@ export const NAV: NavItem[] = [
     show: true,
   } as const,
   { id: "organization", label: "Mi negocio", icon: Building2, roles: [UserRole.ADMIN], url: "/mi-negocio", available: true, show: true } as const,
+  { id: "billing", label: "Facturación", icon: ReceiptText, roles: [UserRole.ADMIN], url: "/facturacion", available: true, show: true } as const,
   { id: "join-qr", label: "QR de afiliación", icon: QrCode, roles: [UserRole.ADMIN], url: "/codigo-qr", available: true, show: true } as const,
   { id: "employees", label: "Empleados", icon: UserRoundGroup, roles: [UserRole.ADMIN], url: "#", available: false, show: false } as const,
   { id: "gallery", label: "Galeria", icon: Images, roles: [UserRole.ADMIN], url: "#", available: false, show: false } as const,
