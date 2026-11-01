@@ -13,6 +13,7 @@ import { userLoginSchema } from "@/schemas/user";
 import { checkSession, getDashboardSessionToken } from "@/lib/auth/session";
 import type { Storefront } from "@/lib/types/storefront";
 import type { PointProgram } from "@/lib/types/point-program";
+import { ensureOnboardingStorefront } from "./storefront-session";
 import {
   adminOrganization,
   cookieOptions,
@@ -29,17 +30,13 @@ const optionalText = z.string().trim().max(255, "Usá hasta 255 caracteres.");
 const storefrontSchema = z
   .object({
     name: nameSchema,
-    online: z.enum(["true", "false"]),
-    address: optionalText,
-    city: z.string().trim().max(120, "La localidad es demasiado larga."),
-    province: z.string().trim().max(120, "La provincia es demasiado larga."),
+    address: optionalText.min(1, "Completá la dirección de la sucursal."),
+    city: z.string().trim().min(1, "Completá la localidad.").max(120, "La localidad es demasiado larga."),
+    province: z.string().trim().min(1, "Completá la provincia.").max(120, "La provincia es demasiado larga."),
     color: z.string().regex(/^#[0-9a-f]{6}$/i, "Elegí un color válido."),
     category: z.string().trim().max(80, "El rubro no puede superar los 80 caracteres."),
     hours: optionalText,
     description: z.string().trim().max(2000, "La descripción es demasiado larga."),
-  })
-  .refine((v) => v.online === "true" || Boolean(v.address && v.city && v.province), {
-    message: "Para una sucursal física, seleccioná provincia, localidad y calle en el buscador.",
   });
 
 type Result = ActionResult<OnboardingState>;
@@ -56,7 +53,7 @@ export async function authenticateCustomer(mode: "sign-in" | "sign-up", form: Fo
 
 export async function createOrganization(form: FormData): Promise<Result> {
   const session = await customerSession();
-  if (session.status !== "valid") return { ok: false, error: "Tu sesión de cuenta venció. Volvé a ingresar antes de crear el negocio." };
+  if (session.status !== "valid") return { ok: false, error: "Tu sesión terminó. Volvé a ingresar antes de crear el negocio." };
   const me = await request<{ id: string }>("/users/me", { cache: "no-store" });
   if (!me.ok || me.data.id !== session.payload.sub)
     return { ok: false, error: "No pudimos verificar tu cuenta. Volvé a ingresar o probá más tarde." };
@@ -97,9 +94,9 @@ export async function authenticateAdmin(form: FormData): Promise<Result> {
   if (!result.ok) return result;
   const session = await checkSession(await getDashboardSessionToken(), "dashboard");
   if (session.status !== "valid" || session.payload.role !== "ADMIN")
-    return { ok: false, error: "Necesitás ingresar con una cuenta administradora." };
+    return { ok: false, error: "Ingresá con la cuenta que administra el negocio." };
   if (customer.status === "valid" && customer.payload.sub !== session.payload.sub)
-    return { ok: false, error: "Ingresá como administrador con la misma cuenta del recorrido." };
+    return { ok: false, error: "Usá la misma cuenta con la que empezaste." };
   const org = await dashboardRequest<Organization>("/organization", { cache: "no-store" });
   if (!org.ok) return org;
   if (org.data.id !== organizationId) return { ok: false, error: "La sesión no corresponde al negocio elegido." };
@@ -116,17 +113,22 @@ export async function createStorefront(form: FormData): Promise<Result> {
   const existing = await dashboardRequest<Storefront[]>("/storefronts", { cache: "no-store" });
   if (!existing.ok) return existing;
   // This journey sets up the first active branch, including after a lost POST response.
-  if (existing.data.some((s) => s.active)) return refreshOnboarding();
+  const active = existing.data.find((s) => s.active);
+  if (active) {
+    const ready = await ensureOnboardingStorefront(active.id);
+    return ready.ok ? refreshOnboarding() : ready;
+  }
   const parsed = storefrontSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
-  const { online, address, city, province, ...rest } = parsed.data;
+
   const result = await dashboardRequest<Storefront>("/storefronts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...rest, online: online === "true", ...(online === "false" ? { address, city, province } : {}) }),
+    body: JSON.stringify({ ...parsed.data, online: false }),
   });
   if (!result.ok) return result;
-  return refreshOnboarding();
+  const ready = await ensureOnboardingStorefront(result.data.id);
+  return ready.ok ? refreshOnboarding() : ready;
 }
 
 export async function createPointProgram(form: FormData): Promise<Result> {
@@ -150,7 +152,7 @@ export async function createPointProgram(form: FormData): Promise<Result> {
   if (!storefronts.ok) return storefronts;
   if (!programs.ok) return programs;
   if (!storefronts.data.some((s) => s.active && s.id === parsed.data.storefrontId))
-    return { ok: false, error: "La sucursal no está activa en este negocio. Actualizá el recorrido." };
+    return { ok: false, error: "La sucursal no está activa en este negocio. Volvé a cargar la página." };
   const assigned = programs.data.find((p) => p.storefronts.some((s) => s.id === parsed.data.storefrontId));
   if (assigned)
     return assigned.active ? refreshOnboarding() : { ok: false, error: "Esta sucursal tiene un programa inactivo. Reactivalo desde Mi negocio." };
@@ -179,16 +181,20 @@ export async function finishOnboarding(): Promise<FinishResult> {
   const org = await adminOrganization();
   if (!org.ok) return { error: org.error };
   const state = await loadOnboarding();
+  if (state.error) return { error: state.error };
   if (!org.data.billingPlanName || !state.organization?.billingPlanName)
     return { error: "Elegí un plan antes de finalizar la configuración." };
   if (org.data.mercadoPagoSubscriptionStatus !== "authorized" || state.organization?.mercadoPagoSubscriptionStatus !== "authorized")
     return { error: "Autorizá los cobros en Mercado Pago antes de finalizar la configuración." };
-  if (
-    !state.userId ||
-    state.organization?.id !== org.data.id ||
-    !state.programs.some((p) => p.storefronts.some((s) => state.storefronts.some((sf) => sf.id === s.id)))
-  )
-    return { error: state.error ?? "Creá una sucursal con su programa de puntos antes de terminar." };
+  const storefront = state.storefronts.find((sf) => state.programs.some((p) => p.storefronts.some((s) => s.id === sf.id)));
+  if (!state.userId || state.organization?.id !== org.data.id || !storefront)
+    return { error: "Creá una sucursal con su programa de puntos antes de terminar." };
+  const ready = await ensureOnboardingStorefront(storefront.id);
+  if (!ready.ok) return { error: ready.error };
+  const session = await checkSession(await getDashboardSessionToken(), "dashboard");
+  if (session.status !== "valid" || session.payload.sub !== state.userId ||
+    session.payload.role !== "ADMIN" || session.payload.sf !== storefront.id)
+    return { error: "No pudimos confirmar la sucursal de tu sesión. Probá de nuevo." };
   (await cookies()).set(PROGRESS_COOKIE, "", { ...cookieOptions, maxAge: 0 });
   return { error: null, userId: state.userId, destination: `/d/${org.data.id}/mi-negocio` };
 }

@@ -46,8 +46,8 @@ async function adminToken(): Promise<BillingResult<string>> {
   }
   if (session.status === "unavailable") return { ok: false, status: 503, error: "No pudimos verificar tu sesión. Reintentá en un momento." };
   if (session.status !== "valid" || !token)
-    return { ok: false, status: 401, error: "Ingresá como administrador desde Organización para gestionar los pagos de tu negocio." };
-  if (session.payload.role !== "ADMIN") return { ok: false, status: 403, error: "Necesitás una cuenta administradora para gestionar los pagos." };
+    return { ok: false, status: 401, error: "Volvé a ingresar con la cuenta que administra el negocio." };
+  if (session.payload.role !== "ADMIN") return { ok: false, status: 403, error: "Ingresá con la cuenta que administra el negocio." };
   return { ok: true, data: token };
 }
 
@@ -80,6 +80,8 @@ export async function selectBillingPlan(organizationId: string, billingPlanId: s
   if (!z.uuid().safeParse(billingPlanId).success) return { ok: false, error: "Elegí un plan válido." };
   const current = await context(organizationId);
   if (!current.ok) return current;
+  if (current.data.organization.mercadoPagoSubscriptionStatus === "authorized")
+    return { ok: false, error: "Tu plan ya está confirmado. Continuá con la configuración del negocio." };
   const plans = await billingRequest(current.data.token, "/organization/billing-plans", z.array(billingPlanSchema));
   if (!plans.ok) return plans;
   if (!plans.data.some(plan => plan.id === billingPlanId))

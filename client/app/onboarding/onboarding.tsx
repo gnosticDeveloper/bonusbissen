@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { SubmitEvent, useEffect, useEffectEvent, useRef, useState, useTransition, type ReactNode } from "react";
 
 import { useRouter } from "next/navigation";
 import {
   availableStep as currentStep,
   clampOnboardingStep,
+  minimumStep,
   onboardingProgressContext,
   restoreOnboardingNavigation,
   createOnboardingProgressStore,
@@ -26,7 +27,6 @@ import {
   createPointProgram,
   createStorefront,
   finishOnboarding,
-  leaveOnboarding,
   refreshOnboarding,
 } from "./actions";
 
@@ -34,7 +34,7 @@ import { PlanSelectionScreen } from "./pago/plan-selection-screen";
 import { PaymentScreen } from "./pago/payment-button";
 import styles from "./onboarding.module.css";
 
-const steps = ["Organización", "Plan", "Mercado Pago", "Sucursal", "Programa de puntos"];
+const steps = ["Cuenta y negocio", "Elegir plan", "Mercado Pago", "Crear sucursal", "Crear programa de puntos"];
 
 function TextField({
   name,
@@ -66,7 +66,7 @@ function TextField({
   );
 }
 
-export function Onboarding({ initial, progressStore }: { initial: OnboardingState; progressStore?: OnboardingProgressStore }) {
+export function Onboarding({ initial, progressStore, recoverAccount = false }: { initial: OnboardingState; progressStore?: OnboardingProgressStore; recoverAccount?: boolean }) {
   const router = useRouter();
   const [store] = useState(() => createOnboardingProgressStore(progressStore));
   const [restored, setRestored] = useState<string | null>(null);
@@ -79,7 +79,7 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
   const [recover, setRecover] = useState(false);
   const [accountLogin, setAccountLogin] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<OrganizationOption | null>(null);
-  const [online, setOnline] = useState(false);
+  const [accountRecovery, setAccountRecovery] = useState(recoverAccount);
   const [error, setError] = useState<string | null>(initial.error ?? null);
   const [pending, startTransition] = useTransition();
   const heading = useRef<HTMLHeadingElement>(null);
@@ -91,10 +91,6 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
   const context = onboardingProgressContext(state);
   const readNavigation = useEffectEvent(() => ({ state, step, revision: navigationRevision.current }));
 
-  function selectStep(next: number | ((previous: number) => number)) {
-    navigationRevision.current += 1;
-    setStep(next);
-  }
 
   useEffect(() => {
     let cancelled = false;
@@ -104,7 +100,7 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
       if (cancelled || !result) return;
       setStep(result.step);
       setRestored(onboardingProgressContext(initialNavigation.state));
-      if (result.storageFailed) setStorageError("No pudimos recuperar el paso local. Podés continuar; tus recursos siguen guardados en el negocio.");
+      if (result.storageFailed) setStorageError("No pudimos recuperar el paso en este navegador. Podés continuar; tus datos siguen guardados.");
     });
     return () => {
       cancelled = true;
@@ -114,7 +110,7 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
   useEffect(() => {
     if (!state.userId || restored !== context || finishing.current) return;
     void store.save(state.userId, { version: 3, userId: state.userId, organizationId: state.organizationId, step }).catch(() => {
-      setStorageError("No pudimos guardar el paso en este navegador. Tus recursos siguen guardados en el negocio.");
+      setStorageError("No pudimos guardar el paso en este navegador. Tus datos siguen guardados.");
     });
   }, [state, context, restored, step, store]);
 
@@ -131,7 +127,8 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
           const refreshed = await refreshOnboarding();
           if (refreshed.ok) {
             setState(refreshed.data);
-            selectStep((previous) => clampOnboardingStep(refreshed.data, previous));
+            navigationRevision.current += 1;
+            setStep((previous) => clampOnboardingStep(refreshed.data, previous));
           }
         } else {
           await completeOnboardingNavigation(
@@ -139,12 +136,12 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
             store,
             (destination) => router.push(destination),
             () => {
-              setStorageError("El negocio está listo, pero no pudimos borrar el paso local de este navegador.");
+              setStorageError("El negocio está listo, pero no pudimos borrar el progreso de este navegador.");
             },
           );
         }
       } catch {
-        setError("No pudimos finalizar o abrir Mi negocio. Reintentá; no se duplican recursos.");
+        setError("No pudimos abrir Mi negocio. Volvé a intentarlo.");
       } finally {
         busy.current = false;
         finishing.current = false;
@@ -154,7 +151,7 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
 
   useEffect(() => {
     heading.current?.focus();
-  }, [step]);
+  }, [step, accountRecovery]);
   useEffect(() => {
     if (error) errorBox.current?.focus();
   }, [error]);
@@ -168,7 +165,9 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
         const result = await operation();
         if (result.ok) {
           setState(result.data);
-          selectStep(targetStep === undefined ? currentStep(result.data) : clampOnboardingStep(result.data, targetStep));
+          navigationRevision.current += 1;
+          setStep(targetStep === undefined ? currentStep(result.data) : clampOnboardingStep(result.data, targetStep));
+          setAccountRecovery(false);
           setAccountLogin(false);
           setError(result.data.error ?? null);
         } else {
@@ -176,11 +175,12 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
           const refreshed = await refreshOnboarding();
           if (refreshed.ok) {
             setState(refreshed.data);
-            selectStep((previous) => clampOnboardingStep(refreshed.data, previous));
+            navigationRevision.current += 1;
+            setStep((previous) => clampOnboardingStep(refreshed.data, previous));
           }
         }
       } catch {
-        setError("No pudimos completar la solicitud. Reintentá la consulta de este paso; tus datos guardados siguen en el negocio.");
+        setError("No pudimos completar la solicitud. Volvé a intentarlo; tus datos guardados no se pierden.");
       } finally {
         busy.current = false;
       }
@@ -188,7 +188,7 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
   }
 
   function submit(action: (form: FormData) => Promise<ActionResult<OnboardingState>>) {
-    return (event: FormEvent<HTMLFormElement>) => {
+    return (event: SubmitEvent<HTMLFormElement>) => {
       event.preventDefault();
       const form = event.currentTarget;
       const data = new FormData(form);
@@ -215,11 +215,11 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
 
   const adminForm = (
     <>
-      <p className="text-sm">Ingresá de nuevo con tu usuario y contraseña para abrir la sesión de administración. No guardamos tu contraseña.</p>
+      <p className="text-sm">Ingresá con la cuenta que administra tu negocio.</p>
       {form(
         authenticateAdmin,
         <>
-          {!state.organizationId && (
+          {!state.organizationId && !state.organization && (
             <Field label="Negocio que querés retomar" htmlFor="recover-org" required>
               <Autocomplete
                 inputId="recover-org"
@@ -238,7 +238,7 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
           <TextField name="identifier" label="Nombre de usuario" autoComplete="username" />
           <TextField name="password" label="Contraseña" type="password" autoComplete="current-password" maxLength={256} />
         </>,
-        "Ingresar como administrador",
+        "Ingresar a mi negocio",
       )}
     </>
   );
@@ -247,10 +247,9 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
     <div className={`space-y-6 ${styles.root}`} aria-busy={pending}>
       <div>
         <p className="text-sm font-semibold text-primary">Configuración inicial</p>
-        <h1 className="mt-2 text-3xl font-bold">Dale la bienvenida a tus clientes</h1>
+        <h1 className="mt-2 text-3xl font-bold">Configurá tu negocio</h1>
         <p className="mt-3 text-foreground/80">
-          Cinco pasos para empezar: crear tu organización, elegir un plan, autorizar cobros en Mercado Pago y configurar sucursal y programa. Lo que guardes se
-          recupera al volver; los campos sin enviar no se guardan.
+          Creá tu cuenta y tu negocio, elegí un plan y configurá tu sucursal y programa de puntos.
         </p>
       </div>
       <nav aria-label="Pasos de la configuración">
@@ -259,14 +258,11 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
             <li key={label}>
               <button
                 type="button"
-                aria-current={step === index ? "step" : undefined}
-                disabled={pending || (Boolean(state.userId) && restored !== context) || index > currentStep(state)}
+                aria-current={!accountRecovery && step === index ? "step" : undefined}
+                disabled={pending || (Boolean(state.userId) && restored !== context) || index < minimumStep(state) || index > currentStep(state)}
                 onClick={() => {
-                  if (index > step) run(refreshOnboarding, index);
-                  else {
-                    selectStep(index);
-                    setError(null);
-                  }
+                  setAccountRecovery(false);
+                  run(refreshOnboarding, index);
                 }}
                 className={`h-full w-full rounded-xl border p-3 text-left text-sm disabled:opacity-50 ${step === index ? "border-primary bg-primary/10 font-semibold" : "border-border"}`}
               >
@@ -291,16 +287,25 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
         className={styles.viewport}
       >
         <div
-          key={step}
+          key={accountRecovery ? "account-recovery" : step}
           role="group"
           aria-roledescription="diapositiva"
-          aria-label={`${step + 1} de 5: ${steps[step]}`}
-          className={`space-y-5 ${styles.slide} ${step === 0 ? styles.organization : step === 1 ? styles.plans : step === 2 ? styles.payment : styles.form}`}
+          aria-label={accountRecovery ? "Ingresar a mi negocio" : `${step + 1} de 5: ${steps[step]}`}
+          className={`space-y-5 ${styles.slide} ${accountRecovery || step === 0 ? styles.organization : step === 1 ? styles.plans : step === 2 ? styles.payment : styles.form}`}
         >
           <h2 ref={heading} tabIndex={-1} className="text-2xl font-semibold outline-none">
-            {steps[step]}
+            {accountRecovery ? "Ingresar a mi negocio" : steps[step]}
           </h2>
-          {step === 0 && (
+          {accountRecovery && (
+            <>
+              {(state.organization || state.organizationId) && <p>Volvé a ingresar para continuar con tu negocio. No hace falta crearlo otra vez.</p>}
+              {adminForm}
+              <Button type="button" variant="ghost" disabled={pending} onClick={() => setAccountRecovery(false)}>
+                Volver a la configuración
+              </Button>
+            </>
+          )}
+          {!accountRecovery && step === 0 && (
             <>
               {state.organization ? (
                 <>
@@ -315,8 +320,8 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
                 <>
                   <p>
                     {state.organizationId
-                      ? "Tu organización ya está creada. No hace falta crearla otra vez."
-                      : "¿Ya creaste tu negocio? Retomalo sin duplicar el alta."}
+                      ? "Tu negocio ya está creado. No hace falta crearlo otra vez."
+                      : "Ingresá para continuar con tu negocio."}
                   </p>
                   {adminForm}
                   {!state.organizationId && (
@@ -367,7 +372,7 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
                   ) : (
                     <>
                       <p>Tu cuenta está lista. Ahora elegí el nombre de tu negocio.</p>
-                      {form(createOrganization, <TextField name="name" label="Nombre del negocio" />, "Crear organización")}
+                      {form(createOrganization, <TextField name="name" label="Nombre del negocio" />, "Crear negocio")}
                       <Button
                         variant="ghost"
                         disabled={pending}
@@ -381,13 +386,13 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
                     </>
                   )}
                   <Button variant="outline" disabled={pending} onClick={() => setRecover(true)}>
-                    Ya creé una organización
+                    Ya creé un negocio
                   </Button>
                 </>
               )}
             </>
           )}
-          {step === 1 && state.organization && (
+          {!accountRecovery && step === 1 && state.organization && (
             <PlanSelectionScreen
               key={state.organization.id}
               expectedOrganizationId={state.organization.id}
@@ -395,7 +400,7 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
               onContinue={() => run(refreshOnboarding)}
             />
           )}
-          {step === 2 && state.organization?.billingPlanName && (
+          {!accountRecovery && step === 2 && state.organization?.billingPlanName && (
             <PaymentScreen
               key={state.organization.id}
               expectedOrganizationId={state.organization.id}
@@ -403,9 +408,9 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
               onContinue={() => run(refreshOnboarding)}
             />
           )}
-          {step === 3 && (
+          {!accountRecovery && step === 3 && (
             <>
-              <p>Creá tu primera sucursal física u online. Después podés sumar más desde Mi negocio.</p>
+              <p>Creá tu primera sucursal. Después podés sumar más desde Mi negocio.</p>
               {state.storefronts.length ? (
                 <>
                   <p>
@@ -421,27 +426,8 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
                   createStorefront,
                   <>
                     <TextField name="name" label="Nombre de la sucursal" />
-                    <Field label="Tipo de sucursal" htmlFor="online">
-                      <select
-                        id="online"
-                        name="online"
-                        value={String(online)}
-                        onChange={(e) => setOnline(e.target.value === "true")}
-                        className="h-10 w-full rounded-lg border border-border bg-background px-3"
-                      >
-                        <option value="false">Física</option>
-                        <option value="true">Online</option>
-                      </select>
-                    </Field>
-                    {!online ? (
-                      <AddressSelector />
-                    ) : (
-                      <>
-                        <input type="hidden" name="address" value="" />
-                        <input type="hidden" name="city" value="" />
-                        <input type="hidden" name="province" value="" />
-                      </>
-                    )}
+                    <input type="hidden" name="online" value="false" />
+                    <AddressSelector />
                     <Field label="Color de marca" htmlFor="color">
                       <Input type="color" name="color" id="color" defaultValue="#d4822b" />
                     </Field>
@@ -460,7 +446,7 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
               )}
             </>
           )}
-          {step === 4 && (
+          {!accountRecovery && step === 4 && (
             <>
               {complete ? (
                 <div className="space-y-4">
@@ -469,7 +455,7 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
                     El programa de puntos está vinculado a tu sucursal. Desde Mi negocio podés ajustar la configuración y asignar las sucursales al
                     equipo.
                   </p>
-                  <p className="text-sm">Vamos al panel de la organización, sin seleccionar una sucursal automáticamente.</p>
+
                   <Button type="button" disabled={pending || restored !== context} onClick={finish}>
                     {pending ? "Abriendo Mi negocio…" : "Ir a Mi negocio"}
                   </Button>
@@ -503,40 +489,22 @@ export function Onboarding({ initial, progressStore }: { initial: OnboardingStat
               )}
             </>
           )}
-          {step > 0 && (
-            <Button type="button" variant="ghost" disabled={pending} onClick={() => selectStep(step - 1)}>
+          {!accountRecovery && step > minimumStep(state) && (
+            <Button type="button" variant="ghost" disabled={pending} onClick={() => run(refreshOnboarding, step - 1)}>
               Volver
             </Button>
           )}
         </div>
       </section>
       <p role="status" aria-live="polite" className="text-sm text-foreground/70">
-        {pending ? "Estamos procesando tu solicitud…" : `Paso ${step + 1} de 5: ${steps[step]}`}
+        {pending ? "Estamos procesando tu solicitud…" : accountRecovery ? "Ingresar a mi negocio" : `Paso ${step + 1} de 5: ${steps[step]}`}
       </p>
       {storageError && (
         <p role="status" className="text-sm">
           {storageError}
         </p>
       )}
-      {step !== 1 && step !== 2 && (
-        <footer className="border-t border-border pt-5 text-center">
-          <p className="text-sm text-foreground/70">¿Querés seguir con otra cuenta?</p>
-          <Button type="button" variant="link" disabled={pending} onClick={() => {
-            if (busy.current) return;
-            busy.current = true;
-            startTransition(async () => {
-              try {
-                await leaveOnboarding();
-                window.location.assign("/onboarding");
-              } catch {
-                setError("No pudimos cerrar la sesión. Reintentá en un momento.");
-              } finally {
-                busy.current = false;
-              }
-            });
-          }}>Cerrar sesión</Button>
-        </footer>
-      )}
+
     </div>
   );
 }

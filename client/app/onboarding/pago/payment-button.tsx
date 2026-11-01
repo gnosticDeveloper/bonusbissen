@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { safeCheckoutUrl, subscriptionLabel } from "@/lib/billing";
 import { loadBilling, startCheckout } from "./actions";
-import { BillingFooter } from "./billing-footer";
 import { PlanArt } from "./plan-art";
 import { POLL_INTERVAL_MS, PollBudget } from "./request-gate";
 import { useBillingFlow, type BillingScreenProps } from "./use-billing-flow";
@@ -117,8 +116,8 @@ function PaymentSession({ expectedOrganizationId, onContinue, disabled = false }
       )}
       {!org && !busy && (
         <p className="text-sm text-foreground/65">
-          <Link href="/onboarding" className="underline">
-            Volvé a Organización para ingresar con tu cuenta administradora.
+          <Link href="/onboarding?ingresar=1" className="underline">
+            Volvé a ingresar a tu negocio.
           </Link>
         </p>
       )}
@@ -141,7 +140,7 @@ function PaymentSession({ expectedOrganizationId, onContinue, disabled = false }
               <div className="space-y-3 rounded-xl border border-border p-5">
                 <p>Primero elegí un plan para tu negocio.</p>
                 <Link className="font-medium underline underline-offset-4" href="/onboarding">
-                  Ir al onboarding para elegir mi plan
+                  Elegir mi plan
                 </Link>
               </div>
             ) : status === "authorized" ? (
@@ -186,7 +185,7 @@ function PaymentSession({ expectedOrganizationId, onContinue, disabled = false }
                       </p>
                     )}
                     <Button type="submit" className="h-12 w-full" disabled={!!error}>
-                      Preparar pago con Mercado Pago
+                      Autorizar cobros con Mercado Pago
                     </Button>
                   </>
                 )}
@@ -212,12 +211,11 @@ function PaymentSession({ expectedOrganizationId, onContinue, disabled = false }
             )}
             {pending && (
               <p className="text-sm text-foreground/65">
-                La confirmación puede demorar. La consultamos automáticamente por un tiempo y cuando volvés a esta pestaña, dentro de ese período. Si
-                no llega, podés volver más tarde: tu plan queda guardado.
+                Estamos esperando la confirmación de Mercado Pago. Si demora, podés volver más tarde: tu plan queda guardado.
               </p>
             )}
             <p className="text-xs leading-relaxed text-foreground/65">
-              Volver de Mercado Pago no confirma la autorización. Para continuar usamos únicamente el estado verificado de tu negocio.
+              Podés continuar cuando Mercado Pago confirme la autorización. Autorizar los cobros no significa que ya hayas pagado.
             </p>
           </section>
           <aside
@@ -236,11 +234,9 @@ function PaymentSession({ expectedOrganizationId, onContinue, disabled = false }
                 {org.billingPlanName && <p className="text-sm text-primary">Suscripción mensual</p>}
               </div>
               <div className="space-y-3 border-t border-zinc-800 pt-5 text-sm text-zinc-300">
-                <p>✓ Tu propia organización con tu marca y estilo</p>
-                <p>✓ Hasta 5 locales autogestionables</p>
-                <p>✓ Acceso a tu panel administrativo</p>
-                <p>✓ Creación ilimitada de recompensas</p>
-                <p>✓ Asignación ilimitada de empleados para gestionar cada sucursal</p>
+                <p>✓ Gestión de sucursales</p>
+                <p>✓ Programa de puntos y recompensas</p>
+                <p>✓ Acceso para tu equipo</p>
               </div>
               <p className="text-xs leading-relaxed text-zinc-400">
                 Revisá el importe y las condiciones en Mercado Pago antes de confirmar la autorización.
@@ -249,7 +245,6 @@ function PaymentSession({ expectedOrganizationId, onContinue, disabled = false }
           </aside>
         </div>
       )}
-      <BillingFooter disabled={disabled || busy} run={run} />
     </fieldset>
   );
 }

@@ -4,12 +4,10 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { billingMoney, type BillingPlan } from "@/lib/billing";
 import { getBillingPlans, loadBilling, selectBillingPlan } from "./actions";
-import { BillingFooter } from "./billing-footer";
 import { PlanArt } from "./plan-art";
 import { useBillingFlow, type BillingScreenProps } from "./use-billing-flow";
 
-// Temporary shared checklist: describes the flow, not tier-specific entitlements.
-const checklist = ["Tu propia organización con tu marca y estilo", "Hasta 5 locales autogestionables", "Acceso a tu panel administrativo", "Creación ilimitada de recompensas", "Asignación ilimitada de empleados para gestionar cada sucursal"];
+const checklist = ["Gestión de sucursales", "Programa de puntos y recompensas", "Acceso para tu equipo"];
 
 export function PlanSelectionScreen({ expectedOrganizationId, onContinue, disabled = false }: BillingScreenProps) {
   const { data, busy, error, run, reload, setError } = useBillingFlow(getBillingPlans, expectedOrganizationId);
@@ -52,7 +50,7 @@ export function PlanSelectionScreen({ expectedOrganizationId, onContinue, disabl
       </header>
       {busy && (
         <p role="status" className="text-center text-sm">
-          Estamos preparando tu próximo paso…
+          Cargando planes…
         </p>
       )}
       {error && (
@@ -126,12 +124,11 @@ export function PlanSelectionScreen({ expectedOrganizationId, onContinue, disabl
       )}
       {!data && !busy && (
         <p className="text-sm text-foreground/65">
-          <Link className="underline" href="/onboarding">
-            Volvé a Organización para ingresar con tu cuenta administradora.
+          <Link className="underline" href="/onboarding?ingresar=1">
+            Volvé a ingresar a tu negocio.
           </Link>
         </p>
       )}
-      <BillingFooter disabled={disabled || busy} run={run} />
     </fieldset>
   );
 }

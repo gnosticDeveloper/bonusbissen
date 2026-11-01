@@ -110,7 +110,7 @@ export default async function HomePage() {
             </div>
             <ol className="mt-12 grid gap-4 md:grid-cols-3">
               {steps.map(({ icon: Icon, title, description }, index) => (
-                <li key={title} className="rounded-[28px] border border-white/10 bg-white/[0.025] p-7 sm:p-8">
+                <li key={title} className="rounded-[28px] border border-white/10 bg-white/2.5 p-7 sm:p-8">
                   <div className="mb-9 flex items-center justify-between">
                     <span className="grid size-11 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
                       <Icon aria-hidden="true" className="size-5" />

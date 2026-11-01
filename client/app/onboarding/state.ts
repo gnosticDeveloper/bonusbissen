@@ -38,13 +38,13 @@ export async function customerSession() {
 // Cookies only identify the intended journey. The backend verifies every resource and permission.
 export async function adminOrganization(): Promise<ActionResult<Organization>> {
   const session = await checkSession(await getDashboardSessionToken(), "dashboard");
-  if (session.status !== "valid") return { ok: false, error: "Tu sesión de administración venció o no está disponible. Volvé a ingresar en Organización.", status: 401 };
-  if (session.payload.role !== "ADMIN") return { ok: false, error: "Necesitás una cuenta administradora para continuar.", status: 403 };
+  if (session.status !== "valid") return { ok: false, error: "Tu sesión terminó. Volvé a ingresar a tu negocio.", status: 401 };
+  if (session.payload.role !== "ADMIN") return { ok: false, error: "Ingresá con la cuenta que administra el negocio.", status: 403 };
   const organization = await dashboardRequest<Organization>("/organization", { cache: "no-store" });
   if (!organization.ok) return organization;
   const progress = await readProgress();
   const customer = await customerSession();
-  if (customer.status === "valid" && customer.payload.sub !== session.payload.sub) return { ok: false, error: "Las sesiones pertenecen a cuentas distintas. Volvé a ingresar como administrador con tu cuenta actual.", status: 401 };
+  if (customer.status === "valid" && customer.payload.sub !== session.payload.sub) return { ok: false, error: "Hay dos cuentas abiertas. Volvé a ingresar con la cuenta de este negocio.", status: 401 };
   if (progress && (progress.owner !== session.payload.sub || progress.organizationId !== organization.data.id)) return { ok: false, error: "Ingresá como administrador del negocio de este recorrido.", status: 401 };
   return organization;
 }
@@ -62,8 +62,8 @@ export async function loadOnboarding(): Promise<OnboardingState> {
   // No dashboard session is normal before the first administrator login, even
   // after creating an organization. A progress hint alone does not imply expiry.
   if (admin.status !== "valid") {
-    if (admin.status === "expired") return { ...state, error: "Tu sesión de administración venció. Volvé a ingresar en Organización." };
-    if (admin.status === "unavailable") return { ...state, error: "No pudimos verificar la sesión de administración. Probá de nuevo." };
+    if (admin.status === "expired") return { ...state, error: "Tu sesión terminó. Volvé a ingresar a tu negocio." };
+    if (admin.status === "unavailable") return { ...state, error: "No pudimos comprobar tu ingreso. Probá de nuevo." };
     if (session.status === "expired") return { ...state, error: "Tu sesión de cuenta venció. Volvé a ingresar." };
     if (session.status === "unavailable") return { ...state, error: "No pudimos verificar tu sesión. Probá de nuevo." };
     return state;

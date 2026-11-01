@@ -25,8 +25,6 @@ export function availableStep(state: VerifiedState) {
 
 export function restoreStep(state: VerifiedState, saved: OnboardingProgress | null) {
   if (!saved || !state.userId || saved.userId !== state.userId || saved.organizationId !== state.organizationId) return availableStep(state);
-  // Returning from Mercado Pago must not trap an authorized organization on payment.
-  if ((saved.step === 1 || saved.step === 2) && availableStep(state) > saved.step) return availableStep(state);
   return clampOnboardingStep(state, saved.step);
 }
 
@@ -34,8 +32,15 @@ export function onboardingProgressContext(state: Pick<VerifiedState, "userId" | 
   return JSON.stringify([state.userId, state.organizationId]);
 }
 
+export function minimumStep(state: VerifiedState) {
+  if (!state.organization) return 0;
+  // Missing plan wins even when authorization or storefronts already exist.
+  if (!state.organization.billingPlanName || state.organization.mercadoPagoSubscriptionStatus !== "authorized") return 1;
+  return state.storefronts.length ? 4 : 3;
+}
+
 export function clampOnboardingStep(state: VerifiedState, step: number) {
-  return Math.max(0, Math.min(step, availableStep(state)));
+  return Math.max(minimumStep(state), Math.min(step, availableStep(state)));
 }
 
 type NavigationSnapshot = { state: VerifiedState; step: number; revision: number };

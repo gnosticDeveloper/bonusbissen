@@ -4,6 +4,7 @@ import { ActionResult } from "@/lib/action-result";
 import { dashboardRequest, publicRequest } from "@/lib/api";
 import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
 import { cookies } from "next/headers";
+import { checkSession, getDashboardSessionToken } from "@/lib/auth/session";
 import {
   accessCookieOptions,
   DASHBOARD_ACCESS_COOKIE,
@@ -96,6 +97,8 @@ export async function signIn(formData: FormData): Promise<ActionResult<{ storefr
 }
 
 export async function selectStorefront(storefrontId: string): Promise<{ success: true } | { success: false; error: string }> {
+  const session = await checkSession(await getDashboardSessionToken(), "dashboard");
+  if (session.status !== "valid") return { success: false, error: "Tu sesión terminó o no pudimos comprobar tu ingreso. Volvé a ingresar." };
   const cookieStore = await cookies();
   const refresh = cookieStore.get(DASHBOARD_REFRESH_COOKIE)?.value;
   const res = await dashboardRequest<{ token: string; storefronts: StorefrontSummary[] }>("/auth/storefront", {
@@ -108,6 +111,11 @@ export async function selectStorefront(storefrontId: string): Promise<{ success:
     cache: "no-store",
   });
   if (!res.ok) return { success: false, error: "No pudimos seleccionar el local." };
+
+  const selected = await checkSession(res.data.token, "dashboard");
+  if (selected.status !== "valid" || selected.payload.sub !== session.payload.sub ||
+    selected.payload.role !== session.payload.role || selected.payload.sf !== storefrontId)
+    return { success: false, error: "No pudimos confirmar la sucursal de tu sesión. Probá de nuevo." };
 
   cookieStore.set(DASHBOARD_ACCESS_COOKIE, res.data.token, accessCookieOptions);
   saveStorefronts(cookieStore, res.data.storefronts);

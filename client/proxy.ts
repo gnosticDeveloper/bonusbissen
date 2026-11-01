@@ -23,7 +23,20 @@ function clearSession(response: NextResponse, area: SessionArea) {
   if (area === "dashboard") response.cookies.delete(DASHBOARD_STOREFRONTS_COOKIE);
 }
 
-async function restoreSession(request: NextRequest, area: SessionArea, redirectTo?: string): Promise<NextResponse | null> {
+function rejectSession(request: NextRequest, area: SessionArea, publicRoute: boolean) {
+  const names = sessionCookies[area];
+  request.cookies.delete(names.access);
+  request.cookies.delete(names.refresh);
+  if (area === "dashboard") request.cookies.delete(DASHBOARD_STOREFRONTS_COOKIE);
+  const response = publicRoute
+    ? NextResponse.next({ request: { headers: request.headers } })
+    : NextResponse.redirect(new URL(names.signIn, request.url));
+  clearSession(response, area);
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
+}
+
+async function restoreSession(request: NextRequest, area: SessionArea, redirectTo?: string, publicRoute = false): Promise<NextResponse | null> {
   const names = sessionCookies[area];
   const raw = request.cookies.get(names.refresh)?.value;
   if (!raw) return null;
@@ -32,11 +45,7 @@ async function restoreSession(request: NextRequest, area: SessionArea, redirectT
   if (result.status === "retry" || result.status === "unavailable") {
     return new NextResponse("No pudimos renovar tu sesión. Probá de nuevo en un momento.", { status: 503 });
   }
-  if (result.status === "expired") {
-    const response = NextResponse.redirect(new URL(names.signIn, request.url));
-    clearSession(response, area);
-    return response;
-  }
+  if (result.status === "expired") return rejectSession(request, area, publicRoute);
 
   const session = await checkSession(result.token, area);
   if (session.status === "unavailable") {
@@ -47,11 +56,7 @@ async function restoreSession(request: NextRequest, area: SessionArea, redirectT
     response.headers.set("Cache-Control", "private, no-store");
     return response;
   }
-  if (session.status !== "valid") {
-    const response = NextResponse.redirect(new URL(names.signIn, request.url));
-    clearSession(response, area);
-    return response;
-  }
+  if (session.status !== "valid") return rejectSession(request, area, publicRoute);
 
   // Forward the rotated cookies to this request's server components/actions as
   // well as the browser; response cookies alone would leave them using the old JWT.
@@ -82,6 +87,32 @@ export async function proxy(request: NextRequest) {
       if (restored) return restored;
     }
     return NextResponse.next();
+  }
+
+  if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) {
+    // Both sessions are optional here, but any existing expired session must be
+    // renewed before the page or action reads its cookies. Never redirect an
+    // onboarding action POST to a sign-in page.
+    const updates: NextResponse[] = [];
+    for (const area of ["customer", "dashboard"] as const) {
+      const token = request.cookies.get(sessionCookies[area].access)?.value;
+      if (token && (await checkSession(token, area)).status !== "expired") continue;
+      const restored = await restoreSession(request, area, undefined, true);
+      if (!restored) continue;
+      updates.push(restored);
+      if (restored.status !== 200) {
+        for (const previous of updates) {
+          for (const cookie of previous.cookies.getAll()) restored.cookies.set(cookie);
+        }
+        return restored;
+      }
+    }
+    const response = NextResponse.next({ request: { headers: request.headers } });
+    for (const update of updates) {
+      for (const cookie of update.cookies.getAll()) response.cookies.set(cookie);
+    }
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
   }
 
   if (ALWAYS_PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return NextResponse.next();

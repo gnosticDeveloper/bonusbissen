@@ -21,6 +21,11 @@ let loginResult;
 let loginSession;
 let loseStorefrontResponse;
 let loseProgramResponse;
+let staff;
+let selectedSession;
+let loseAttachResponse;
+const tokenSessions = new Map();
+const STAFF = "88888888-8888-4888-8888-888888888888";
 
 function valid(role, sub = OWNER) {
   return { status: "valid", payload: { sub, role, username: "ana" } };
@@ -46,9 +51,10 @@ mock.module("next/navigation", () => ({ redirect }));
 mock.module("@/lib/auth/session", () => ({
   getSessionToken: async () => jar.get("access_token"),
   getDashboardSessionToken: async () => jar.get("d_token"),
-  checkSession: async (_token, area) => area === "dashboard" ? adminSession : customerSession,
+  checkSession: async (token, area) => area === "dashboard" ? (tokenSessions.get(token) ?? adminSession) : customerSession,
 }));
-mock.module("@/app/d/sign-in/actions", () => ({ signIn: dashboardSignIn }));
+const { selectStorefront } = await import("../d/sign-in/actions");
+mock.module("@/app/d/sign-in/actions", () => ({ signIn: dashboardSignIn, selectStorefront }));
 mock.module("@/app/(auth)/sign-in/actions", () => ({ signIn: mock(async () => ({ ok: true, data: null })) }));
 mock.module("@/app/(auth)/sign-up/actions", () => ({ signUp: mock(async () => ({ ok: true, data: null })) }));
 
@@ -57,17 +63,31 @@ globalThis.fetch = mock(async (url, init = {}) => {
   const path = new URL(url).pathname;
   const method = init.method ?? "GET";
   const body = init.body ? JSON.parse(init.body) : undefined;
-  calls.push({ path, method, body, authorization: new Headers(init.headers).get("Authorization"), cache: init.cache });
+  calls.push({ path, method, body, authorization: new Headers(init.headers).get("Authorization"), cookie: new Headers(init.headers).get("Cookie"), cache: init.cache });
   const failure = failures.get(`${method} ${path}`);
   if (failure) return Response.json({ detail: failure.detail }, { status: failure.status });
   if (method === "GET") {
     if (path === "/users/me") return Response.json({ id: OWNER });
     if (path === "/organization") return Response.json(organization);
     if (path === "/storefronts") return Response.json(storefronts);
+    if (path === "/staff") return Response.json(staff);
     if (path === "/point-programs") return Response.json(programs);
   }
   if (method === "POST") {
     if (path === "/auth/logout") return new Response(null, { status: 204 });
+    if (path === `/staff/${STAFF}/storefronts`) {
+      const member = staff.find(s => s.id === STAFF);
+      for (const id of body.storefrontIds) {
+        if (!member.storefronts.some(s => s.id === id)) member.storefronts.push({ id, name: "Centro" });
+      }
+      if (loseAttachResponse) throw new Error("Response lost after attach");
+      return Response.json(member);
+    }
+    if (path === "/auth/storefront") {
+      const token = `selected-token-${posts("/auth/storefront").length}`;
+      tokenSessions.set(token, selectedSession ?? { ...valid("ADMIN"), payload: { ...valid("ADMIN").payload, sf: body.storefrontId } });
+      return Response.json({ token, storefronts: staff.find(s => s.id === STAFF)?.storefronts ?? [] });
+    }
     if (path === "/organizations") {
       organization = { id: ORG, name: body.name };
       return Response.json(organization, { status: 201 });
@@ -102,7 +122,7 @@ function saveProgress(owner = OWNER, organizationId = ORG) {
 function branch(overrides = {}) { return { id: SF, name: "Centro", active: true, online: true, ...overrides }; }
 function program(overrides = {}) { return { id: PROGRAM, name: "Beneficios", unitLabel: "puntos", active: true, storefronts: [{ id: SF, name: "Centro" }], ...overrides }; }
 function branchForm(overrides = {}) {
-  return form({ name: "Centro", online: "true", address: "", city: "", province: "", color: "#d4822b", category: "", hours: "", description: "", ...overrides });
+  return form({ name: "Centro", online: "false", address: "Urquiza 742", city: "Rosario", province: "Santa Fe", color: "#d4822b", category: "", hours: "", description: "", ...overrides });
 }
 function programForm(overrides = {}) { return form({ name: "Beneficios", unitLabel: "puntos", storefrontId: SF, ...overrides }); }
 function loginForm() { return form({ identifier: "ana", password: "NotStored123!", organizationId: OTHER_ORG }); }
@@ -126,6 +146,10 @@ beforeEach(() => {
   failures = new Map();
   loseStorefrontResponse = false;
   loseProgramResponse = false;
+  loseAttachResponse = false;
+  selectedSession = null;
+  tokenSessions.clear();
+  staff = [{ id: STAFF, userId: OWNER, role: "ADMIN", active: true, storefronts: [] }];
 });
 afterAll(() => { globalThis.fetch = originalFetch; });
 
@@ -176,7 +200,9 @@ describe("organización y reingreso", () => {
     adminSession = { status };
     const pending = await state.loadOnboarding();
     expect(pending.organizationId).toBe(ORG);
-    expect(pending.error).toContain(status === "expired" ? "venció" : "verificar");
+    expect(pending.error).toBe(status === "expired"
+          ? "Tu sesión terminó. Volvé a ingresar a tu negocio."
+          : "No pudimos comprobar tu ingreso. Probá de nuevo.");
     expect(calls.map(c => c.path)).toEqual(["/users/me"]);
   });
   test("crear, fallar login, recargar y reintentar no vuelve a crear ni guarda contraseñas", async () => {
@@ -247,7 +273,9 @@ describe("organización y reingreso", () => {
   test("sesión customer vencida no llama al backend ni redirige fuera del recorrido", async () => {
     customerSession = { status: "expired" };
     jar.delete("access_token");
-    expect(await actions.createOrganization(form({ name: "Nuevo" }))).toMatchObject({ ok: false });
+    expect(await actions.createOrganization(form({ name: "Nuevo" }))).toEqual({
+      ok: false, error: "Tu sesión terminó. Volvé a ingresar antes de crear el negocio.",
+    });
     expect(calls).toHaveLength(0);
     expect(redirect).not.toHaveBeenCalled();
   });
@@ -424,7 +452,9 @@ describe("sucursal y programa: reintentos y vínculos", () => {
     saveProgress();
     storefronts = [branch()];
     expect(await actions.createStorefront(branchForm())).toMatchObject({ ok: true, data: { storefronts: [branch()] } });
-    expect(posts()).toHaveLength(0);
+    expect(posts("/storefronts")).toHaveLength(0);
+    expect(posts(`/staff/${STAFF}/storefronts`)).toHaveLength(1);
+    expect(posts("/auth/storefront")).toHaveLength(1);
   });
 
   test("respuesta perdida de sucursal: retry recupera una sola creación", async () => {
@@ -434,13 +464,12 @@ describe("sucursal y programa: reintentos y vínculos", () => {
     expect(await actions.createStorefront(branchForm())).toMatchObject({ ok: true });
     expect(posts("/storefronts")).toHaveLength(1);
     expect(storefronts).toHaveLength(1);
-    expect(posts()[0].body).toMatchObject({ name: "Centro", online: true });
-    expect(posts()[0].body).not.toHaveProperty("address");
+    expect(posts("/storefronts")[0].body).toMatchObject({ name: "Centro", online: false, address: "Urquiza 742" });
   });
 
   test("sucursal física exige dirección y envía provincia/localidad/calle", async () => {
     saveProgress();
-    expect(await actions.createStorefront(branchForm({ online: "false" }))).toMatchObject({ ok: false });
+    expect(await actions.createStorefront(branchForm({ online: "true", address: "", city: "", province: "" }))).toMatchObject({ ok: false });
     expect(posts()).toHaveLength(0);
     expect(await actions.createStorefront(branchForm({ online: "false", province: "Santa Fe", city: "Rosario", address: "Urquiza 742" }))).toMatchObject({ ok: true });
     expect(posts()[0].body).toMatchObject({ online: false, province: "Santa Fe", city: "Rosario", address: "Urquiza 742" });
@@ -491,16 +520,138 @@ describe("sucursal y programa: reintentos y vínculos", () => {
   });
 });
 
+describe("asignación y sesión de sucursal", () => {
+  test("ignora online enviado y crea solamente una sucursal física", async () => {
+    expect((await actions.createStorefront(branchForm({ online: "true" }))).ok).toBe(true);
+    expect(posts("/storefronts")[0].body).toMatchObject({ online: false, address: "Urquiza 742", city: "Rosario", province: "Santa Fe" });
+    expect(posts(`/staff/${STAFF}/storefronts`)[0]).toMatchObject({ body: { storefrontIds: [SF] }, authorization: "Bearer dashboard-token" });
+    expect(posts("/auth/storefront")[0].body).toEqual({ storefrontId: SF });
+    expect(setCookie).toHaveBeenCalledWith("d_token", expect.stringContaining("selected-token"), expect.objectContaining({ httpOnly: true, sameSite: "lax", path: "/" }));
+  });
+
+  test.each(["address", "city", "province"])("no crea sin %s aunque online sea true", async field => {
+    expect((await actions.createStorefront(branchForm({ online: "true", [field]: "  " }))).ok).toBe(false);
+    expect(posts()).toHaveLength(0);
+  });
+
+  test("retry conserva otros locales y no repite asignación ni creación", async () => {
+    staff[0].storefronts = [{ id: OTHER_SF, name: "Otra" }];
+    expect((await actions.createStorefront(branchForm())).ok).toBe(true);
+    expect((await actions.createStorefront(branchForm())).ok).toBe(true);
+    expect(posts("/storefronts")).toHaveLength(1);
+    expect(posts(`/staff/${STAFF}/storefronts`)).toHaveLength(1);
+    expect(staff[0].storefronts.map(s => s.id)).toEqual([OTHER_SF, SF]);
+    expect(staff[0].role).toBe("ADMIN");
+    expect(calls.some(c => c.method === "DELETE" || c.method === "PUT" || c.path === "/staff" && c.method === "POST")).toBe(false);
+  });
+
+  test("sucursal ya asignada no se vuelve a asignar", async () => {
+    storefronts = [branch()];
+    staff[0].storefronts = [{ id: SF, name: "Centro" }, { id: OTHER_SF, name: "Otra" }];
+    expect((await actions.createStorefront(new FormData())).ok).toBe(true);
+    expect(posts(`/staff/${STAFF}/storefronts`)).toHaveLength(0);
+    expect(posts("/storefronts")).toHaveLength(0);
+    expect(posts("/auth/storefront")).toHaveLength(1);
+    expect(JSON.parse(jar.get("d_storefronts"))).toEqual(staff[0].storefronts);
+  });
+
+  test("respuesta perdida de attach se recupera sin otro attach", async () => {
+    loseAttachResponse = true;
+    expect((await actions.createStorefront(branchForm())).ok).toBe(false);
+    expect(posts("/auth/storefront")).toHaveLength(0);
+    expect((await actions.createStorefront(branchForm())).ok).toBe(true);
+    expect(posts("/storefronts")).toHaveLength(1);
+    expect(posts(`/staff/${STAFF}/storefronts`)).toHaveLength(1);
+  });
+
+  test("selección fallida se reintenta sin duplicar recursos ni asignación", async () => {
+    failures.set("POST /auth/storefront", { status: 403, detail: "No permitido" });
+    expect((await actions.createStorefront(branchForm())).ok).toBe(false);
+    expect(jar.get("d_token")).toBe("dashboard-token");
+    failures.clear();
+    expect((await actions.createStorefront(branchForm())).ok).toBe(true);
+    expect(posts("/storefronts")).toHaveLength(1);
+    expect(posts(`/staff/${STAFF}/storefronts`)).toHaveLength(1);
+  });
+
+  test.each(["missing", "inactive", "cashier", "other-user"])("no asigna con staff %s", async kind => {
+    storefronts = [branch()];
+    if (kind === "missing") staff = [];
+    if (kind === "inactive") staff[0].active = false;
+    if (kind === "cashier") staff[0].role = "CASHIER";
+    if (kind === "other-user") staff[0].userId = OTHER_OWNER;
+    expect((await actions.createStorefront(branchForm())).ok).toBe(false);
+    expect(posts()).toHaveLength(0);
+  });
+
+  test.each(["GET /staff", `POST /staff/${STAFF}/storefronts`])("fallo autorizado %s bloquea selección", async path => {
+    storefronts = [branch()];
+    failures.set(path, { status: 403, detail: "Acceso denegado" });
+    expect((await actions.createStorefront(branchForm())).ok).toBe(false);
+    expect(posts("/auth/storefront")).toHaveLength(0);
+  });
+
+  test.each([
+    { status: "invalid" },
+    { status: "expired" },
+    { status: "unavailable" },
+    valid("ADMIN"),
+    { ...valid("ADMIN"), payload: { ...valid("ADMIN").payload, sf: OTHER_SF } },
+    { ...valid("ADMIN", OTHER_OWNER), payload: { ...valid("ADMIN", OTHER_OWNER).payload, sf: SF } },
+    { ...valid("CASHIER"), payload: { ...valid("CASHIER").payload, sf: SF } },
+  ])("token seleccionado inválido %j no guarda cookies ni permite finalizar", async session => {
+    saveProgress();
+    storefronts = [branch()];
+    programs = [program()];
+    selectedSession = session;
+    const saved = jar.get(PROGRESS);
+    const result = await actions.finishOnboarding();
+    expect(result.error).toBeTruthy();
+    expect(result).not.toHaveProperty("destination");
+    expect(jar.get("d_token")).toBe("dashboard-token");
+    expect(jar.get(PROGRESS)).toBe(saved);
+    expect(setCookie).not.toHaveBeenCalled();
+  });
+
+  test("selección envía refresh existente sin reemplazarlo", async () => {
+    jar.set("bb_dashboard_rt", "refresh-token");
+    storefronts = [branch()];
+    expect((await actions.createStorefront(branchForm())).ok).toBe(true);
+    expect(jar.get("bb_dashboard_rt")).toBe("refresh-token");
+    expect(posts("/auth/storefront")[0].cookie).toBe("bb_rt=refresh-token");
+    expect(JSON.parse(jar.get("d_storefronts"))).toEqual(staff[0].storefronts);
+  });
+});
+
 describe("finalización mediante acción de formulario", () => {
-  test("devuelve destino verificado y limpia hint sin redirect ni seleccionar sucursal", async () => {
+  test("selecciona sucursal con JWT verificado antes del destino y limpia hint sin redirect", async () => {
     saveProgress();
     storefronts = [branch()];
     programs = [program()];
     expect(await actions.finishOnboarding()).toEqual({ error: null, userId: OWNER, destination: `/d/${ORG}/mi-negocio` });
     expect(setCookie).toHaveBeenLastCalledWith(PROGRESS, "", expect.objectContaining({ maxAge: 0, path: "/onboarding" }));
     expect(redirect).not.toHaveBeenCalled();
-    expect(posts()).toHaveLength(0);
-    expect(calls.some(c => c.path === "/auth/storefront")).toBe(false);
+    expect(posts("/auth/storefront")).toHaveLength(1);
+    expect(tokenSessions.get(jar.get("d_token")).payload.sf).toBe(SF);
+  });
+
+  test("finalizar selecciona la sucursal vinculada y no la primera sin programa", async () => {
+    storefronts = [branch({ id: OTHER_SF }), branch()];
+    programs = [program()];
+    expect((await actions.finishOnboarding()).error).toBeNull();
+    expect(posts("/auth/storefront")[0].body).toEqual({ storefrontId: SF });
+  });
+
+  test("fallo de selección al finalizar conserva progreso y no devuelve destino", async () => {
+    saveProgress();
+    const saved = jar.get(PROGRESS);
+    storefronts = [branch()];
+    programs = [program()];
+    failures.set("POST /auth/storefront", { status: 503, detail: "No disponible" });
+    const result = await actions.finishOnboarding();
+    expect(result.error).toBeTruthy();
+    expect(result).not.toHaveProperty("destination");
+    expect(jar.get(PROGRESS)).toBe(saved);
   });
 
   test("sesión vencida devuelve error para el formulario sin redirect", async () => {

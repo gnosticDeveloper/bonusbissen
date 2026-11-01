@@ -42,9 +42,9 @@ function request(path: string, cookies: Record<string, string> = {}, action = fa
   });
 }
 
-test("landing and onboarding stay public without refreshing unrelated sessions", async () => {
+test("landing stays public without refreshing unrelated sessions", async () => {
   const { getFetchCallCount } = mockBackend(() => { throw new Error("Public routes must not refresh sessions"); });
-  for (const path of ["/", "/onboarding", "/onboarding/pago", "/billing?status=approved"]) {
+  for (const path of ["/", "/billing?status=approved"]) {
     for (const action of [false, true]) {
       const response = await proxy(request(path, { access_token: "expired", bb_user_rt: rawToken() }, action));
       assert.equal(response.status, 200);
@@ -52,6 +52,75 @@ test("landing and onboarding stay public without refreshing unrelated sessions",
     }
   }
   assert.equal(getFetchCallCount(), 0);
+});
+
+test("onboarding stays public with no session", async () => {
+  const { getFetchCallCount } = mockBackend(() => { throw new Error("No credentials to refresh"); });
+  for (const path of ["/onboarding", "/onboarding/pago"]) {
+    for (const action of [false, true]) {
+      const response = await proxy(request(path, {}, action));
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("location"), null);
+    }
+  }
+  assert.equal(getFetchCallCount(), 0);
+});
+
+test("onboarding renews both sessions and forwards rotated cookies to actions", async () => {
+  const customer = await jwt("USER");
+  const dashboard = await jwt("ADMIN", false, "created-storefront");
+  const userRaw = rawToken();
+  const dashboardRaw = rawToken();
+  const userRotated = rawToken();
+  const dashboardRotated = rawToken();
+  const { refreshCalls } = mockBackend(init => {
+    const raw = new Headers(init?.headers).get("cookie");
+    return raw === `bb_rt=${userRaw}` ? refreshed(customer, userRotated) : refreshed(dashboard, dashboardRotated);
+  });
+  const response = await proxy(request("/onboarding", {
+    access_token: await jwt("USER", true), bb_user_rt: userRaw,
+    d_token: await jwt("ADMIN", true), bb_dashboard_rt: dashboardRaw,
+  }, true));
+  assert.equal(refreshCalls.length, 2);
+  assertRestored(response, "customer", customer, userRotated);
+  assertRestored(response, "dashboard", dashboard, dashboardRotated);
+});
+
+test("expired onboarding refresh clears only that session and never redirects an action", async () => {
+  const dashboard = await jwt("ADMIN");
+  mockBackend(() => new Response(null, { status: 401 }));
+  const response = await proxy(request("/onboarding/pago", {
+    access_token: await jwt("USER", true), bb_user_rt: rawToken(),
+    d_token: dashboard, bb_dashboard_rt: rawToken(),
+  }, true));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("location"), null);
+  assert.equal(response.cookies.get("access_token")?.value, "");
+  assert.equal(response.cookies.get("bb_user_rt")?.value, "");
+  assert.equal(response.cookies.get("d_token"), undefined);
+  const forwarded = forwardedCookies(response);
+  assert.equal(forwarded.get("access_token"), undefined);
+  assert.equal(forwarded.get("d_token")?.value, dashboard);
+});
+
+test("onboarding preserves a rotated customer session if dashboard refresh is unavailable", async () => {
+  const customer = await jwt("USER");
+  const userRaw = rawToken();
+  const rotated = rawToken();
+  mockBackend(init => new Headers(init?.headers).get("cookie") === `bb_rt=${userRaw}`
+    ? refreshed(customer, rotated) : new Response(null, { status: 503 }));
+  const response = await proxy(request("/onboarding", { bb_user_rt: userRaw, bb_dashboard_rt: rawToken() }));
+  assert.equal(response.status, 503);
+  assert.equal(response.cookies.get("access_token")?.value, customer);
+  assert.equal(response.cookies.get("bb_user_rt")?.value, rotated);
+  assert.equal(response.cookies.get("bb_dashboard_rt"), undefined);
+});
+
+test("onboarding never refreshes an invalid signed session", async () => {
+  const { refreshCalls } = mockBackend(() => { throw new Error("Invalid token must not trigger refresh"); });
+  const response = await proxy(request("/onboarding", { d_token: "not-a-jwt", bb_dashboard_rt: rawToken() }));
+  assert.equal(response.status, 200);
+  assert.equal(refreshCalls.length, 0);
 });
 
 test("public landing does not open protected routes or similar prefixes", async () => {

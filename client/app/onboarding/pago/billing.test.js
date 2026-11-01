@@ -149,6 +149,15 @@ test("checkout envía correo sin back URL ni estado del navegador y valida respu
   expect((await startCheckout(org.id, "pagador@example.com")).ok).toBe(false);
 });
 
+test("no vuelve a elegir plan después de autorizar Mercado Pago", async () => {
+  respond = () => Response.json({ ...org, mercadoPagoSubscriptionStatus: "authorized" });
+  const result = await selectBillingPlan(org.id, planId);
+  expect(result.ok).toBe(false);
+  expect(calls).toHaveLength(1);
+  expect(calls[0].path).toBe("/organization");
+  expect(calls.every(call => !call.method)).toBe(true);
+});
+
 test("no crea checkout autorizado ni muta otra organización", async () => {
   respond = () => Response.json({ ...org, mercadoPagoSubscriptionStatus: "authorized" });
   expect((await startCheckout(org.id, "pagador@example.com")).ok).toBe(false);

@@ -7,8 +7,8 @@ export default function PaymentPage() {
       <h1 className="text-3xl font-bold">Pagos de tu negocio</h1>
       <p>Autorizá los cobros de tu plan mensual con Mercado Pago y seguí configurando tu negocio.</p>
       <p>
-        <Link className="underline" href="/onboarding">
-          Volver a Organización para crear un negocio, reingresar o seguir con la configuración
+        <Link className="underline" href="/onboarding?ingresar=1">
+          Volver a ingresar a mi negocio
         </Link>
       </p>
       <PaymentScreen />
