@@ -14,6 +14,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.RequestDashboardLoginLink
 import studio.gnosticdeveloper.bonusbissen.dto.request.RequestUserLoginLinkRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ResendVerificationRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.SelectStorefrontRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.StaffSessionRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserRegisterRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.VerifyEmailRequest;
@@ -520,6 +521,72 @@ class AuthIntegrationTest extends AbstractIntegrationTest {
         organizationStaff.getStorefronts().add(storefront);
         organizationStaffRepository.save(organizationStaff);
         return storefront;
+    }
+
+    @Test
+    void dashboardSessionExchangeGivesAdminOfTheOrganizationAStaffToken() {
+        createEmployee("exchange-admin", TEST_USER_PASSWORD, StaffRole.ADMIN);
+        String userToken = loginUser("exchange-admin");
+
+        ResponseEntity<LoginResponse> response = restTemplate.exchange(
+            baseUrl() + "/auth/dashboard/session",
+            HttpMethod.POST,
+            authed(userToken, new StaffSessionRequest(defaultOrganization().getId())),
+            LoginResponse.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().token()).isNotBlank().isNotEqualTo(userToken);
+        assertThat(extractRawCookie(response, "bb_rt")).isNotBlank();
+
+        ResponseEntity<String> org = restTemplate.exchange(
+            baseUrl() + "/organization", HttpMethod.GET, authed(response.getBody().token()), String.class);
+        assertThat(org.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void dashboardSessionExchangeRejectsCashier() {
+        createEmployee("exchange-cashier", TEST_USER_PASSWORD, StaffRole.CASHIER);
+
+        assertThat(exchange(loginUser("exchange-cashier"), defaultOrganization().getId()).getStatusCode())
+            .isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void dashboardSessionExchangeRejectsAnotherOrganization() {
+        createEmployee("exchange-admin-other-org", TEST_USER_PASSWORD, StaffRole.ADMIN);
+
+        assertThat(exchange(loginUser("exchange-admin-other-org"), UUID.randomUUID()).getStatusCode())
+            .isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void dashboardSessionExchangeRejectsUserWhoIsNotStaff() {
+        createUser("exchange-plain-user");
+
+        assertThat(exchange(loginUser("exchange-plain-user"), defaultOrganization().getId()).getStatusCode())
+            .isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void dashboardSessionExchangeRejectsMissingToken() {
+        ResponseEntity<String> response = restTemplate.postForEntity(
+            baseUrl() + "/auth/dashboard/session", new StaffSessionRequest(defaultOrganization().getId()), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void dashboardSessionExchangeRejectsAnExistingStaffToken() {
+        createEmployee("exchange-already-staff", "password123", StaffRole.ADMIN);
+        String staffToken = loginEmployee("exchange-already-staff", "password123");
+
+        assertThat(exchange(staffToken, defaultOrganization().getId()).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    private ResponseEntity<String> exchange(String token, UUID organizationId) {
+        return restTemplate.exchange(
+            baseUrl() + "/auth/dashboard/session", HttpMethod.POST, authed(token, new StaffSessionRequest(organizationId)), String.class);
     }
 
     private ResponseEntity<Void> callSessionsEndpoint(String token) {
