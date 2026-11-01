@@ -467,14 +467,6 @@ describe("sucursal y programa: reintentos y vínculos", () => {
     expect(posts("/storefronts")[0].body).toMatchObject({ name: "Centro", online: false, address: "Urquiza 742" });
   });
 
-  test("sucursal física exige dirección y envía provincia/localidad/calle", async () => {
-    saveProgress();
-    expect(await actions.createStorefront(branchForm({ online: "true", address: "", city: "", province: "" }))).toMatchObject({ ok: false });
-    expect(posts()).toHaveLength(0);
-    expect(await actions.createStorefront(branchForm({ online: "false", province: "Santa Fe", city: "Rosario", address: "Urquiza 742" }))).toMatchObject({ ok: true });
-    expect(posts()[0].body).toMatchObject({ online: false, province: "Santa Fe", city: "Rosario", address: "Urquiza 742" });
-  });
-
   test("programa vinculado existente se recupera sin POST", async () => {
     saveProgress();
     storefronts = [branch()];

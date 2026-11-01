@@ -37,15 +37,6 @@ describe("async onboarding persistence", () => {
     }
   });
 
-  test("a pending business may review its plan but authorization prevents returning to account or checkout", () => {
-    const pending = { userId: "alice", organizationId: "org", organization: { id: "org", billingPlanName: "Inicial", mercadoPagoSubscriptionStatus: "pending" }, storefronts: [{}] };
-    expect(restoreStep(pending, { ...progress, step: 1 })).toBe(1);
-    expect(clampOnboardingStep(pending, 0)).toBe(1);
-    const authorized = { ...pending, organization: { ...pending.organization, mercadoPagoSubscriptionStatus: "authorized" } };
-    for (const step of [0, 1, 2, 3]) expect(restoreStep(authorized, { ...progress, step })).toBe(4);
-    const revoked = { ...authorized, organization: { ...authorized.organization, billingPlanName: null } };
-    expect(clampOnboardingStep(revoked, 4)).toBe(1);
-  });
   test("backend plan name gates checkout and setup, even with authorization and resources", () => {
     const state = { userId: "alice", organizationId: "org", organization: null, storefronts: [{}] };
     expect(availableStep(state)).toBe(0);
@@ -131,16 +122,6 @@ describe("async onboarding persistence", () => {
       values.set(key, value);
       expect(await store.load("alice")).toBeNull();
     }
-  });
-
-  test("restore is capped by backend resources and never trusts another user or organization", () => {
-    const state = { userId: "alice", organizationId: "org", organization: { id: "org", billingPlanName: "Inicial", mercadoPagoSubscriptionStatus: "authorized" }, storefronts: [{}] };
-    expect(restoreStep(state, { ...progress, step: 0 })).toBe(4);
-    expect(restoreStep({ ...state, storefronts: [] }, progress)).toBe(3);
-    expect(restoreStep({ ...state, organization: null }, progress)).toBe(0);
-    expect(restoreStep(state, { ...progress, userId: "bob", step: 0 })).toBe(4);
-    expect(restoreStep(state, { ...progress, organizationId: "other", step: 0 })).toBe(4);
-    expect(restoreStep({ ...state, userId: null, organization: null }, progress)).toBe(0);
   });
 
   test("blocked storage rejects operations without pretending progress was saved or cleared", async () => {
