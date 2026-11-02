@@ -142,6 +142,16 @@
             <groupId>com.github.librepdf</groupId>
             <artifactId>openpdf</artifactId>
             <version>3.0.5</version>
+            <exclusions>
+                <!-- OpenPDF drags brotli4j in, and with it on the classpath Apache HttpClient starts
+                     advertising "br". Cloudflare-fronted APIs (Georef) then answer brotli, whose native
+                     decoder is glibc-only and dies with UnsatisfiedLinkError on our Alpine (musl) image.
+                     OpenPDF 3.0.5 declares it but no class in the jar references it. -->
+                <exclusion>
+                    <groupId>com.aayushatharva.brotli4j</groupId>
+                    <artifactId>brotli4j</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
