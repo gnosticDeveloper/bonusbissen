@@ -43,6 +43,7 @@ public class OrganizationService {
     private final UserRepository userRepository;
     private final SessionService sessionService;
     private final TraceabilityService traceabilityService;
+    private final OnboardingService onboardingService;
 
     public OrganizationService(
         OrganizationRepository organizationRepository,
@@ -52,7 +53,8 @@ public class OrganizationService {
         PointProgramRepository pointProgramRepository,
         UserRepository userRepository,
         SessionService sessionService,
-        TraceabilityService traceabilityService
+        TraceabilityService traceabilityService,
+        OnboardingService onboardingService
     ) {
         this.organizationRepository = organizationRepository;
         this.billingPlanRepository = billingPlanRepository;
@@ -62,6 +64,7 @@ public class OrganizationService {
         this.userRepository = userRepository;
         this.sessionService = sessionService;
         this.traceabilityService = traceabilityService;
+        this.onboardingService = onboardingService;
     }
 
     /** Creates an organization and makes {@code creatorUserId} its first ADMIN. The creator must not already be active staff elsewhere. */
@@ -100,6 +103,7 @@ public class OrganizationService {
         payload.put("role", StaffRole.ADMIN.name());
         payload.put("organizationId", organization.getId());
         traceabilityService.record(OperationType.STAFF_CREATE, creatorUserId, creatorUserId, payload);
+        onboardingService.markOrganizationCreated(creatorUserId, organization.getId());
         return organization;
     }
 

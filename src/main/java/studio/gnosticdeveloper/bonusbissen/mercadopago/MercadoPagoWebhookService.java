@@ -15,6 +15,7 @@ import studio.gnosticdeveloper.bonusbissen.repository.InvoiceRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.MercadoPagoPaymentRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.service.InvoiceService;
+import studio.gnosticdeveloper.bonusbissen.service.OnboardingService;
 
 /**
  * Handles the two notification types this integration cares about:
@@ -44,19 +45,22 @@ public class MercadoPagoWebhookService {
     private final InvoiceRepository invoiceRepository;
     private final MercadoPagoPaymentRepository paymentRepository;
     private final InvoiceService invoiceService;
+    private final OnboardingService onboardingService;
 
     public MercadoPagoWebhookService(
         MercadoPagoClient client,
         OrganizationRepository organizationRepository,
         InvoiceRepository invoiceRepository,
         MercadoPagoPaymentRepository paymentRepository,
-        InvoiceService invoiceService
+        InvoiceService invoiceService,
+        OnboardingService onboardingService
     ) {
         this.client = client;
         this.organizationRepository = organizationRepository;
         this.invoiceRepository = invoiceRepository;
         this.paymentRepository = paymentRepository;
         this.invoiceService = invoiceService;
+        this.onboardingService = onboardingService;
     }
 
     /**
@@ -129,6 +133,7 @@ public class MercadoPagoWebhookService {
         record.setAmount(decimalOrNull(payment.get("transaction_amount")));
         record.setCurrency(stringOrNull(payment.get("currency_id")));
         MercadoPagoPayment saved = paymentRepository.save(record);
+        onboardingService.markPaid(org.getId());
 
         invoiceRepository.findFirstByOrganizationIdAndPaymentStatusOrderByCreatedAtAsc(org.getId(), PaymentStatus.PENDING).ifPresentOrElse(
             invoice -> invoiceService.applyPayment(invoice, saved),

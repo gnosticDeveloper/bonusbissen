@@ -18,11 +18,13 @@ public class StorefrontService {
     private final StorefrontRepository storefrontRepository;
     private final OrganizationRepository organizationRepository;
     private final GeorefClient georefClient;
+    private final OnboardingService onboardingService;
 
-    public StorefrontService(StorefrontRepository storefrontRepository, OrganizationRepository organizationRepository, GeorefClient georefClient) {
+    public StorefrontService(StorefrontRepository storefrontRepository, OrganizationRepository organizationRepository, GeorefClient georefClient, OnboardingService onboardingService) {
         this.storefrontRepository = storefrontRepository;
         this.organizationRepository = organizationRepository;
         this.georefClient = georefClient;
+        this.onboardingService = onboardingService;
     }
 
     @Transactional(readOnly = true)
@@ -52,7 +54,9 @@ public class StorefrontService {
         storefront.setIconPath(blankToNull(request.icon()));
         storefront.setDescription(blankToNull(request.description()));
         applyLocation(storefront, request.online(), request.address(), request.city(), request.province());
-        return storefrontRepository.save(storefront);
+        Storefront saved = storefrontRepository.save(storefront);
+        onboardingService.markStorefrontCreated(organizationId);
+        return saved;
     }
 
     @Transactional

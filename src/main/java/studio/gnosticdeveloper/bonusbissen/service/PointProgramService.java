@@ -35,6 +35,7 @@ public class PointProgramService {
     private final UserPointProgramRepository userPointProgramRepository;
     private final UserRepository userRepository;
     private final PointTransactionRepository pointTransactionRepository;
+    private final OnboardingService onboardingService;
 
     public PointProgramService(
         PointProgramRepository pointProgramRepository,
@@ -42,7 +43,8 @@ public class PointProgramService {
         OrganizationRepository organizationRepository,
         UserPointProgramRepository userPointProgramRepository,
         UserRepository userRepository,
-        PointTransactionRepository pointTransactionRepository
+        PointTransactionRepository pointTransactionRepository,
+        OnboardingService onboardingService
     ) {
         this.pointProgramRepository = pointProgramRepository;
         this.storefrontRepository = storefrontRepository;
@@ -50,6 +52,7 @@ public class PointProgramService {
         this.userPointProgramRepository = userPointProgramRepository;
         this.userRepository = userRepository;
         this.pointTransactionRepository = pointTransactionRepository;
+        this.onboardingService = onboardingService;
     }
 
     @Transactional(readOnly = true)
@@ -76,6 +79,7 @@ public class PointProgramService {
         if (request.storefrontIds() != null && !request.storefrontIds().isEmpty()) {
             assignStorefronts(program, request.storefrontIds(), organizationId);
         }
+        onboardingService.markPointProgramCreated(organizationId);
         return program;
     }
 

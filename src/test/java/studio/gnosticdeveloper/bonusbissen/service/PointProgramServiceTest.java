@@ -47,6 +47,8 @@ class PointProgramServiceTest {
     private UserRepository userRepository;
     @Mock
     private PointTransactionRepository pointTransactionRepository;
+    @Mock
+    private OnboardingService onboardingService;
 
     @InjectMocks
     private PointProgramService pointProgramService;

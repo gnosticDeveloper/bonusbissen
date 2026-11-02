@@ -24,6 +24,7 @@ import studio.gnosticdeveloper.bonusbissen.repository.InvoiceRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.MercadoPagoPaymentRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.service.InvoiceService;
+import studio.gnosticdeveloper.bonusbissen.service.OnboardingService;
 
 @ExtendWith(MockitoExtension.class)
 class MercadoPagoWebhookServiceTest {
@@ -33,13 +34,14 @@ class MercadoPagoWebhookServiceTest {
     @Mock private InvoiceRepository invoiceRepository;
     @Mock private MercadoPagoPaymentRepository paymentRepository;
     @Mock private InvoiceService invoiceService;
+    @Mock private OnboardingService onboardingService;
 
     private MercadoPagoWebhookService service;
     private Organization organization;
 
     @BeforeEach
     void setUp() {
-        service = new MercadoPagoWebhookService(client, organizationRepository, invoiceRepository, paymentRepository, invoiceService);
+        service = new MercadoPagoWebhookService(client, organizationRepository, invoiceRepository, paymentRepository, invoiceService, onboardingService);
 
         organization = new Organization();
         organization.setId(UUID.randomUUID());
