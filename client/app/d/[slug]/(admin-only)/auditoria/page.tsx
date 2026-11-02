@@ -50,7 +50,7 @@ const OPERATIONS: OperationOption[] = [
   {
     id: "USER_CREATE",
     label: "Creación de cuenta",
-    description: "No disponible en la consulta por organización",
+    description: "No disponible en la consulta por negocio",
     icon: UserPlus,
     color: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
   },
@@ -237,8 +237,8 @@ function AuditHelp() {
       <section className="space-y-1">
         <h3 className="font-semibold text-foreground">Alcance de la auditoría</h3>
         <p>
-          Esta página es de solo lectura y muestra registros disponibles de tu organización, no un historial completo de todas las acciones. «Creación
-          de cuenta» existe en el sistema, pero no se incluye en esta consulta por organización.
+          Esta página es de solo lectura y muestra registros disponibles de tu negocio, no un historial completo de todas las acciones. «Creación
+          de cuenta» existe en el sistema, pero no se incluye en esta consulta por negocio.
         </p>
         <p>
           Los nombres corresponden a los datos actuales, no necesariamente a los del momento de la operación. Si un nombre ya no está disponible,
@@ -333,7 +333,7 @@ export default function AuditPage() {
           />
         </div>
         <p className="mt-2 text-sm leading-6 text-foreground/80">
-          Consultá quién realizó cada operación, a quién afectó y qué cambió en tu organización.
+          Consultá quién realizó cada operación, a quién afectó y qué cambió en tu negocio.
         </p>
       </header>
 
@@ -395,7 +395,7 @@ export default function AuditPage() {
               </div>
               {operation?.id === "USER_CREATE" && (
                 <p className="rounded-xl bg-amber-500/10 p-3 text-sm text-foreground">
-                  La creación de cuentas no se incluye en la auditoría por organización. Esta operación no va a devolver registros.
+                  La creación de cuentas no se incluye en la auditoría por negocio. Esta operación no va a devolver registros.
                 </p>
               )}
               <div className="flex flex-wrap items-center justify-end gap-2">
@@ -439,7 +439,7 @@ export default function AuditPage() {
             ) : loading ? (
               <div className="flex items-center justify-center gap-2 px-5 py-12 text-sm text-foreground/80">
                 <Loader2 className="size-5 animate-spin" aria-hidden="true" />
-                Buscando los registros de tu organización…
+                Buscando los registros de tu negocio…
               </div>
             ) : records === null ? (
               <div className="space-y-2 px-5 py-12 text-center sm:px-6">
@@ -456,7 +456,7 @@ export default function AuditPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-240 text-left text-sm">
                     <caption className="sr-only">
-                      Operaciones de tu organización que cumplen los filtros seleccionados, ordenadas de más reciente a más antigua.
+                      Operaciones de tu negocio que cumplen los filtros seleccionados, ordenadas de más reciente a más antigua.
                     </caption>
                     <thead className="border-b border-border bg-background/60 text-xs text-foreground/80">
                       <tr>

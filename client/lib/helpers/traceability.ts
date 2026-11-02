@@ -28,7 +28,7 @@ export function auditDetailLines(record: AuditRecord): string[] {
       const { role, organization, storefront } = record.details;
       return [
         `Se incorporó al usuario al personal como ${role === "ADMIN" ? "administrador" : role === "CASHIER" ? "cajero" : "rol no disponible"}.`,
-        ...(organization ? [`Organización: ${organization.name ?? "Nombre no disponible"}`] : []),
+        ...(organization ? [`Negocio: ${organization.name ?? "Nombre no disponible"}`] : []),
         ...(storefront ? [`Sucursal: ${storefront.name ?? "Nombre no disponible"}`] : []),
       ];
     }

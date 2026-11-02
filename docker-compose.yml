@@ -176,6 +176,15 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?Set GRAFANA_ADMIN_USER in .env}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
+      # Alert emails go through the same Brevo relay as the backend's mail.
+      GF_SMTP_ENABLED: ${GRAFANA_SMTP_ENABLED:-false}
+      GF_SMTP_HOST: ${MAIL_HOST:-smtp-relay.brevo.com}:${MAIL_PORT:-587}
+      GF_SMTP_USER: ${MAIL_USERNAME:-}
+      GF_SMTP_PASSWORD: ${MAIL_PASSWORD:-}
+      GF_SMTP_FROM_ADDRESS: ${GRAFANA_ALERT_FROM:-no-reply@bonusbissen.store}
+      GF_SMTP_FROM_NAME: bonusbissen alerts
+      GF_SMTP_STARTTLS_POLICY: MandatoryStartTLS
+      GRAFANA_ALERT_EMAIL: ${GRAFANA_ALERT_EMAIL:-}
     volumes:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./observability/grafana/dashboards:/etc/grafana/dashboards:ro

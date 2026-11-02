@@ -28,6 +28,9 @@ public class Organization {
     @Column(name = "banner_path", length = 255)
     private String bannerPath;
 
+    @Column(nullable = false)
+    private boolean active = true;
+
     @Column(name = "fiscal_name")
     private String fiscalName;
 

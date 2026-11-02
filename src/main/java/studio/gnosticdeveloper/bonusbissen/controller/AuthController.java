@@ -35,6 +35,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.RequestDashboardLoginLink
 import studio.gnosticdeveloper.bonusbissen.dto.request.RequestUserLoginLinkRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ResendVerificationRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.SelectStorefrontRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.StaffSessionRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserRegisterRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.VerifyEmailRequest;
@@ -101,6 +102,24 @@ public class AuthController {
     @PostMapping("/dashboard/sign-in")
     public LoginResponse dashboardSignIn(@Valid @RequestBody DashboardLoginRequest request, HttpServletRequest req, HttpServletResponse res) {
         return respond(authService.dashboardLogin(request, userAgent(req)), res);
+    }
+
+    /**
+     * Upgrades a signed-in loyalty-account session to a dashboard session for an organization the
+     * caller administers, without a second credential prompt. Requires a USER bearer token; the
+     * existing user session is left untouched.
+     */
+    @PostMapping("/dashboard/session")
+    public LoginResponse dashboardSession(
+        @Valid @RequestBody StaffSessionRequest request,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal,
+        HttpServletRequest req,
+        HttpServletResponse res
+    ) {
+        if (principal == null || !"USER".equals(principal.role())) {
+            throw new AccessDeniedException("Necesitás iniciar sesión.");
+        }
+        return respond(authService.exchangeForStaffSession(principal.id(), request.organizationId(), userAgent(req)), res);
     }
 
     @PostMapping("/user-register")

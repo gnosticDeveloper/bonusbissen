@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
@@ -14,6 +15,10 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
     List<Storefront> findByOrganizationIdOrderByCreatedAt(UUID organizationId);
 
     Optional<Storefront> findByIdAndOrganizationId(UUID id, UUID organizationId);
+
+    @Modifying
+    @Query("update Storefront s set s.active = false where s.organization.id = :organizationId")
+    void deactivateAllByOrganizationId(@Param("organizationId") UUID organizationId);
 
     /**
      * Active storefronts running an active program, newest first, optionally by
