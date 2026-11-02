@@ -14,6 +14,7 @@ import { checkSession, getDashboardSessionToken } from "@/lib/auth/session";
 import type { Storefront } from "@/lib/types/storefront";
 import type { PointProgram } from "@/lib/types/point-program";
 import { ensureOnboardingStorefront } from "./storefront-session";
+import { exchangeDashboardSession } from "./dashboard-session";
 import {
   adminOrganization,
   cookieOptions,
@@ -58,7 +59,13 @@ export async function createOrganization(form: FormData): Promise<Result> {
   if (!me.ok || me.data.id !== session.payload.sub)
     return { ok: false, error: "No pudimos verificar tu cuenta. Volvé a ingresar o probá más tarde." };
   const progress = await readProgress();
-  if (progress?.owner === session.payload.sub) return refreshOnboarding();
+  if (progress?.owner === session.payload.sub) {
+    // The business already exists for this account, so upgrade the session
+    // instead of asking for the password again. A failed exchange falls
+    // through to the admin login form, exactly as before.
+    await exchangeDashboardSession(progress.organizationId);
+    return refreshOnboarding();
+  }
   // A different account's hint cannot block this user or choose their business.
   // Replace it only after the backend confirms creation for the verified user.
   const parsed = nameSchema.safeParse(form.get("name"));
@@ -70,6 +77,9 @@ export async function createOrganization(form: FormData): Promise<Result> {
   });
   if (!result.ok) return result;
   await saveProgress(result.data.id, session.payload.sub);
+  // The creator is already an active ADMIN of this business, so trade the
+  // customer session for a dashboard one rather than prompting again.
+  await exchangeDashboardSession(result.data.id);
   return refreshOnboarding();
 }
 

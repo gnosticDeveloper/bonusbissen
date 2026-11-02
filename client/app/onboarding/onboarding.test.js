@@ -24,8 +24,10 @@ let loseProgramResponse;
 let staff;
 let selectedSession;
 let loseAttachResponse;
+let exchangedToken;
 const tokenSessions = new Map();
 const STAFF = "88888888-8888-4888-8888-888888888888";
+const EXCHANGED_REFRESH = "exchanged-refresh";
 
 function valid(role, sub = OWNER) {
   return { status: "valid", payload: { sub, role, username: "ana" } };
@@ -88,6 +90,16 @@ globalThis.fetch = mock(async (url, init = {}) => {
       tokenSessions.set(token, selectedSession ?? { ...valid("ADMIN"), payload: { ...valid("ADMIN").payload, sf: body.storefrontId } });
       return Response.json({ token, storefronts: staff.find(s => s.id === STAFF)?.storefronts ?? [] });
     }
+    if (path === "/auth/dashboard/session") {
+      // Defaults to rejected so the suite keeps covering the admin-password fallback;
+      // tests that exercise the exchange opt in by setting exchangedToken.
+      if (!exchangedToken) return Response.json({ detail: "No tenés acceso de administrador a esa organización." }, { status: 403 });
+      tokenSessions.set(exchangedToken, valid("ADMIN"));
+      return new Response(JSON.stringify({ token: exchangedToken, storefronts: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", "set-cookie": `bb_rt=${EXCHANGED_REFRESH}; Path=/auth; Max-Age=2592000; HttpOnly` },
+      });
+    }
     if (path === "/organizations") {
       organization = { id: ORG, name: body.name };
       return Response.json(organization, { status: 201 });
@@ -147,6 +159,7 @@ beforeEach(() => {
   loseStorefrontResponse = false;
   loseProgramResponse = false;
   loseAttachResponse = false;
+  exchangedToken = null;
   selectedSession = null;
   tokenSessions.clear();
   staff = [{ id: STAFF, userId: OWNER, role: "ADMIN", active: true, storefronts: [] }];
@@ -232,6 +245,47 @@ describe("organización y reingreso", () => {
     expect(await actions.authenticateAdmin(loginForm())).toMatchObject({ ok: true, data: { organization } });
     expect([...jar.values()].join(" ")).not.toContain("NotStored123!");
     expect(posts("/organizations")).toHaveLength(1);
+  });
+
+  test("el alta canjea la sesión de cuenta y evita el segundo login", async () => {
+    adminSession = { status: "invalid" };
+    exchangedToken = "exchanged-token";
+    const created = await actions.createOrganization(form({ name: "Café" }));
+
+    const exchange = posts("/auth/dashboard/session");
+    expect(exchange).toHaveLength(1);
+    expect(exchange[0]).toMatchObject({ body: { organizationId: ORG }, authorization: "Bearer customer-token", cache: "no-store" });
+    expect(jar.get("d_token")).toBe("exchanged-token");
+    expect(jar.get("bb_dashboard_rt")).toBe(EXCHANGED_REFRESH);
+    // The admin session now resolves, so the journey continues instead of asking for the password.
+    expect(created).toMatchObject({ ok: true, data: { organizationId: ORG, organization: { id: ORG } } });
+    expect(created.data.error).toBeUndefined();
+    expect(dashboardSignIn).not.toHaveBeenCalled();
+  });
+
+  test("el canje también corre cuando el negocio ya estaba creado y no lo crea de nuevo", async () => {
+    saveProgress();
+    adminSession = { status: "invalid" };
+    exchangedToken = "exchanged-token";
+    const resumed = await actions.createOrganization(form({ name: "Otro nombre" }));
+
+    expect(posts("/organizations")).toHaveLength(0);
+    expect(posts("/auth/dashboard/session")[0]).toMatchObject({ body: { organizationId: ORG } });
+    expect(jar.get("d_token")).toBe("exchanged-token");
+    expect(resumed).toMatchObject({ ok: true, data: { organizationId: ORG, organization: { id: ORG } } });
+  });
+
+  test("un canje rechazado deja el negocio creado y vuelve al formulario de administrador", async () => {
+    adminSession = { status: "invalid" };
+    const created = await actions.createOrganization(form({ name: "Café" }));
+
+    expect(posts("/organizations")).toHaveLength(1);
+    expect(posts("/auth/dashboard/session")).toHaveLength(1);
+    expect(created).toMatchObject({ ok: true, data: { organizationId: ORG, organization: null } });
+    expect(created.data.error).toBeUndefined();
+    // Only the progress hint is written; no dashboard session is faked.
+    expect(setCookie.mock.calls.map(([name]) => name)).toEqual([PROGRESS]);
+    expect(jar.get("d_token")).toBe("dashboard-token");
   });
 
   test("cookie ajena no bloquea el alta y sólo se reemplaza por el negocio confirmado", async () => {
