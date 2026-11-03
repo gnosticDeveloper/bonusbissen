@@ -22,6 +22,7 @@ let loginSession;
 let loseStorefrontResponse;
 let loseProgramResponse;
 let staff;
+let onboardingProgress;
 let selectedSession;
 let loseAttachResponse;
 let exchangedToken;
@@ -43,7 +44,11 @@ class Redirect extends Error {
 }
 const redirect = mock(path => { throw new Redirect(path); });
 const dashboardSignIn = mock(async form => {
-  if (loginResult.ok) adminSession = loginSession;
+  // A successful dashboard login writes its session cookies, like the real one.
+  if (loginResult.ok) {
+    adminSession = loginSession;
+    jar.set("d_token", "dashboard-token");
+  }
   return loginResult;
 });
 
@@ -70,6 +75,7 @@ globalThis.fetch = mock(async (url, init = {}) => {
   if (failure) return Response.json({ detail: failure.detail }, { status: failure.status });
   if (method === "GET") {
     if (path === "/users/me") return Response.json({ id: OWNER });
+    if (path === "/onboarding") return Response.json(onboardingProgress);
     if (path === "/organization") return Response.json(organization);
     if (path === "/storefronts") return Response.json(storefronts);
     if (path === "/staff") return Response.json(staff);
@@ -131,6 +137,12 @@ function form(values) {
 function saveProgress(owner = OWNER, organizationId = ORG) {
   jar.set(PROGRESS, JSON.stringify({ organizationId, owner }));
 }
+/** Before the first admin login there is no dashboard cookie at all, and the
+ * proxy deletes one that stops verifying. */
+function withoutAdminSession() {
+  adminSession = { status: "invalid" };
+  jar.delete("d_token");
+}
 function branch(overrides = {}) { return { id: SF, name: "Centro", active: true, online: true, ...overrides }; }
 function program(overrides = {}) { return { id: PROGRAM, name: "Beneficios", unitLabel: "puntos", active: true, storefronts: [{ id: SF, name: "Centro" }], ...overrides }; }
 function branchForm(overrides = {}) {
@@ -163,6 +175,7 @@ beforeEach(() => {
   selectedSession = null;
   tokenSessions.clear();
   staff = [{ id: STAFF, userId: OWNER, role: "ADMIN", active: true, storefronts: [] }];
+  onboardingProgress = { currentStep: "CREATE_ORGANIZATION", organizationId: null };
 });
 afterAll(() => { globalThis.fetch = originalFetch; });
 
@@ -184,42 +197,52 @@ describe("organización y reingreso", () => {
   test("primer ingreso sin cookies ni sesiones no muestra error ni consulta backend", async () => {
     jar.clear();
     customerSession = { status: "invalid" };
-    adminSession = { status: "invalid" };
-    expect(await state.loadOnboarding()).toEqual({ userId: null, customer: false, organizationId: null, organization: null, storefronts: [], programs: [] });
+    withoutAdminSession();
+    expect(await state.loadOnboarding()).toEqual({ userId: null, customer: false, organizationId: null, organization: null, storefronts: [], programs: [], backendStep: null, sessionReset: false });
     expect(calls).toHaveLength(0);
   });
 
   test("cuenta nueva sin login admin puede iniciar el alta sin error", async () => {
     jar.delete("d_token");
-    adminSession = { status: "invalid" };
+    withoutAdminSession();
     const initial = await state.loadOnboarding();
     expect(initial).toMatchObject({ userId: OWNER, customer: true, organizationId: null, organization: null });
     expect(initial.error).toBeUndefined();
-    expect(calls.map(c => c.path)).toEqual(["/users/me"]);
+    expect(calls.map(c => c.path)).toEqual(["/users/me", "/onboarding"]);
   });
 
   test("organización pendiente espera login admin sin presentarlo como sesión vencida", async () => {
     saveProgress();
     jar.delete("d_token");
-    adminSession = { status: "invalid" };
+    withoutAdminSession();
     const pending = await state.loadOnboarding();
     expect(pending).toMatchObject({ userId: OWNER, organizationId: ORG, organization: null });
     expect(pending.error).toBeUndefined();
-    expect(calls.map(c => c.path)).toEqual(["/users/me"]);
+    expect(calls.map(c => c.path)).toEqual(["/users/me", "/onboarding"]);
   });
 
-  test.each(["expired", "unavailable"])("sesión admin realmente %s informa reingreso o reintento", async status => {
+  test("sesión admin no verificable informa reingreso y pide borrar sus cookies", async () => {
     saveProgress();
-    adminSession = { status };
+    adminSession = { status: "expired" };
     const pending = await state.loadOnboarding();
-    expect(pending.organizationId).toBe(ORG);
-    expect(pending.error).toBe(status === "expired"
-          ? "Tu sesión terminó. Volvé a ingresar a tu negocio."
-          : "No pudimos comprobar tu ingreso. Probá de nuevo.");
-    expect(calls.map(c => c.path)).toEqual(["/users/me"]);
+    expect(pending).toMatchObject({ organizationId: ORG, sessionReset: true, error: state.SESSION_RESET_ERROR });
+    // The account session still verifies, so its progress is read; the dashboard
+    // token is never used for the request.
+    expect(calls.map(c => c.path)).toEqual(["/users/me", "/onboarding"]);
+    expect(calls.at(-1).authorization).toBe("Bearer customer-token");
+  });
+
+  test("clave de verificación no disponible no destruye la sesión", async () => {
+    saveProgress();
+    adminSession = { status: "unavailable" };
+    const pending = await state.loadOnboarding();
+    expect(pending).toMatchObject({ organizationId: ORG, sessionReset: false, error: "No pudimos comprobar tu ingreso. Probá de nuevo." });
+    expect(await actions.resetOnboardingSession()).toMatchObject({ ok: true });
+    expect(jar.get("d_token")).toBe("dashboard-token");
+    expect(posts("/auth/logout")).toHaveLength(0);
   });
   test("crear, fallar login, recargar y reintentar no vuelve a crear ni guarda contraseñas", async () => {
-    adminSession = { status: "invalid" };
+    withoutAdminSession();
     const created = await actions.createOrganization(form({ name: "  Café  " }));
     expect(created.ok).toBe(true);
     expect(created.data.error).toBeUndefined();
@@ -248,7 +271,7 @@ describe("organización y reingreso", () => {
   });
 
   test("el alta canjea la sesión de cuenta y evita el segundo login", async () => {
-    adminSession = { status: "invalid" };
+    withoutAdminSession();
     exchangedToken = "exchanged-token";
     const created = await actions.createOrganization(form({ name: "Café" }));
 
@@ -265,7 +288,7 @@ describe("organización y reingreso", () => {
 
   test("el canje también corre cuando el negocio ya estaba creado y no lo crea de nuevo", async () => {
     saveProgress();
-    adminSession = { status: "invalid" };
+    withoutAdminSession();
     exchangedToken = "exchanged-token";
     const resumed = await actions.createOrganization(form({ name: "Otro nombre" }));
 
@@ -276,7 +299,7 @@ describe("organización y reingreso", () => {
   });
 
   test("un canje rechazado deja el negocio creado y vuelve al formulario de administrador", async () => {
-    adminSession = { status: "invalid" };
+    withoutAdminSession();
     const created = await actions.createOrganization(form({ name: "Café" }));
 
     expect(posts("/organizations")).toHaveLength(1);
@@ -285,12 +308,12 @@ describe("organización y reingreso", () => {
     expect(created.data.error).toBeUndefined();
     // Only the progress hint is written; no dashboard session is faked.
     expect(setCookie.mock.calls.map(([name]) => name)).toEqual([PROGRESS]);
-    expect(jar.get("d_token")).toBe("dashboard-token");
+    expect(jar.has("d_token")).toBe(false);
   });
 
   test("cookie ajena no bloquea el alta y sólo se reemplaza por el negocio confirmado", async () => {
     saveProgress(OTHER_OWNER, OTHER_ORG);
-    adminSession = { status: "invalid" };
+    withoutAdminSession();
     const initial = await state.loadOnboarding();
     expect(initial.organizationId).toBeNull();
     expect(initial.error).toBeUndefined();
@@ -304,7 +327,7 @@ describe("organización y reingreso", () => {
 
   test("alta rechazada conserva hint ajeno sin exponerlo a la cuenta actual", async () => {
     saveProgress(OTHER_OWNER, OTHER_ORG);
-    adminSession = { status: "invalid" };
+    withoutAdminSession();
     const saved = jar.get(PROGRESS);
     failures.set("POST /organizations", { status: 409, detail: "Ya tiene un negocio" });
     expect(await actions.createOrganization(form({ name: "Nuevo" }))).toMatchObject({ ok: false, error: "Ya tiene un negocio" });
@@ -315,7 +338,7 @@ describe("organización y reingreso", () => {
 
   test("retomar con cookie ajena usa selección explícita y backend antes de cambiar owner", async () => {
     saveProgress(OTHER_OWNER, OTHER_ORG);
-    adminSession = { status: "invalid" };
+    withoutAdminSession();
     const credentials = loginForm();
     credentials.set("organizationId", ORG);
     expect(await actions.authenticateAdmin(credentials)).toMatchObject({ ok: true, data: { userId: OWNER, organizationId: ORG, organization } });
@@ -414,7 +437,7 @@ describe("estado y autorización de operaciones independientes", () => {
     const resumed = await state.loadOnboarding();
     expect(resumed).toMatchObject({ organizationId: ORG, organization: null, storefronts: [], programs: [] });
     expect(resumed.error).toBeTruthy();
-    expect(calls.every(c => ["/organization", "/users/me"].includes(c.path))).toBe(true);
+    expect(calls.every(c => ["/organization", "/users/me", "/onboarding"].includes(c.path))).toBe(true);
     expect(posts()).toHaveLength(0);
   });
 
@@ -713,5 +736,119 @@ describe("finalización mediante acción de formulario", () => {
     programs = [program({ storefronts: [{ id: OTHER_SF, name: "Otra" }] })];
     expect((await actions.finishOnboarding()).error).toContain("programa de puntos");
     expect(redirect).not.toHaveBeenCalled();
+  });
+});
+
+describe("recuperación del paso registrado en backend", () => {
+  function reads() { return calls.filter(c => c.path === "/onboarding"); }
+
+  test("sin sesión no se consulta el endpoint de onboarding", async () => {
+    jar.clear();
+    customerSession = { status: "invalid" };
+    adminSession = { status: "invalid" };
+    expect(await state.loadOnboarding()).toMatchObject({ backendStep: null, sessionReset: false });
+    expect(reads()).toHaveLength(0);
+  });
+
+  test.each(["invalid", "expired", "unavailable"])("una sesión %s no se envía al endpoint", async status => {
+    jar.delete("d_token");
+    adminSession = { status: "invalid" };
+    customerSession = { status };
+    expect((await state.loadOnboarding()).backendStep).toBeNull();
+    expect(reads()).toHaveLength(0);
+  });
+
+  test("usa la sesión de panel ADMIN verificada y no guarda nada en caché", async () => {
+    saveProgress();
+    onboardingProgress = { currentStep: "CREATE_STOREFRONT", organizationId: ORG };
+    organization = { id: ORG, name: "Café", billingPlanName: "Inicial", mercadoPagoSubscriptionStatus: "authorized" };
+    const resumed = await state.loadOnboarding();
+    expect(resumed.backendStep).toBe("CREATE_STOREFRONT");
+    expect(reads()).toHaveLength(1);
+    expect(reads()[0]).toMatchObject({ method: "GET", authorization: "Bearer dashboard-token", cache: "no-store" });
+  });
+
+  test("una sesión de panel CASHIER no se usa para el endpoint: lo haría responder 403", async () => {
+    adminSession = valid("CASHIER");
+    const resumed = await state.loadOnboarding();
+    expect(reads()).toHaveLength(1);
+    expect(reads()[0].authorization).toBe("Bearer customer-token");
+    expect(resumed.backendStep).toBe("CREATE_ORGANIZATION");
+  });
+
+  test("dos cuentas distintas abiertas no consultan progreso de nadie", async () => {
+    adminSession = valid("ADMIN", OTHER_OWNER);
+    expect((await state.loadOnboarding()).backendStep).toBeNull();
+    expect(reads()).toHaveLength(0);
+  });
+
+  test.each([401, 403])("un rechazo %s del backend no otorga paso ni bloquea el recorrido", async status => {
+    saveProgress();
+    failures.set("GET /onboarding", { status, detail: "Sin acceso" });
+    const resumed = await state.loadOnboarding();
+    expect(resumed.backendStep).toBeNull();
+    expect(resumed.error).toBeUndefined();
+    expect(resumed.organization).toMatchObject({ id: ORG });
+  });
+
+  test.each([
+    { currentStep: "ALGO_NUEVO" },
+    { currentStep: null },
+    { organizationId: ORG },
+    {},
+  ])("una respuesta que no valida (%j) deja el paso desconocido", async payload => {
+    saveProgress();
+    onboardingProgress = payload;
+    const resumed = await state.loadOnboarding();
+    expect(resumed.backendStep).toBeNull();
+    expect(resumed.error).toBeUndefined();
+  });
+
+  test("un paso registrado para otro negocio se descarta", async () => {
+    saveProgress();
+    onboardingProgress = { currentStep: "CREATE_POINT_PROGRAM", organizationId: OTHER_ORG };
+    expect((await state.loadOnboarding()).backendStep).toBeNull();
+    expect(reads()).toHaveLength(1);
+  });
+
+  test("el estado del backend no sustituye la verificación de recursos", async () => {
+    saveProgress();
+    onboardingProgress = { currentStep: "COMPLETED", organizationId: ORG };
+    organization = { id: ORG, name: "Café" };
+    const resumed = await state.loadOnboarding();
+    expect(resumed).toMatchObject({ backendStep: "COMPLETED", storefronts: [], programs: [] });
+    expect(resumed.organization.billingPlanName).toBeUndefined();
+  });
+
+  test("el reinicio borra sólo las cookies de la sesión muerta, la revoca y conserva el hint", async () => {
+    saveProgress();
+    jar.set("bb_user_rt", "customer-refresh");
+    jar.set("bb_dashboard_rt", "admin-refresh");
+    jar.set("d_storefronts", "branches");
+    adminSession = { status: "invalid" };
+    setCookie.mockClear();
+    const reset = await actions.resetOnboardingSession();
+
+    expect(posts("/auth/logout")).toHaveLength(1);
+    expect(posts("/auth/logout")[0]).toMatchObject({ authorization: "Bearer dashboard-token", cookie: "bb_rt=admin-refresh" });
+    for (const name of ["d_token", "bb_dashboard_rt", "d_storefronts"]) expect(jar.has(name)).toBe(false);
+    expect(jar.get("access_token")).toBe("customer-token");
+    expect(jar.get("bb_user_rt")).toBe("customer-refresh");
+    expect(jar.get(PROGRESS)).toBeDefined();
+    expect(setCookie).not.toHaveBeenCalled();
+    // The surviving account session keeps the journey and its hint; the message
+    // explains why the dashboard login is being asked for again.
+    expect(reset).toMatchObject({ ok: true, data: { userId: OWNER, organizationId: ORG, organization: null, sessionReset: false, error: state.SESSION_RESET_ERROR } });
+  });
+
+  test("el reinicio de una sesión de cuenta muerta deja el recorrido sin identidad", async () => {
+    customerSession = { status: "expired" };
+    adminSession = { status: "invalid" };
+    jar.set("bb_user_rt", "customer-refresh");
+    const reset = await actions.resetOnboardingSession();
+
+    for (const name of ["access_token", "bb_user_rt", "d_token"]) expect(jar.has(name)).toBe(false);
+    expect(reset.data).toMatchObject({ userId: null, customer: false, organizationId: null, backendStep: null, sessionReset: false, error: state.SESSION_RESET_ERROR });
+    expect(reads()).toHaveLength(0);
   });
 });

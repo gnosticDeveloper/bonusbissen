@@ -1,3 +1,5 @@
+import type { OnboardingBackendStep } from "./types/onboarding";
+
 export type OnboardingProgress = {
   version: 3;
   userId: string;
@@ -17,14 +19,40 @@ type VerifiedState = {
   organizationId: string | null;
   organization: { id: string; billingPlanName?: string | null; mercadoPagoSubscriptionStatus?: string | null } | null;
   storefronts: readonly unknown[];
+  /** First unfinished step recorded by the backend, when it could be read. */
+  backendStep?: OnboardingBackendStep | null;
 };
 
 export function availableStep(state: VerifiedState) {
   return !state.organization ? 0 : !state.organization.billingPlanName ? 1 : state.organization.mercadoPagoSubscriptionStatus !== "authorized" ? 2 : !state.storefronts.length ? 3 : 4;
 }
 
+/**
+ * Slide for the step the backend recorded, or `null` when it is unknown. `PAY`
+ * covers both choosing a plan and authorizing Mercado Pago, which are separate
+ * slides here, so the verified plan name splits it. The result is a resume
+ * position only: it is always clamped by the resources the backend verified, so
+ * recorded progress can neither open a stage nor hold a finished one back.
+ */
+export function backendStepSlide(state: VerifiedState): number | null {
+  switch (state.backendStep ?? null) {
+    case "CREATE_ORGANIZATION": return 0;
+    case "PAY": return state.organization?.billingPlanName ? 2 : 1;
+    case "CREATE_STOREFRONT": return 3;
+    case "CREATE_POINT_PROGRAM": return 4;
+    case "COMPLETED": return 4;
+    default: return null;
+  }
+}
+
+/** Where the journey resumes when this browser has no step of its own. */
+export function resumeStep(state: VerifiedState) {
+  const recorded = backendStepSlide(state);
+  return recorded === null ? availableStep(state) : clampOnboardingStep(state, recorded);
+}
+
 export function restoreStep(state: VerifiedState, saved: OnboardingProgress | null) {
-  if (!saved || !state.userId || saved.userId !== state.userId || saved.organizationId !== state.organizationId) return availableStep(state);
+  if (!saved || !state.userId || saved.userId !== state.userId || saved.organizationId !== state.organizationId) return resumeStep(state);
   return clampOnboardingStep(state, saved.step);
 }
 

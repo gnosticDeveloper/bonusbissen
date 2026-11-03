@@ -44,7 +44,7 @@ async function getPublicKey(forceRefresh = false) {
   }
 }
 
-type SessionCheck = { status: "valid"; payload: Payload } | { status: "invalid" | "expired" | "unavailable" };
+export type SessionCheck = { status: "valid"; payload: Payload } | { status: "invalid" | "expired" | "unavailable" };
 
 export async function checkSession(token?: string, area: "customer" | "dashboard" = "customer"): Promise<SessionCheck> {
   if (!token) return { status: "invalid" };

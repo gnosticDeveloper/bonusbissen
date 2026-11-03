@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { completeOnboardingNavigation, createLocalOnboardingProgressStore, orderedOnboardingProgressStore, availableStep, restoreStep, createOnboardingProgressStore, restoreOnboardingNavigation, clampOnboardingStep, minimumStep } from "./onboarding-progress";
+import { completeOnboardingNavigation, createLocalOnboardingProgressStore, orderedOnboardingProgressStore, availableStep, restoreStep, createOnboardingProgressStore, restoreOnboardingNavigation, clampOnboardingStep, minimumStep, backendStepSlide, resumeStep } from "./onboarding-progress";
 
 const progress = { version: 3, userId: "alice", organizationId: "org", step: 4 };
 function fixture() {
@@ -231,5 +231,52 @@ describe("async onboarding persistence", () => {
     await store.save("alice", progress);
     expect(await completeOnboardingNavigation({ error: "expired" }, store, () => { throw new Error("Must not navigate"); })).toBe(false);
     expect(await store.load("alice")).toEqual(progress);
+  });
+});
+
+describe("paso registrado en backend", () => {
+  const base = { userId: "alice", organizationId: "org", storefronts: [] };
+  const planned = { id: "org", billingPlanName: "Inicial" };
+  const authorized = { ...planned, mercadoPagoSubscriptionStatus: "authorized" };
+
+  test("maps every recorded step, splitting PAY with the verified plan name", () => {
+    expect(backendStepSlide({ ...base, organization: null })).toBeNull();
+    expect(backendStepSlide({ ...base, organization: null, backendStep: null })).toBeNull();
+    expect(backendStepSlide({ ...base, organization: null, backendStep: "CREATE_ORGANIZATION" })).toBe(0);
+    expect(backendStepSlide({ ...base, organization: null, backendStep: "PAY" })).toBe(1);
+    expect(backendStepSlide({ ...base, organization: planned, backendStep: "PAY" })).toBe(2);
+    expect(backendStepSlide({ ...base, organization: authorized, backendStep: "CREATE_STOREFRONT" })).toBe(3);
+    expect(backendStepSlide({ ...base, organization: authorized, backendStep: "CREATE_POINT_PROGRAM" })).toBe(4);
+    expect(backendStepSlide({ ...base, organization: authorized, backendStep: "COMPLETED" })).toBe(4);
+  });
+
+  test("resumes at the recorded step when this browser has no saved one", () => {
+    const state = { ...base, organization: authorized, storefronts: [{}], backendStep: "CREATE_POINT_PROGRAM" };
+    expect(resumeStep(state)).toBe(4);
+    expect(restoreStep(state, null)).toBe(4);
+    // Another user or business saved it: the recorded step is used, not theirs.
+    expect(restoreStep(state, { ...progress, userId: "bob", step: 0 })).toBe(4);
+    expect(restoreStep(state, { ...progress, organizationId: "other", step: 0 })).toBe(4);
+    // This browser saved a step: navigation preference wins over the resume hint.
+    expect(restoreStep({ ...state, backendStep: "CREATE_STOREFRONT" }, { ...progress, step: 4 })).toBe(4);
+  });
+
+  test("a recorded step never opens a stage the resources do not allow", () => {
+    for (const backendStep of ["CREATE_STOREFRONT", "CREATE_POINT_PROGRAM", "COMPLETED"]) {
+      expect(resumeStep({ ...base, organization: null, backendStep })).toBe(0);
+      expect(resumeStep({ ...base, organization: { id: "org" }, backendStep })).toBe(1);
+      expect(resumeStep({ ...base, organization: planned, backendStep })).toBe(2);
+      expect(resumeStep({ ...base, organization: authorized, backendStep })).toBe(3);
+      // Plan revoked with resources already created: the plan gate still wins.
+      expect(resumeStep({ ...base, organization: { id: "org", mercadoPagoSubscriptionStatus: "authorized" }, storefronts: [{}], backendStep })).toBe(1);
+    }
+  });
+
+  test("a recorded step that lags behind cannot undo verified progress", () => {
+    // The paid timestamp is written by the payment webhook, so it can arrive late.
+    const authorizedWithBranch = { ...base, organization: authorized, storefronts: [{}] };
+    expect(resumeStep({ ...authorizedWithBranch, backendStep: "PAY" })).toBe(4);
+    expect(resumeStep({ ...base, organization: authorized, backendStep: "CREATE_ORGANIZATION" })).toBe(3);
+    expect(resumeStep({ ...base, organization: null, backendStep: "COMPLETED" })).toBe(0);
   });
 });

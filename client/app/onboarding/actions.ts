@@ -19,9 +19,12 @@ import {
   adminOrganization,
   cookieOptions,
   customerSession,
+  deadSession,
   loadOnboarding,
   PROGRESS_COOKIE,
   readProgress,
+  SESSION_RESET_ERROR,
+  sessionTokens,
   type Organization,
   type OnboardingState,
 } from "./state";
@@ -43,6 +46,28 @@ const storefrontSchema = z
 type Result = ActionResult<OnboardingState>;
 export async function refreshOnboarding(): Promise<Result> {
   return { ok: true, data: await loadOnboarding() };
+}
+
+/**
+ * Deletes the cookies of a session that stopped verifying and reloads the
+ * journey, which then starts at the first step. The areas are re-derived from
+ * the cookies here: the client never says which session to drop. A session that
+ * only failed verification because the key was unavailable is left untouched, and
+ * the areas that still verify keep their cookies.
+ */
+export async function resetOnboardingSession(): Promise<Result> {
+  const jar = await cookies();
+  const tokens = await sessionTokens();
+  const areas = [
+    { session: tokens.customer, access: CUSTOMER_ACCESS_COOKIE, refresh: CUSTOMER_REFRESH_COOKIE, extra: [] as string[] },
+    { session: tokens.dashboard, access: DASHBOARD_ACCESS_COOKIE, refresh: DASHBOARD_REFRESH_COOKIE, extra: [DASHBOARD_STOREFRONTS_COOKIE] },
+  ].filter(area => deadSession(area.session));
+  // Revoke the backend session too, so a refresh token for a session we are
+  // deleting from the browser cannot keep issuing access tokens.
+  await Promise.all(areas.map(area => logoutFromBackend(area.session.token, jar.get(area.refresh)?.value)));
+  for (const area of areas) for (const name of [area.access, area.refresh, ...area.extra]) jar.delete(name);
+  const data = await loadOnboarding();
+  return { ok: true, data: { ...data, error: data.error ?? (areas.length ? SESSION_RESET_ERROR : undefined) } };
 }
 
 export async function authenticateCustomer(mode: "sign-in" | "sign-up", form: FormData): Promise<Result> {

@@ -12,6 +12,8 @@ Billing utiliza autenticación independiente. `adminOrganization` valida el cont
 
 - `OnboardingState.userId: string | null`: identidad verificada con sesión y backend. No se obtiene de localStorage ni de una cookie de progreso. Sin identidad verificada, el cliente no lee ni escribe progreso local.
 - `finishOnboarding(): Promise<FinishResult>` devuelve `{ error: string }` o `{ error: null, userId: string, destination: string }`. La navegación se realiza en el cliente después del intento de limpieza local. El destino se construye en servidor después de verificar el negocio, la suscripción autorizada, una sucursal activa con programa vinculado y un JWT firmado del administrador actual con `sf` igual a esa sucursal. No hay un endpoint nuevo de completion: se verifica la configuración persistida mediante los GET existentes.
+- `OnboardingState.backendStep: OnboardingBackendStep | null`: primer paso sin terminar según `GET /onboarding`, o `null` cuando no se pudo leer. Es una pista de reanudación: nunca habilita una etapa.
+- `OnboardingState.sessionReset: boolean`: alguna cookie de sesión presente dejó de verificarse. El cliente pide borrarla con `resetOnboardingSession()`; no es un permiso ni una identidad.
 - `OnboardingProgressStore`: interfaz async `load(userId)`, `save(userId, progress)` y `clear(userId)` en `client/lib/onboarding-progress.ts`. `createOnboardingProgressStore()` selecciona la implementación predeterminada y serializa las operaciones. El componente sólo conoce esta fábrica y la interfaz; también acepta un adapter opcional `progressStore` para pruebas o integración.
 
 ## Persistencia y reanudación
@@ -32,6 +34,20 @@ Al crear o recuperar una sucursal activa, `ensureOnboardingStorefront` consulta 
 
 Al finalizar, el servidor verifica de nuevo los recursos, asegura la asignación y selección de una sucursal con programa activo y comprueba otra vez el `sf` firmado antes de expirar el hint. Si falla, no devuelve destino ni borra el progreso. El cliente espera `clear(userId)` antes de `router.push(destination)`. Si el backend rechaza el cierre no se borra el progreso. Si falla el borrado local, se informa el fallo y se navega igualmente después del intento: el almacenamiento opcional del navegador no bloquea un cierre confirmado por backend. Puede quedar un hint local obsoleto, que se volverá a validar contra sesión y backend al regresar. Si localStorage no está disponible al cargar/guardar, se informa sin impedir que los recursos se guarden en backend.
 
+## Paso registrado en backend
+
+`GET /onboarding` (`OnboardingController`) informa `currentStep`: el primer paso sin terminar del recorrido, o `COMPLETED`. El endpoint es `hasAnyRole('USER','ADMIN')` sobre el principal autenticado y no tiene rama para sesión ausente: sin sesión responde 403. Por eso la sesión se valida antes en `readOnboardingProgress` (`./progress-state.ts`) y la consulta se omite cuando no hay ninguna utilizable. No tener sesión es un estado normal de este recorrido, no un error.
+
+Se usa el token de panel cuando verifica con rol `ADMIN`, y si no el de cuenta cuando verifica con rol `USER`; en ambos casos el `sub` verificado debe coincidir con la identidad que la página ya confirmó. Un token de panel `CASHIER` es una sesión válida que el endpoint rechazaría, así que no se envía. Si las dos áreas pertenecen a personas distintas no se consulta progreso de ninguna. La consulta usa `Authorization` explícito, `no-store`, `redirect: "error"` y timeout; no pasa por `request`/`dashboardRequest`, que redirigen a login cuando falta la cookie. La respuesta se valida con Zod: un `currentStep` desconocido, un payload inesperado, un 401/403 o una falla de red dejan el paso desconocido sin bloquear el recorrido ni mostrar un error propio. Un paso registrado para otra organización que la verificada se descarta.
+
+`backendStepSlide` traduce el paso a diapositiva: `PAY` abarca elegir plan y autorizar Mercado Pago, que acá son dos pantallas, así que lo separa el `billingPlanName` verificado (1 sin plan, 2 con plan). `resumeStep` aplica `clampOnboardingStep`, de modo que el paso registrado sólo elige dónde se retoma dentro de lo que los recursos verificados ya permitían: no abre una etapa (una organización sin plan sigue en Plan aunque el backend informe `CREATE_POINT_PROGRAM`) ni retrocede una terminada (`paid_at` lo escribe el webhook de pago y puede llegar tarde, así que una suscripción autorizada con sucursal sigue en el paso 5). El paso guardado en este navegador, cuando corresponde al mismo usuario y negocio, sigue teniendo prioridad como preferencia de navegación; el paso del backend es la reanudación cuando este navegador no tiene ninguno, y por eso funciona en otro dispositivo o con el almacenamiento vacío.
+
+## Sesiones que dejan de verificarse
+
+Una cookie de acceso presente que no verifica —payload modificado, firma ajena, o vencida más allá de la renovación que el proxy ya intentó— no es una sesión: no identifica a nadie en `loadOnboarding` y se informa con `sessionReset`. El proxy borra en `/onboarding` las cookies del área cuyo token es `invalid`, para esta misma request y para el navegador, sin redirigir nunca un POST de Server Action. Para lo que el proxy no puede renovar ni borrar (vencida sin refresh utilizable), el cliente llama una sola vez a `resetOnboardingSession()`: la acción vuelve a derivar las áreas muertas de las cookies —el cliente no dice cuál borrar—, revoca esa sesión en backend, borra `access_token`/`bb_user_rt` o `d_token`/`bb_dashboard_rt`/`d_storefronts` según corresponda y devuelve el estado recargado, que arranca en el paso 1.
+
+El estado `unavailable` queda afuera: una clave de verificación que no se pudo traer es un problema transitorio y no destruye una sesión que funciona; se informa para reintentar. Las áreas que siguen verificando conservan sus cookies, así que una sesión de panel muerta no tira la sesión de cuenta. La cookie `onboarding_progress` no se borra: no autoriza nada y se vuelve a validar contra la sesión y el backend, pero sin identidad verificada no expone ningún negocio.
+
 ## Límites
 
 - Los límites de navegación se aplican dentro del onboarding. No se agrega una política global de acceso a la configuración del panel ni se modifican los permisos del backend.
@@ -50,11 +66,12 @@ bun test ./app/onboarding/onboarding.test.js
 bun test ./app/onboarding/dashboard-session.test.js
 bun test ./app/onboarding/storefront-session.test.js
 bun test ./lib/onboarding-progress.test.js
+bun test ./proxy.test.ts
 bun test ./app/onboarding/pago/billing.test.js
 node node_modules/typescript/bin/tsc --noEmit --incremental false
 ```
 
-Cobertura: autorización/owner, expiración, recuperación sin cookie, reintentos, vínculo de programa, destino de cierre, aislamiento local por usuario, registros corruptos, allowlist, migraciones v1/v2→v3, retorno autorizado, revocación de plan/suscripción, bloqueo de setup/cierre sin plan aun estando autorizado, restauración limitada por backend, almacenamiento bloqueado y orden save → clear → navegación. La prueba de persistencia verifica que el gate de plan precede a checkout y recursos posteriores; las acciones de checkout permanecen a cargo de billing.
+Cobertura: paso registrado en backend (omisión sin sesión, token de panel ADMIN preferido, `CASHIER` excluido, identidades distintas, rechazo 401/403, respuesta que no valida, paso de otro negocio, mapeo y recorte por recursos), borrado de cookies de una sesión que no verifica, autorización/owner, expiración, recuperación sin cookie, reintentos, vínculo de programa, destino de cierre, aislamiento local por usuario, registros corruptos, allowlist, migraciones v1/v2→v3, retorno autorizado, revocación de plan/suscripción, bloqueo de setup/cierre sin plan aun estando autorizado, restauración limitada por backend, almacenamiento bloqueado y orden save → clear → navegación. La prueba de persistencia verifica que el gate de plan precede a checkout y recursos posteriores; las acciones de checkout permanecen a cargo de billing.
 
 Guías Next.js consultadas en la versión instalada (16.3.4):
 - `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/page.md`: `searchParams` asíncrono en páginas de servidor.
@@ -70,3 +87,5 @@ Validación de selección y mensajes de sesión: 76 tests del root y 9 de sesió
 Validación integrada: 155 pruebas pasan (30 proxy, 76 acciones, 9 selección de sucursal, 18 persistencia y 22 billing/coordinación), en procesos separados para aislar mocks. TypeScript, build de producción y `git diff --check` pasan. ESLint continúa bloqueado por la incompatibilidad indicada arriba. No se ejecutó E2E contra backend ni cobro real; la adaptación visual requiere revisión manual en navegador.
 
 Validación del canje de sesión: 14 pruebas nuevas en `dashboard-session.test.js` (firma real ES256, cookies escritas, token de cuenta enviado, omisión con sesión vigente, rechazos 401/403/409/500, falla de red, respuesta sin refresh, rol incorrecto, firma ajena y JWT vencido) y 3 en `onboarding.test.js` sobre el cableado del alta. Pasan las 78 del root, 14 de canje, 9 de selección de sucursal, 16 de persistencia, 18 de billing y 30 de proxy, en procesos separados; también TypeScript, el build de producción y `git diff --check`. No se ejecutó E2E contra backend ni cobro real.
+
+Validación de la recuperación del paso: 95 pruebas del root (17 nuevas sobre el endpoint de onboarding y el reinicio de sesión), 20 de persistencia (4 nuevas de mapeo y recorte), 30 de proxy, 14 de canje, 9 de selección de sucursal, 18 de billing y 4 de request-gate pasan en procesos separados. TypeScript (`tsc --noEmit --incremental false`), el build de producción y `git diff --check` pasan. ESLint sigue bloqueado por la incompatibilidad de `react/display-name` indicada arriba. No se ejecutó E2E contra Java ni cobro real.
