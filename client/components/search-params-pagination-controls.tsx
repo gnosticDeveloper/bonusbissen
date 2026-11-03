@@ -4,7 +4,20 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useTransition } from "react";
 import { PaginationControls } from "@/components/pagination-controls";
 
-export function SearchParamsPaginationControls({ page, totalPages }: { page: number; totalPages: number }) {
+/**
+ * `PaginationControls` driven by the `page` search param: the server page reads
+ * it, so navigating is a `replace` plus a prefetch of the neighbours. Every
+ * other search param is preserved — dropping them would reset filters on paging.
+ */
+export function SearchParamsPaginationControls({
+  page,
+  totalPages,
+  className = "mt-6",
+}: {
+  page: number;
+  totalPages: number;
+  className?: string;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -28,9 +41,5 @@ export function SearchParamsPaginationControls({ page, totalPages }: { page: num
     startTransition(() => router.replace(getPageHref(nextPage)));
   };
 
-  return (
-    <div className="mx-auto mt-6 w-full max-w-xs">
-      <PaginationControls page={page} totalPages={totalPages} onPageChange={handlePageChange} disabled={isPending} />
-    </div>
-  );
+  return <PaginationControls page={page} totalPages={totalPages} onPageChange={handlePageChange} disabled={isPending} className={className} />;
 }

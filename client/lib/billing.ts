@@ -1,6 +1,10 @@
 import { z } from "zod";
+// Type-only: this module is also imported by Client Components, so it must not
+// pull the server-only request helpers in `@/lib/api` into their bundle.
+import type { ActionResult } from "./action-result";
 
-export type BillingResult<T> = { ok: true; data: T } | { ok: false; error: string; status?: number };
+/** Billing keeps its own name for the shared success/failure shape. */
+export type BillingResult<T> = ActionResult<T>;
 
 export const billingOrganizationSchema = z.object({
   id: z.uuid(), name: z.string(), billingEmail: z.string().nullable(),

@@ -1,6 +1,7 @@
 "use server";
 
 import { ActionResult } from "@/lib/api";
+import { backendUrl } from "@/lib/backend-url";
 import { SignInUser } from "@/lib/definitions";
 import { userRegisterSchema } from "@/schemas/user";
 import { saveCustomerSession } from "@/lib/auth/refresh";
@@ -20,10 +21,9 @@ export async function signUp(formData: FormData): Promise<ActionResult<SignInUse
   }
 
   const { name, username, password, email } = parsed.data;
-  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
 
   try {
-    const response = await fetch(`${backendUrl}/auth/user-register`, {
+    const response = await fetch(backendUrl("/auth/user-register"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, name, password, email }),

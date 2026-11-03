@@ -1,12 +1,13 @@
 import "server-only";
 import { z } from "zod";
+import { backendUrl } from "./backend-url";
 import type { BillingResult } from "./billing";
 
 // Explicit verified token; unlike dashboardRequest, this never redirects on missing auth.
 export async function billingRequest<T>(token: string, path: string, schema: z.ZodType<T>, init?: RequestInit): Promise<BillingResult<T>> {
   if (!token) return { ok: false, status: 401, error: "Volvé a ingresar con la cuenta que administra el negocio." };
   try {
-    const response = await fetch(`${process.env.BACKEND_URL ?? "http://localhost:8080"}${path}`, {
+    const response = await fetch(backendUrl(path), {
       ...init, headers: { ...init?.headers, Authorization: `Bearer ${token}` },
       cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15_000),
     });

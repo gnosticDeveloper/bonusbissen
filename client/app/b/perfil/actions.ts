@@ -2,8 +2,9 @@
 
 import { ActionResult } from "@/lib/action-result";
 import { request } from "@/lib/api";
-import { verifySession } from "@/lib/auth/session";
-import { CUSTOMER_REFRESH_COOKIE } from "@/lib/auth/refresh";
+import { backendUrl } from "@/lib/backend-url";
+import { getSessionToken } from "@/lib/auth/session";
+import { clearAllSessions, CUSTOMER_ACCESS_COOKIE, CUSTOMER_REFRESH_COOKIE, deleteSessionCookies } from "@/lib/auth/refresh";
 import { UserInfo } from "@/lib/types/customer";
 import { validateImageUpload } from "@/lib/image-upload";
 import { cookies } from "next/headers";
@@ -24,13 +25,12 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
  * in `@/lib/api` assumes a JSON payload, which these endpoints don't return.
  */
 async function mutate(path: string, method: "POST" | "DELETE"): Promise<ActionResult<null>> {
-  const token = (await cookies()).get("access_token")?.value;
+  const token = await getSessionToken();
   if (!token) return { ok: false, error: "Necesitás iniciar sesión." };
 
-  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
 
   try {
-    const response = await fetch(`${backendUrl}${path}`, {
+    const response = await fetch(backendUrl(path), {
       method,
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
@@ -86,7 +86,7 @@ export async function resendVerificationEmail(): Promise<ActionResult<null>> {
 
 export async function getDeviceSessions(): Promise<ActionResult<DeviceSession[]>> {
   const cookieStore = await cookies();
-  const token = cookieStore.get("access_token")?.value;
+  const token = cookieStore.get(CUSTOMER_ACCESS_COOKIE)?.value;
   if (!token) return { ok: false, error: "Necesitás iniciar sesión." };
 
   const refreshToken = cookieStore.get(CUSTOMER_REFRESH_COOKIE)?.value;
@@ -102,27 +102,17 @@ export async function revokeDeviceSession(sessionId: string, current: boolean): 
   }
 
   const result = await mutate(`/auth/sessions/${sessionId}`, "DELETE");
-  if (result.ok && current) {
-    const cookieStore = await cookies();
-    cookieStore.delete("access_token");
-    cookieStore.delete(CUSTOMER_REFRESH_COOKIE);
-  }
+  if (result.ok && current) deleteSessionCookies(await cookies(), "customer");
   return result;
 }
 
+/**
+ * The backend revoked every session of this account, so no cookie left in this
+ * browser can still be valid: both areas only ever hold the same identity.
+ */
 export async function revokeAllDeviceSessions(): Promise<ActionResult<null>> {
-  const cookieStore = await cookies();
-  const customerToken = cookieStore.get("access_token")?.value;
-  const dashboardToken = cookieStore.get("d_token")?.value;
   const result = await mutate("/auth/sessions", "DELETE");
-  if (result.ok) {
-    cookieStore.delete("access_token");
-    cookieStore.delete(CUSTOMER_REFRESH_COOKIE);
-    if (customerToken && dashboardToken) {
-      const [customer, dashboard] = await Promise.all([verifySession(customerToken), verifySession(dashboardToken, "dashboard")]);
-      if (customer?.sub && dashboard?.sub === customer.sub) cookieStore.delete("d_token");
-    }
-  }
+  if (result.ok) await clearAllSessions();
   return result;
 }
 
@@ -132,10 +122,6 @@ export async function revokeAllDeviceSessions(): Promise<ActionResult<null>> {
  */
 export async function deleteAccount(): Promise<ActionResult<null>> {
   const result = await mutate("/users/me", "DELETE");
-  if (result.ok) {
-    const cookieStore = await cookies();
-    cookieStore.delete("access_token");
-    cookieStore.delete(CUSTOMER_REFRESH_COOKIE);
-  }
+  if (result.ok) deleteSessionCookies(await cookies(), "customer");
   return result;
 }

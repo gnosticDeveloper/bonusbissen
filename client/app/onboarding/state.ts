@@ -3,7 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { dashboardRequest, request, type ActionResult } from "@/lib/api";
-import { checkSession, getDashboardSessionToken, getSessionToken, type SessionCheck } from "@/lib/auth/session";
+import { checkSession, currentSession, getDashboardSessionToken, getSessionToken, type SessionCheck } from "@/lib/auth/session";
 import type { Storefront } from "@/lib/types/storefront";
 import type { PointProgram } from "@/lib/types/point-program";
 import type { OnboardingBackendStep } from "@/lib/types/onboarding";
@@ -40,7 +40,7 @@ export async function readProgress() {
 }
 
 export async function customerSession() {
-  return checkSession(await getSessionToken());
+  return currentSession();
 }
 
 /** Both optional sessions with the exact token each verification was made on. */
@@ -67,7 +67,7 @@ function liveSession(session: SessionToken): SessionCheck {
 
 // Cookies only identify the intended journey. The backend verifies every resource and permission.
 export async function adminOrganization(): Promise<ActionResult<Organization>> {
-  const session = await checkSession(await getDashboardSessionToken(), "dashboard");
+  const session = await currentSession("dashboard");
   if (session.status !== "valid") return { ok: false, error: "Tu sesión terminó. Volvé a ingresar a tu negocio.", status: 401 };
   if (session.payload.role !== "ADMIN") return { ok: false, error: "Ingresá con la cuenta que administra el negocio.", status: 403 };
   const organization = await dashboardRequest<Organization>("/organization", { cache: "no-store" });

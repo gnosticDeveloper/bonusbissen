@@ -1,12 +1,10 @@
 "use server";
 
 import { ActionResult } from "@/lib/action-result";
-import { logoutFromBackend } from "@/lib/auth/logout";
-import { CUSTOMER_REFRESH_COOKIE } from "@/lib/auth/refresh";
+import { clearAllSessions } from "@/lib/auth/refresh";
 import { publicRequest, request } from "@/lib/api";
 import { Location, Business, PagedResponse, PointsResponse } from "@/lib/definitions";
 import { UserInfo } from "@/lib/types/customer";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
@@ -46,9 +44,6 @@ export const getMe = cache(async () => {
 });
 
 export async function signOut() {
-  const cookieStore = await cookies();
-  await logoutFromBackend(cookieStore.get("access_token")?.value, cookieStore.get(CUSTOMER_REFRESH_COOKIE)?.value);
-  cookieStore.delete("access_token");
-  cookieStore.delete(CUSTOMER_REFRESH_COOKIE);
+  await clearAllSessions();
   return redirect("/sign-in");
 }

@@ -14,6 +14,8 @@ mock.module("next/headers", () => ({ cookies: async () => ({
 mock.module("@/lib/auth/session", () => ({
   getDashboardSessionToken: async () => token,
   checkSession: async () => session,
+  currentSession: async () => session,
+  decodeJwt: () => ({ sub: "admin-id" }),
 }));
 mock.module("@/lib/auth/refresh", () => ({
   DASHBOARD_ACCESS_COOKIE: "d_token", DASHBOARD_REFRESH_COOKIE: "bb_dashboard_rt", DASHBOARD_STOREFRONTS_COOKIE: "d_storefronts",
@@ -21,7 +23,7 @@ mock.module("@/lib/auth/refresh", () => ({
 }));
 mock.module("@/lib/auth/logout", () => ({ logoutFromBackend: async () => {} }));
 const { billingRequest } = await import("../../../lib/billing-api");
-const { getBillingPlans, loadBilling, startCheckout, selectBillingPlan, cancelBillingSubscription, leaveBilling } = await import("./actions");
+const { getBillingPlans, loadBilling, startCheckout, selectBillingPlan, cancelBillingSubscription } = await import("./actions");
 const originalFetch = globalThis.fetch;
 const org = { id: "11111111-1111-4111-8111-111111111111", name: "Mi negocio", billingEmail: null,
   billingPlanName: "Inicial", billingCycle: "monthly", nextInvoiceDueAt: null, mercadoPagoSubscriptionStatus: "pending" };
@@ -165,11 +167,8 @@ test("no crea checkout autorizado ni muta otra organización", async () => {
   expect(calls.every(call => !call.method)).toBe(true);
 });
 
-test("cancelación usa DELETE y logout borra solo cookies dashboard", async () => {
+test("cancelación usa DELETE", async () => {
   respond = () => Response.json(org);
   expect((await cancelBillingSubscription(org.id)).ok).toBe(true);
   expect(calls[1]).toMatchObject({ path: "/organization/billing/subscription", method: "DELETE" });
-  jar.set("access_token", "customer"); jar.set("d_token", "admin"); jar.set("bb_dashboard_rt", "refresh"); jar.set("d_storefronts", "[]");
-  await leaveBilling();
-  expect([...jar.entries()]).toEqual([["access_token", "customer"]]);
 });

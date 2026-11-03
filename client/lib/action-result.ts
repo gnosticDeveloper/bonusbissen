@@ -1,5 +1,10 @@
 import { ApiError } from "@/lib/api";
 
+/**
+ * The result of anything that can fail expectedly: server actions, backend
+ * wrappers and the forms that read them. Defined here, re-exported by
+ * `@/lib/api`, so both import paths keep naming the same type.
+ */
 export type ActionResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string; code?: string; customerId?: string; status?: number };

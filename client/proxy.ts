@@ -3,9 +3,10 @@ import { checkSession } from "@/lib/auth/session";
 import {
   accessCookieOptions,
   CUSTOMER_ACCESS_COOKIE,
-  DASHBOARD_STOREFRONTS_COOKIE,
+  deleteSessionCookies,
   refreshCookieOptions,
   refreshSession,
+  SESSION_AREAS,
   sessionCookies,
   type SessionArea,
 } from "@/lib/auth/refresh";
@@ -16,22 +17,15 @@ const ALWAYS_PUBLIC_PATHS = ["/d/sign-in", "/verify-email", "/descubrir", "/logi
 // /s/{storefrontId}/afiliarse — pública, sin importar sesión
 const AFILIARSE_PATTERN = /^\/s\/[^/]+\/afiliarse(?:\/.*)?$/;
 
-function clearSession(response: NextResponse, area: SessionArea) {
-  const names = sessionCookies[area];
-  response.cookies.delete(names.access);
-  response.cookies.delete(names.refresh);
-  if (area === "dashboard") response.cookies.delete(DASHBOARD_STOREFRONTS_COOKIE);
-}
-
 function rejectSession(request: NextRequest, area: SessionArea, publicRoute: boolean) {
   const names = sessionCookies[area];
-  request.cookies.delete(names.access);
-  request.cookies.delete(names.refresh);
-  if (area === "dashboard") request.cookies.delete(DASHBOARD_STOREFRONTS_COOKIE);
+  // Drop them for this request as well as for the browser, so the page being
+  // rendered does not read the session we just rejected.
+  deleteSessionCookies(request.cookies, area);
   const response = publicRoute
     ? NextResponse.next({ request: { headers: request.headers } })
     : NextResponse.redirect(new URL(names.signIn, request.url));
-  clearSession(response, area);
+  deleteSessionCookies(response.cookies, area);
   response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
@@ -94,7 +88,7 @@ export async function proxy(request: NextRequest) {
     // renewed before the page or action reads its cookies. Never redirect an
     // onboarding action POST to a sign-in page.
     const updates: NextResponse[] = [];
-    for (const area of ["customer", "dashboard"] as const) {
+    for (const area of SESSION_AREAS) {
       const token = request.cookies.get(sessionCookies[area].access)?.value;
       const status = token ? (await checkSession(token, area)).status : null;
       // "unavailable" is a missing verification key, not a bad session: keep the
@@ -175,7 +169,7 @@ export async function proxy(request: NextRequest) {
   }
   if (session.status === "invalid" || session.status === "expired") {
     const response = NextResponse.redirect(new URL(signInUrl, request.url));
-    clearSession(response, area);
+    deleteSessionCookies(response.cookies, area);
     return response;
   }
 

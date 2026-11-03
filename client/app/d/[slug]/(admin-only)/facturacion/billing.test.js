@@ -11,8 +11,28 @@ let session;
 const getDashboardSessionToken = mock(async () => token);
 const checkSession = mock(async (_token, _area) => session);
 
+let refreshResult = { status: "expired" };
+const jar = new Map();
+
 mock.module("server-only", () => ({}));
-mock.module("@/lib/auth/session", () => ({ getDashboardSessionToken, checkSession }));
+mock.module("next/headers", () => ({ cookies: async () => ({
+  get: key => jar.has(key) ? { value: jar.get(key) } : undefined,
+  set: (key, value) => jar.set(key, value),
+  delete: key => jar.delete(key),
+}) }));
+mock.module("@/lib/auth/session", () => ({
+  getDashboardSessionToken,
+  checkSession,
+  currentSession: async area => checkSession(await getDashboardSessionToken(), area),
+  decodeJwt: () => ({ sub: "admin-id" }),
+}));
+mock.module("@/lib/auth/refresh", () => ({
+  DASHBOARD_ACCESS_COOKIE: "d_token",
+  DASHBOARD_REFRESH_COOKIE: "bb_dashboard_rt",
+  accessCookieOptions: {},
+  refreshCookieOptions: () => ({}),
+  refreshSession: async () => refreshResult,
+}));
 
 // Import only after installing mocks; exercise the real helper, action and route.
 const { billingAdminToken } = await import("@/lib/auth/billing-admin");

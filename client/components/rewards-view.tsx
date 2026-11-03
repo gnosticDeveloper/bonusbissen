@@ -37,7 +37,7 @@ export function RewardsView({ initialView, isAdmin, page, rewards, totalPages }:
         </div>
       </div>
 
-      {totalPages > 1 ? <SearchParamsPaginationControls page={page} totalPages={totalPages} /> : null}
+      {totalPages > 1 ? <SearchParamsPaginationControls page={page} totalPages={totalPages} className="mx-auto mt-6 w-full max-w-xs" /> : null}
 
       <RewardsList rewards={rewards} isAdmin={isAdmin} view={view} />
     </div>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { backendUrl } from "@/lib/backend-url";
 import { billingAdminToken } from "@/lib/auth/billing-admin";
 
 const privateHeaders = { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" };
@@ -16,7 +17,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   if (!z.uuid().safeParse(invoiceId).success) return failure("La factura no es válida.", 400);
 
   try {
-    const response = await fetch(`${process.env.BACKEND_URL ?? "http://localhost:8080"}/organization/invoices/${invoiceId}/pdf`, {
+    const response = await fetch(backendUrl(`/organization/invoices/${invoiceId}/pdf`), {
       headers: { Authorization: `Bearer ${auth.data}`, Accept: "application/pdf" },
       cache: "no-store",
       redirect: "error",

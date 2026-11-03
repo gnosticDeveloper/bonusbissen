@@ -1,6 +1,9 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { errors, importSPKI, jwtVerify, type JWTPayload } from "jose";
+import { backendUrl } from "@/lib/backend-url";
 import { UserRole } from "../definitions";
+import { CUSTOMER_ACCESS_COOKIE, DASHBOARD_ACCESS_COOKIE, type SessionArea } from "./cookies";
 
 export interface Payload extends JWTPayload {
   sub: string;
@@ -22,8 +25,7 @@ async function getPublicKey(forceRefresh = false) {
   if (!forceRefresh && cachedKey && Date.now() < cachedKey.expiresAt) return cachedKey.key;
 
   pendingKey = (async () => {
-    const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
-    const response = await fetch(`${backendUrl}/auth/public-key`, { cache: "no-store" });
+    const response = await fetch(backendUrl("/auth/public-key"), { cache: "no-store" });
     if (!response.ok) throw new Error("Could not fetch the JWT public key");
 
     const { algorithm, format, publicKey } = (await response.json()) as { algorithm: string; format: string; publicKey: string };
@@ -46,7 +48,7 @@ async function getPublicKey(forceRefresh = false) {
 
 export type SessionCheck = { status: "valid"; payload: Payload } | { status: "invalid" | "expired" | "unavailable" };
 
-export async function checkSession(token?: string, area: "customer" | "dashboard" = "customer"): Promise<SessionCheck> {
+export async function checkSession(token?: string, area: SessionArea = "customer"): Promise<SessionCheck> {
   if (!token) return { status: "invalid" };
 
   let key: Awaited<ReturnType<typeof importSPKI>>;
@@ -85,7 +87,7 @@ export async function checkSession(token?: string, area: "customer" | "dashboard
   return { status: "valid", payload: payload as Payload };
 }
 
-export async function verifySession(token?: string, area: "customer" | "dashboard" = "customer"): Promise<Payload | null> {
+export async function verifySession(token?: string, area: SessionArea = "customer"): Promise<Payload | null> {
   const checked = await checkSession(token, area);
   return checked.status === "valid" ? checked.payload : null;
 }
@@ -97,9 +99,28 @@ export function decodeJwt(token: string): Payload {
 }
 
 export async function getSessionToken() {
-  return (await cookies()).get("access_token")?.value;
+  return (await cookies()).get(CUSTOMER_ACCESS_COOKIE)?.value;
 }
 
 export async function getDashboardSessionToken() {
-  return (await cookies()).get("d_token")?.value;
+  return (await cookies()).get(DASHBOARD_ACCESS_COOKIE)?.value;
+}
+
+/**
+ * Verifies the session of either area in one call, so callers stop repeating
+ * `checkSession(await getDashboardSessionToken(), "dashboard")`.
+ */
+export async function currentSession(area: SessionArea = "customer") {
+  return checkSession(area === "dashboard" ? await getDashboardSessionToken() : await getSessionToken(), area);
+}
+
+/**
+ * The customer id that several endpoints take as a path segment. Without a
+ * session there is nobody to ask about, so this redirects exactly like the
+ * `request` wrapper in `@/lib/api` instead of each caller signing the user out.
+ */
+export async function currentUserId(): Promise<string> {
+  const token = await getSessionToken();
+  if (!token) redirect("/sign-in");
+  return decodeJwt(token).sub;
 }

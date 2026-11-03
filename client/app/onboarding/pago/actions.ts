@@ -1,21 +1,10 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { z } from "zod";
-import { checkSession, getDashboardSessionToken } from "@/lib/auth/session";
-import {
-  accessCookieOptions,
-  DASHBOARD_ACCESS_COOKIE,
-  DASHBOARD_REFRESH_COOKIE,
-  DASHBOARD_STOREFRONTS_COOKIE,
-  refreshCookieOptions,
-  refreshSession,
-} from "@/lib/auth/refresh";
-import { logoutFromBackend } from "@/lib/auth/logout";
+import { billingAdminToken } from "@/lib/auth/billing-admin";
 import { billingRequest } from "@/lib/billing-api";
 import {
   billingCheckoutSchema,
-
   billingOrganizationSchema,
   billingPlanSchema,
   safeCheckoutUrl,
@@ -25,34 +14,8 @@ import {
   type BillingResult,
 } from "@/lib/billing";
 
-async function adminToken(): Promise<BillingResult<string>> {
-  let token = await getDashboardSessionToken();
-  let session = await checkSession(token, "dashboard");
-  if (!token || session.status === "expired") {
-    const jar = await cookies();
-    const raw = jar.get(DASHBOARD_REFRESH_COOKIE)?.value;
-    if (raw) {
-      const refreshed = await refreshSession(raw);
-      if (refreshed.status === "ok") {
-        // Preserve the rotated credential even if key verification is temporarily unavailable.
-        jar.set(DASHBOARD_REFRESH_COOKIE, refreshed.cookie.value, refreshCookieOptions(refreshed.cookie.maxAge));
-        token = refreshed.token;
-        session = await checkSession(token, "dashboard");
-        if (session.status === "valid") jar.set(DASHBOARD_ACCESS_COOKIE, token, accessCookieOptions);
-      } else if (refreshed.status !== "expired") {
-        return { ok: false, status: 503, error: "No pudimos renovar tu sesión. Esperá un minuto y reintentá." };
-      }
-    }
-  }
-  if (session.status === "unavailable") return { ok: false, status: 503, error: "No pudimos verificar tu sesión. Reintentá en un momento." };
-  if (session.status !== "valid" || !token)
-    return { ok: false, status: 401, error: "Volvé a ingresar con la cuenta que administra el negocio." };
-  if (session.payload.role !== "ADMIN") return { ok: false, status: 403, error: "Ingresá con la cuenta que administra el negocio." };
-  return { ok: true, data: token };
-}
-
 async function context(expectedOrganizationId?: string): Promise<BillingResult<{ token: string; organization: BillingOrganization }>> {
-  const auth = await adminToken();
+  const auth = await billingAdminToken();
   if (!auth.ok) return auth;
   const organization = await billingRequest(auth.data, "/organization", billingOrganizationSchema);
   if (!organization.ok) return organization;
@@ -122,12 +85,4 @@ export async function cancelBillingSubscription(organizationId: string): Promise
   const current = await context(organizationId);
   if (!current.ok) return current;
   return billingRequest(current.data.token, "/organization/billing/subscription", billingOrganizationSchema, { method: "DELETE" });
-}
-
-export async function leaveBilling(): Promise<void> {
-  const jar = await cookies();
-  await logoutFromBackend(jar.get(DASHBOARD_ACCESS_COOKIE)?.value, jar.get(DASHBOARD_REFRESH_COOKIE)?.value);
-  jar.delete(DASHBOARD_ACCESS_COOKIE);
-  jar.delete(DASHBOARD_REFRESH_COOKIE);
-  jar.delete(DASHBOARD_STOREFRONTS_COOKIE);
 }

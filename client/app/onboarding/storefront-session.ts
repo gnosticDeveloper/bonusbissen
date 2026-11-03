@@ -1,7 +1,7 @@
 import "server-only";
 
 import { dashboardRequest, type ActionResult } from "@/lib/api";
-import { checkSession, getDashboardSessionToken } from "@/lib/auth/session";
+import { currentSession } from "@/lib/auth/session";
 import { selectStorefront } from "@/app/d/sign-in/actions";
 
 type Staff = {
@@ -14,7 +14,7 @@ type Staff = {
 
 // Call only after adminOrganization has verified the business for this journey.
 export async function ensureOnboardingStorefront(storefrontId: string): Promise<ActionResult<null>> {
-  const session = await checkSession(await getDashboardSessionToken(), "dashboard");
+  const session = await currentSession("dashboard");
   if (session.status !== "valid" || session.payload.role !== "ADMIN")
     return { ok: false, error: "Volvé a ingresar como administrador del negocio." };
 
@@ -40,7 +40,7 @@ export async function ensureOnboardingStorefront(storefrontId: string): Promise<
 
   const selected = await selectStorefront(storefrontId);
   if (!selected.success) return { ok: false, error: selected.error };
-  const verified = await checkSession(await getDashboardSessionToken(), "dashboard");
+  const verified = await currentSession("dashboard");
   if (verified.status !== "valid" || verified.payload.sub !== session.payload.sub ||
     verified.payload.role !== "ADMIN" || verified.payload.sf !== storefrontId)
     return { ok: false, error: "No pudimos confirmar la sucursal de tu sesión. Probá de nuevo." };

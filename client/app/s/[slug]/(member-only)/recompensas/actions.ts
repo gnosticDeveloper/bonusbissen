@@ -1,8 +1,7 @@
 "use server";
 
-import { signOut } from "@/app/b/actions";
 import { request } from "@/lib/api";
-import { decodeJwt, getSessionToken } from "@/lib/auth/session";
+import { currentUserId } from "@/lib/auth/session";
 import { PagedResponse } from "@/lib/definitions";
 import { Reward } from "@/lib/types/reward";
 
@@ -18,12 +17,7 @@ export async function getRewards(storefrontId: string, { page = 0, size = 10 }: 
 }
 
 export async function claimReward(rewardId: string) {
-  const raw = await getSessionToken();
-
-  if (!raw) return await signOut();
-
-  const token = decodeJwt(raw);
-  const userId = token.sub;
+  const userId = await currentUserId();
 
   const res = await request<{ code: string }>("/users/claim-reward", {
     method: "POST",

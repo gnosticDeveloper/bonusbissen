@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { logoutFromBackend } from "@/lib/auth/logout";
-import { CUSTOMER_ACCESS_COOKIE, CUSTOMER_REFRESH_COOKIE, DASHBOARD_ACCESS_COOKIE, DASHBOARD_REFRESH_COOKIE, DASHBOARD_STOREFRONTS_COOKIE } from "@/lib/auth/refresh";
+import { clearAllSessions, deleteSessionCookies, sessionCookies, SESSION_AREAS } from "@/lib/auth/refresh";
 
 import { z } from "zod";
 import { request, dashboardRequest, type ActionResult } from "@/lib/api";
@@ -10,7 +10,7 @@ import { signIn as customerSignIn } from "@/app/(auth)/sign-in/actions";
 import { signUp } from "@/app/(auth)/sign-up/actions";
 import { signIn as dashboardSignIn } from "@/app/d/sign-in/actions";
 import { userLoginSchema } from "@/schemas/user";
-import { checkSession, getDashboardSessionToken } from "@/lib/auth/session";
+import { currentSession } from "@/lib/auth/session";
 import type { Storefront } from "@/lib/types/storefront";
 import type { PointProgram } from "@/lib/types/point-program";
 import { ensureOnboardingStorefront } from "./storefront-session";
@@ -58,14 +58,11 @@ export async function refreshOnboarding(): Promise<Result> {
 export async function resetOnboardingSession(): Promise<Result> {
   const jar = await cookies();
   const tokens = await sessionTokens();
-  const areas = [
-    { session: tokens.customer, access: CUSTOMER_ACCESS_COOKIE, refresh: CUSTOMER_REFRESH_COOKIE, extra: [] as string[] },
-    { session: tokens.dashboard, access: DASHBOARD_ACCESS_COOKIE, refresh: DASHBOARD_REFRESH_COOKIE, extra: [DASHBOARD_STOREFRONTS_COOKIE] },
-  ].filter(area => deadSession(area.session));
+  const areas = SESSION_AREAS.filter(area => deadSession(tokens[area]));
   // Revoke the backend session too, so a refresh token for a session we are
   // deleting from the browser cannot keep issuing access tokens.
-  await Promise.all(areas.map(area => logoutFromBackend(area.session.token, jar.get(area.refresh)?.value)));
-  for (const area of areas) for (const name of [area.access, area.refresh, ...area.extra]) jar.delete(name);
+  await Promise.all(areas.map(area => logoutFromBackend(tokens[area].token, jar.get(sessionCookies[area].refresh)?.value)));
+  for (const area of areas) deleteSessionCookies(jar, area);
   const data = await loadOnboarding();
   return { ok: true, data: { ...data, error: data.error ?? (areas.length ? SESSION_RESET_ERROR : undefined) } };
 }
@@ -112,10 +109,14 @@ async function saveProgress(organizationId: string, owner: string) {
   (await cookies()).set(PROGRESS_COOKIE, JSON.stringify({ organizationId, owner }), cookieOptions);
 }
 
+async function clearProgress() {
+  (await cookies()).set(PROGRESS_COOKIE, "", { ...cookieOptions, maxAge: 0 });
+}
+
 export async function authenticateAdmin(form: FormData): Promise<Result> {
   const progress = await readProgress();
   const customer = await customerSession();
-  const previousAdmin = await checkSession(await getDashboardSessionToken(), "dashboard");
+  const previousAdmin = await currentSession("dashboard");
   const owner = customer.status === "valid" ? customer.payload.sub : previousAdmin.status === "valid" ? previousAdmin.payload.sub : null;
   const organizationId = (owner && progress?.owner === owner ? progress.organizationId : null) ?? String(form.get("organizationId") ?? "");
   const credentials = userLoginSchema.safeParse(Object.fromEntries(form));
@@ -127,7 +128,7 @@ export async function authenticateAdmin(form: FormData): Promise<Result> {
   login.set("organizationId", organizationId);
   const result = await dashboardSignIn(login);
   if (!result.ok) return result;
-  const session = await checkSession(await getDashboardSessionToken(), "dashboard");
+  const session = await currentSession("dashboard");
   if (session.status !== "valid" || session.payload.role !== "ADMIN")
     return { ok: false, error: "Ingresá con la cuenta que administra el negocio." };
   if (customer.status === "valid" && customer.payload.sub !== session.payload.sub)
@@ -201,13 +202,8 @@ export async function createPointProgram(form: FormData): Promise<Result> {
 }
 
 export async function leaveOnboarding(): Promise<void> {
-  const jar = await cookies();
-  await Promise.all([
-    logoutFromBackend(jar.get(CUSTOMER_ACCESS_COOKIE)?.value, jar.get(CUSTOMER_REFRESH_COOKIE)?.value),
-    logoutFromBackend(jar.get(DASHBOARD_ACCESS_COOKIE)?.value, jar.get(DASHBOARD_REFRESH_COOKIE)?.value),
-  ]);
-  for (const name of [CUSTOMER_ACCESS_COOKIE, CUSTOMER_REFRESH_COOKIE, DASHBOARD_ACCESS_COOKIE, DASHBOARD_REFRESH_COOKIE, DASHBOARD_STOREFRONTS_COOKIE]) jar.delete(name);
-  jar.set(PROGRESS_COOKIE, "", { ...cookieOptions, maxAge: 0 });
+  await clearAllSessions();
+  await clearProgress();
 }
 
 export type FinishResult = { error: string } | { error: null; userId: string; destination: string };
@@ -226,10 +222,10 @@ export async function finishOnboarding(): Promise<FinishResult> {
     return { error: "Creá una sucursal con su programa de puntos antes de terminar." };
   const ready = await ensureOnboardingStorefront(storefront.id);
   if (!ready.ok) return { error: ready.error };
-  const session = await checkSession(await getDashboardSessionToken(), "dashboard");
+  const session = await currentSession("dashboard");
   if (session.status !== "valid" || session.payload.sub !== state.userId ||
     session.payload.role !== "ADMIN" || session.payload.sf !== storefront.id)
     return { error: "No pudimos confirmar la sucursal de tu sesión. Probá de nuevo." };
-  (await cookies()).set(PROGRESS_COOKIE, "", { ...cookieOptions, maxAge: 0 });
+  await clearProgress();
   return { error: null, userId: state.userId, destination: `/d/${org.data.id}/mi-negocio` };
 }

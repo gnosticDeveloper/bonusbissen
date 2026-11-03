@@ -1,6 +1,7 @@
 "use server";
 
 import { ActionResult } from "@/lib/api";
+import { backendUrl } from "@/lib/backend-url";
 import { SignInUser } from "@/lib/definitions";
 import { userLoginSchema } from "@/schemas/user";
 import { saveCustomerSession } from "@/lib/auth/refresh";
@@ -19,10 +20,9 @@ export async function signIn(formData: FormData): Promise<ActionResult<SignInUse
   }
 
   const { identifier, password } = parsed.data;
-  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
 
   try {
-    const response = await fetch(`${backendUrl}/auth/user-login`, {
+    const response = await fetch(backendUrl("/auth/user-login"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ identifier, password }),
@@ -42,9 +42,8 @@ export async function requestLoginLink(email: string): Promise<ActionResult<null
   const parsed = z.email().max(255).safeParse(typeof email === "string" ? email.trim() : "");
   if (!parsed.success) return { ok: false, error: "Ingresá un email válido." };
 
-  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
   try {
-    const response = await fetch(`${backendUrl}/auth/user-login-link/request`, {
+    const response = await fetch(backendUrl("/auth/user-login-link/request"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: parsed.data }),
@@ -62,9 +61,8 @@ export async function consumeLoginLink(token: string): Promise<ActionResult<null
     return { ok: false, error: "El enlace no es válido o venció. Pedí uno nuevo." };
   }
 
-  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
   try {
-    const response = await fetch(`${backendUrl}/auth/user-login-link/consume`, {
+    const response = await fetch(backendUrl("/auth/user-login-link/consume"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),

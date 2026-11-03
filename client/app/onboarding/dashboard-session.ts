@@ -1,6 +1,7 @@
 import "server-only";
 
-import { checkSession, getDashboardSessionToken, getSessionToken } from "@/lib/auth/session";
+import { backendUrl } from "@/lib/backend-url";
+import { currentSession, getSessionToken } from "@/lib/auth/session";
 import { saveDashboardSession } from "@/lib/auth/refresh";
 
 /**
@@ -20,14 +21,13 @@ import { saveDashboardSession } from "@/lib/auth/refresh";
  */
 export async function exchangeDashboardSession(organizationId: string): Promise<boolean> {
   // The endpoint rejects a caller who already holds a staff token.
-  if ((await checkSession(await getDashboardSessionToken(), "dashboard")).status === "valid") return true;
+  if ((await currentSession("dashboard")).status === "valid") return true;
 
   const token = await getSessionToken();
   if (!token) return false;
 
-  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
   try {
-    const response = await fetch(`${backendUrl}/auth/dashboard/session`, {
+    const response = await fetch(backendUrl("/auth/dashboard/session"), {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ organizationId }),

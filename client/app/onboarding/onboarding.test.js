@@ -55,11 +55,17 @@ const dashboardSignIn = mock(async form => {
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({ cookies: async () => cookieStore }));
 mock.module("next/navigation", () => ({ redirect }));
-mock.module("@/lib/auth/session", () => ({
+const sessionModule = {
   getSessionToken: async () => jar.get("access_token"),
   getDashboardSessionToken: async () => jar.get("d_token"),
   checkSession: async (token, area) => area === "dashboard" ? (tokenSessions.get(token) ?? adminSession) : customerSession,
-}));
+  currentSession: async (area = "customer") =>
+    sessionModule.checkSession(area === "dashboard" ? jar.get("d_token") : jar.get("access_token"), area),
+  // Subject of a token as the backend issued it; the single-identity rule in
+  // lib/auth/refresh.ts decodes (never verifies) it to compare accounts.
+  decodeJwt: token => ({ sub: (tokenSessions.get(token) ?? adminSession ?? customerSession)?.payload?.sub ?? OWNER }),
+};
+mock.module("@/lib/auth/session", () => sessionModule);
 const { selectStorefront } = await import("../d/sign-in/actions");
 mock.module("@/app/d/sign-in/actions", () => ({ signIn: dashboardSignIn, selectStorefront }));
 mock.module("@/app/(auth)/sign-in/actions", () => ({ signIn: mock(async () => ({ ok: true, data: null })) }));

@@ -1,8 +1,7 @@
 "use server";
 
-import { signOut } from "@/app/b/actions";
 import { request } from "@/lib/api";
-import { decodeJwt, getSessionToken } from "@/lib/auth/session";
+import { currentUserId } from "@/lib/auth/session";
 
 
 export type MovementResponse = {
@@ -24,12 +23,7 @@ export type MovementResponse = {
 };
 
 export async function getMovementsHistory(storefrontId?: string) {
-  const raw = await getSessionToken();
-
-  if (!raw) return await signOut();
-
-  const token = decodeJwt(raw);
-  const userId = token.sub;
+  const userId = await currentUserId();
 
   const params = new URLSearchParams();
   if (storefrontId) params.append("storefrontId", storefrontId);

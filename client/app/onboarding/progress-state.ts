@@ -1,6 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
+import { backendUrl } from "@/lib/backend-url";
 import { UserRole } from "@/lib/definitions";
 import type { SessionCheck } from "@/lib/auth/session";
 import { ONBOARDING_STEPS, type OnboardingBackendStep } from "@/lib/types/onboarding";
@@ -42,7 +43,7 @@ export async function readOnboardingProgress(
   if (!token) return { status: "skipped" };
 
   try {
-    const response = await fetch(`${process.env.BACKEND_URL ?? "http://localhost:8080"}/onboarding`, {
+    const response = await fetch(backendUrl("/onboarding"), {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
       redirect: "error",

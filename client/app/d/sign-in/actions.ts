@@ -1,10 +1,11 @@
 "use server";
 
 import { ActionResult } from "@/lib/action-result";
+import { backendUrl } from "@/lib/backend-url";
 import { dashboardRequest, publicRequest } from "@/lib/api";
 import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
 import { cookies } from "next/headers";
-import { checkSession, getDashboardSessionToken } from "@/lib/auth/session";
+import { checkSession, currentSession } from "@/lib/auth/session";
 import {
   accessCookieOptions,
   DASHBOARD_ACCESS_COOKIE,
@@ -64,10 +65,9 @@ export async function signIn(formData: FormData): Promise<ActionResult<{ storefr
   if (!identifier || !password) return { ok: false, error: "Completá usuario y contraseña." };
   if (!organizationId) return { ok: false, error: "Elegí tu negocio antes de continuar." };
 
-  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
 
   try {
-    const response = await fetch(`${backendUrl}/auth/dashboard/sign-in`, {
+    const response = await fetch(backendUrl("/auth/dashboard/sign-in"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ identifier, password, organizationId }),
@@ -97,7 +97,7 @@ export async function signIn(formData: FormData): Promise<ActionResult<{ storefr
 }
 
 export async function selectStorefront(storefrontId: string): Promise<{ success: true } | { success: false; error: string }> {
-  const session = await checkSession(await getDashboardSessionToken(), "dashboard");
+  const session = await currentSession("dashboard");
   if (session.status !== "valid") return { success: false, error: "Tu sesión terminó o no pudimos comprobar tu ingreso. Volvé a ingresar." };
   const cookieStore = await cookies();
   const refresh = cookieStore.get(DASHBOARD_REFRESH_COOKIE)?.value;

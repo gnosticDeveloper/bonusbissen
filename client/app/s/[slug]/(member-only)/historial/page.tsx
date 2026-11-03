@@ -1,7 +1,8 @@
+import { Wallet } from "lucide-react";
 import { getMovementsHistory } from "./actions";
-import { EmptyMovementsState } from "@/components/empty-movements-state";
+import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
 import { MovementCard } from "@/components/movement-card";
-import { MovementsErrorState } from "@/components/movements-error-state";
 
 export default async function MemberOnlyUserHistoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -15,7 +16,7 @@ export default async function MemberOnlyUserHistoryPage({ params }: { params: Pr
           <p className="mt-1 text-sm text-foreground/75">Revisá tus movimientos.</p>
         </header>
 
-        <MovementsErrorState />
+        <ErrorState title="No pudimos cargar tu historial" />
       </main>
     );
   }
@@ -30,7 +31,7 @@ export default async function MemberOnlyUserHistoryPage({ params }: { params: Pr
       </header>
 
       {movements.length === 0 ? (
-        <EmptyMovementsState />
+        <EmptyState icon={Wallet} title="Todavía no tenés movimientos" description="Cuando ganes o canjees puntos acá, los vas a ver reflejados." />
       ) : (
         <ul className="flex flex-col gap-3">
           {movements.map((exchange) => (
