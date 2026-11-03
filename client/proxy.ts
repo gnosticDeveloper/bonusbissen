@@ -96,7 +96,17 @@ export async function proxy(request: NextRequest) {
     const updates: NextResponse[] = [];
     for (const area of ["customer", "dashboard"] as const) {
       const token = request.cookies.get(sessionCookies[area].access)?.value;
-      if (token && (await checkSession(token, area)).status !== "expired") continue;
+      const status = token ? (await checkSession(token, area)).status : null;
+      // "unavailable" is a missing verification key, not a bad session: keep the
+      // cookies and let the page report the transient failure.
+      if (status === "valid" || status === "unavailable") continue;
+      // A token that does not verify — tampered, re-signed, foreign — is never
+      // renewed: drop that area's cookies for this request and for the browser,
+      // so onboarding restarts at the first step instead of retrying it.
+      if (status === "invalid") {
+        updates.push(rejectSession(request, area, true));
+        continue;
+      }
       const restored = await restoreSession(request, area, undefined, true);
       if (!restored) continue;
       updates.push(restored);

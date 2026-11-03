@@ -11,6 +11,7 @@ import {
   restoreOnboardingNavigation,
   createOnboardingProgressStore,
   completeOnboardingNavigation,
+  resumeStep,
   type OnboardingProgressStore,
 } from "@/lib/onboarding-progress";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import {
   createStorefront,
   finishOnboarding,
   refreshOnboarding,
+  resetOnboardingSession,
 } from "./actions";
 
 import { PlanSelectionScreen } from "./pago/plan-selection-screen";
@@ -73,8 +75,11 @@ export function Onboarding({ initial, progressStore, recoverAccount = false }: {
   const navigationRevision = useRef(0);
   const [storageError, setStorageError] = useState<string | null>(null);
   const finishing = useRef(false);
+  const resetting = useRef(false);
   const [state, setState] = useState(initial);
-  const [step, setStep] = useState(currentStep(initial));
+  // The backend's recorded step decides where the journey resumes; the saved
+  // local step, when this browser has one, replaces it after the restore.
+  const [step, setStep] = useState(() => resumeStep(initial));
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-up");
   const [recover, setRecover] = useState(false);
   const [accountLogin, setAccountLogin] = useState(false);
@@ -113,6 +118,22 @@ export function Onboarding({ initial, progressStore, recoverAccount = false }: {
       setStorageError("No pudimos guardar el paso en este navegador. Tus datos siguen guardados.");
     });
   }, [state, context, restored, step, store]);
+
+  // A session that stopped verifying cannot be fixed by retrying the reads: its
+  // cookies are deleted on the server and the journey restarts at the first
+  // step. Guarded with a ref so a failed cleanup cannot loop.
+  const resetSession = useEffectEvent(() => run(resetOnboardingSession, 0));
+  useEffect(() => {
+    // The guard clears when the session is healthy again, so a session that dies
+    // later is handled too, while a cleanup that failed is not retried in a loop.
+    if (!state.sessionReset) {
+      resetting.current = false;
+      return;
+    }
+    if (resetting.current) return;
+    resetting.current = true;
+    resetSession();
+  }, [state.sessionReset]);
 
   function finish() {
     if (busy.current) return;

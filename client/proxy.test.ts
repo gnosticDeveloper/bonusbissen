@@ -116,11 +116,26 @@ test("onboarding preserves a rotated customer session if dashboard refresh is un
   assert.equal(response.cookies.get("bb_dashboard_rt"), undefined);
 });
 
-test("onboarding never refreshes an invalid signed session", async () => {
+test("onboarding never refreshes an invalid signed session and deletes its cookies", async () => {
+  const customer = await jwt("USER");
   const { refreshCalls } = mockBackend(() => { throw new Error("Invalid token must not trigger refresh"); });
-  const response = await proxy(request("/onboarding", { d_token: "not-a-jwt", bb_dashboard_rt: rawToken() }));
-  assert.equal(response.status, 200);
-  assert.equal(refreshCalls.length, 0);
+  for (const action of [false, true]) {
+    const response = await proxy(request("/onboarding", {
+      access_token: customer,
+      d_token: "not-a-jwt", bb_dashboard_rt: rawToken(), d_storefronts: "branches",
+    }, action));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("location"), null);
+    assert.equal(refreshCalls.length, 0);
+    // The tampered dashboard session is gone for the browser and for this request.
+    for (const name of ["d_token", "bb_dashboard_rt", "d_storefronts"]) {
+      assert.equal(response.cookies.get(name)?.value, "");
+      assert.equal(forwardedCookies(response).get(name), undefined);
+    }
+    // The account session still verifies, so it is left alone.
+    assert.equal(response.cookies.get("access_token"), undefined);
+    assert.equal(forwardedCookies(response).get("access_token")?.value, customer);
+  }
 });
 
 test("public landing does not open protected routes or similar prefixes", async () => {
