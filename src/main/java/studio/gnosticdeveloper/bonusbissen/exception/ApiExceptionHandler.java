@@ -33,6 +33,14 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
     }
 
+    @ExceptionHandler(SubscriptionLapsedException.class)
+    public ResponseEntity<ProblemDetail> handleSubscriptionLapsed(SubscriptionLapsedException ex) {
+        log.warn("Subscription lapsed: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.PAYMENT_REQUIRED, ex.getPublicMessage());
+        problem.setProperty("code", "SUBSCRIPTION_LAPSED");
+        return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(problem);
+    }
+
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ProblemDetail> handleOversizedUpload(MaxUploadSizeExceededException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ProblemDetail.forStatusAndDetail(

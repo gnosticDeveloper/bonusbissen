@@ -53,6 +53,10 @@ public class Organization {
     @Column(name = "billing_cycle", length = 16)
     private BillingCycle billingCycle;
 
+    //esto lo hacemos así con un periodo en la db o lo hacemos directamente en la entidad de la organización. yo preferiría que sea así. aparte podemos hacer el mismo modelo si queremos hacer la gran jetbrains y cobrar menos después de un año
+    @Column(name = "grace_tier", nullable = false, length = 32)
+    private String graceTier = "regular";
+
     @Column(name = "next_invoice_due_at")
     private OffsetDateTime nextInvoiceDueAt;
 

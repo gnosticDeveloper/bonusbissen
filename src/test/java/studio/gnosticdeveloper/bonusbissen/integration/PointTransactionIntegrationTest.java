@@ -22,6 +22,9 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
+import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
+import studio.gnosticdeveloper.bonusbissen.entity.Organization;
+import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 
 import java.util.List;
@@ -589,16 +592,49 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         assertThat(ranking.get(0).id()).isEqualTo(bigSpender.getId());
     }
 
+    /**
+     * Uses its own organization -- /rewards/top is a top-10-for-the-org ranking, and in the
+     * shared default org claims made by other tests can push a 1-claim reward out of the
+     * top 10 depending on test order.
+     */
     @Test
     void topRewardsRanksByClaimCountDescending() {
-        User cashier = createEmployee("cashier-top-rewards", "password123", StaffRole.CASHIER);
-        String cashierToken = loginEmployee("cashier-top-rewards", "password123");
+        Organization organization = new Organization();
+        organization.setName("Top Rewards Org");
+        organization = organizationRepository.save(organization);
+
+        PointProgram program = new PointProgram();
+        program.setOrganization(organization);
+        program.setName("Top Rewards Points");
+        program = pointProgramRepository.save(program);
+
+        Storefront storefront = new Storefront();
+        storefront.setOrganization(organization);
+        storefront.setName("Top Rewards Storefront");
+        storefront.setAddress("1 Top St");
+        storefront.setPointProgram(program);
+        storefront = storefrontRepository.save(storefront);
+
+        createEmployee("cashier-top-rewards", "password123", StaffRole.CASHIER, organization, storefront);
+        String cashierToken = loginEmployee("cashier-top-rewards", "password123", organization.getId());
         User user = createUser("+5493462001012");
-        grant(cashierToken, user.getId(), 1000);
         String userToken = loginUser("+5493462001012");
 
-        Reward popular = createReward("Popular Reward", 10);
-        Reward rare = createReward("Rare Reward", 10);
+        Reward popular = createRewardIn(program, "Popular Reward", 10);
+        Reward rare = createRewardIn(program, "Rare Reward", 10);
+
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + program.getId() + "/members",
+            HttpMethod.POST,
+            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
+            Void.class
+        );
+        restTemplate.exchange(
+            baseUrl() + "/users/grant",
+            HttpMethod.POST,
+            authed(cashierToken, new GrantPointsRequest(user.getId(), 1000, null)),
+            UserPointsAwardResponse.class
+        );
 
         claimReward(userToken, user.getId(), popular.getId());
         claimReward(userToken, user.getId(), popular.getId());
@@ -613,10 +649,17 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         var ranking = response.getBody();
-        var popularEntry = ranking.stream().filter(r -> r.id().equals(popular.getId())).findFirst().orElseThrow();
-        var rareEntry = ranking.stream().filter(r -> r.id().equals(rare.getId())).findFirst().orElseThrow();
-        assertThat(popularEntry.claimCount()).isEqualTo(2);
-        assertThat(rareEntry.claimCount()).isEqualTo(1);
+        assertThat(ranking).extracting(r -> r.id()).containsExactly(popular.getId(), rare.getId());
+        assertThat(ranking.get(0).claimCount()).isEqualTo(2);
+        assertThat(ranking.get(1).claimCount()).isEqualTo(1);
+    }
+
+    private Reward createRewardIn(studio.gnosticdeveloper.bonusbissen.entity.PointProgram program, String title, int costPoints) {
+        Reward reward = new Reward();
+        reward.setPointProgram(program);
+        reward.setTitle(title);
+        reward.setCostPoints(costPoints);
+        return rewardRepository.save(reward);
     }
 
     /**

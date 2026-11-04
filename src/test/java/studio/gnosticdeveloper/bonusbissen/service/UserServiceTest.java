@@ -5,6 +5,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -37,6 +38,7 @@ import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.IncorrectPasswordException;
 import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
+import studio.gnosticdeveloper.bonusbissen.exception.SubscriptionLapsedException;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
@@ -90,6 +92,9 @@ class UserServiceTest {
     private PointLedgerService pointLedgerService;
     @Mock
     private studio.gnosticdeveloper.bonusbissen.security.SessionService sessionService;
+
+    @Mock
+    private SubscriptionGuard subscriptionGuard;
 
     @InjectMocks
     private UserService userService;
@@ -336,6 +341,18 @@ class UserServiceTest {
             .isInstanceOf(NotFoundException.class);
 
         verify(rewardRepository, never()).findById(any());
+        verify(pointTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void grantPointsForALapsedOrganizationIsRejectedBeforeAnythingIsWritten() {
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
+        Mockito.doThrow(new SubscriptionLapsedException("lapsed", "lapsed"))
+            .when(subscriptionGuard).requireNotLapsed(any());
+
+        assertThatThrownBy(() -> userService.grantPoints(grantRequest(UUID.randomUUID(), 50), EMPLOYEE_ID, STOREFRONT_ID))
+            .isInstanceOf(SubscriptionLapsedException.class);
+
         verify(pointTransactionRepository, never()).save(any());
     }
 

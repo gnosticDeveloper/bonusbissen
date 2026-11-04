@@ -79,6 +79,7 @@ public class UserService {
     private final PointLedgerService pointLedgerService;
     private final StorageService storageService;
     private final SessionService sessionService;
+    private final SubscriptionGuard subscriptionGuard;
 
     public UserService(
         UserRepository userRepository,
@@ -95,7 +96,8 @@ public class UserService {
         BalanceLockService balanceLockService,
         PointLedgerService pointLedgerService,
         StorageService storageService,
-        SessionService sessionService
+        SessionService sessionService,
+        SubscriptionGuard subscriptionGuard
     ) {
         this.userRepository = userRepository;
         this.pointTransactionRepository = pointTransactionRepository;
@@ -112,6 +114,7 @@ public class UserService {
         this.pointLedgerService = pointLedgerService;
         this.storageService = storageService;
         this.sessionService = sessionService;
+        this.subscriptionGuard = subscriptionGuard;
     }
 
     /** Resets the password of a currently-active staff account -- scoped to the calling admin's own organization. */
@@ -528,6 +531,8 @@ public class UserService {
                 )
             );
 
+        subscriptionGuard.requireNotLapsed(employee.getOrganization().getId());
+
         User user = userRepository
             .findById(request.userId())
             .filter(User::isActive)
@@ -621,6 +626,10 @@ public class UserService {
                 return PointActionResponse.from(recent);
             }
             throw new BadRequestException("Invalid or empty correction delta: " + delta, "La corrección debe cambiar los puntos dentro del rango permitido.");
+        }
+        if (delta > 0) {
+            // Adding points is awarding; taking points back stays allowed while lapsed.
+            subscriptionGuard.requireNotLapsed(organizationId);
         }
         requireAffordableAdjustment(userId, programId, (int) delta, request.allowDebt());
 

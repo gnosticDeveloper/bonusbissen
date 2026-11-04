@@ -21,7 +21,8 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
     void deactivateAllByOrganizationId(@Param("organizationId") UUID organizationId);
 
     /**
-     * Active storefronts running an active program, newest first, optionally by
+     * Active storefronts running an active program (and whose org isn't lapsed,
+     * see SubscriptionGuard), newest first, optionally by
      * city. {@code city} is matched against the same "Localidad, Provincia"
      * display string the /discover/cities picker returns -- city and province
      * are stored as separate columns, so it's rebuilt here at query time.
@@ -32,6 +33,13 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
         join point_programs pp on pp.id = s.point_program_id
         where s.active and pp.active
           and (cast(:city as text) is null or (s.city || ', ' || s.province) = cast(:city as text))
+          and not exists (
+              select 1 from invoices i
+              join organizations o on o.id = s.organization_id
+              join grace_tiers g on g.name = o.grace_tier
+              where i.organization_id = o.id and i.payment_status = 'pending'
+                and i.due_at + make_interval(days => g.grace_days) < now()
+          )
         order by s.created_at desc
         """,
         countQuery = """
@@ -39,6 +47,13 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
         join point_programs pp on pp.id = s.point_program_id
         where s.active and pp.active
           and (cast(:city as text) is null or (s.city || ', ' || s.province) = cast(:city as text))
+          and not exists (
+              select 1 from invoices i
+              join organizations o on o.id = s.organization_id
+              join grace_tiers g on g.name = o.grace_tier
+              where i.organization_id = o.id and i.payment_status = 'pending'
+                and i.due_at + make_interval(days => g.grace_days) < now()
+          )
         """,
         nativeQuery = true
     )
@@ -49,6 +64,13 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
         value = """
         select distinct s.city || ', ' || s.province from storefronts s
         where s.active and s.city is not null and s.province is not null
+          and not exists (
+              select 1 from invoices i
+              join organizations o on o.id = s.organization_id
+              join grace_tiers g on g.name = o.grace_tier
+              where i.organization_id = o.id and i.payment_status = 'pending'
+                and i.due_at + make_interval(days => g.grace_days) < now()
+          )
         order by 1
         """,
         nativeQuery = true
