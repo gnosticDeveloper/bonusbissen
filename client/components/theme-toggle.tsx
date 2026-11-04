@@ -104,7 +104,7 @@ export function ThemeToggleButton({ className = "" }: { className?: string }) {
         <activeTheme.Icon size={18} aria-hidden="true" />
       </button>
       {isOpen && (
-        <div role="group" aria-label="Elegir tema" className="absolute right-0 top-[calc(100%+0.5rem)] z-30 min-w-36 rounded-xl border border-border bg-card p-1.5 shadow-lg">
+        <div role="group" aria-label="Elegir tema" className="absolute right-0 bottom-[calc(100%+0.5rem)] z-30 min-w-36 rounded-xl border border-border bg-card p-1.5 shadow-lg">
           {themes.map(({ value, label, Icon }) => (
             <button
               key={value}
