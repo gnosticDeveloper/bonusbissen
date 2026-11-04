@@ -25,6 +25,13 @@ export interface NavItem {
   show: boolean;
 }
 
+/** Agrupación de la navegación del panel: rutas del local seleccionado vs. rutas de la organización. */
+export interface NavSection {
+  id: string;
+  label: string;
+  items: NavItem[];
+}
+
 export type SignInUser = { name: string; avatarUrl: string | null };
 
 export type Membership = {
