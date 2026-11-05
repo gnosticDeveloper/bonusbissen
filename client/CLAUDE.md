@@ -10,7 +10,8 @@ This file provides frontend context; manifests and implementation remain authori
 - Bonus Bissen is a customer loyalty platform: customers discover businesses, join point programs, earn points, and redeem rewards. Business administrators configure organizations, storefronts, programs, and rewards; administrators and cashiers operate the points/redemption dashboard.
 - The production frontend is this Next.js App Router application. `../demo/` is a separate app, not the implementation to update for production frontend requests.
 - Core versions: Next.js **16.3.4**, React **19.2.8**, TypeScript **5.9**, Tailwind CSS **4**. Use Bun and `bun.lock`; `package.json` is the source of truth for versions and scripts.
-- Existing libraries include Base UI primitives, Lucide icons, Motion, Zustand, Zod, and `jose`. Reuse them rather than adding competing libraries.
+- Existing libraries include Lucide icons, Motion, Zustand, Zod, `jose`, and `tailwind-merge` (behind `cn`). Reuse them rather than adding competing libraries.
+- UI primitives are hand-written over native elements: no headless-UI, variant, or class-joining library (`@base-ui/react`, `class-variance-authority`, and `clsx` were removed). Variants are plain class maps (see `buttonVariants` in `components/ui/button.tsx`); dialogs use native `<dialog>`/`showModal()` or `components/modal.tsx`; custom listboxes follow the ARIA patterns in `components/autocomplete-input.tsx` and the audit page's operation select.
 - The separate backend in `../src/` uses Java 25 / Spring Boot 4.1.1, PostgreSQL/JPA/Flyway, and Redis-backed refresh sessions (`../pom.xml`, `../docker-compose.yml`). Business rules and tenant authorization belong there, not in browser state.
 
 ## Architecture and navigation

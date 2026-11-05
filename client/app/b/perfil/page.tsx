@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ReactNode, SubmitEvent, useEffect, useState } from "react";
+import { ReactNode, SubmitEvent, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Dialog } from "@base-ui/react/dialog";
 import { AlertCircle, MonitorSmartphone, ShieldCheck } from "lucide-react";
 import {
   deleteAccount,
@@ -60,38 +59,84 @@ function ConfirmDialog({
   destructive = false,
   onConfirm,
 }: ConfirmDialogProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const pointerDownOnBackdrop = useRef(false);
+  const titleId = useId();
+  const descriptionId = useId();
+
+  // The `open` prop is the source of truth; showModal() provides the top layer, focus containment and Escape handling.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    else if (!open && dialog.open) dialog.close();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
+  function requestClose() {
+    if (!loading) onOpenChange(false);
+  }
+
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/40" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-5 shadow-xl">
-          <Dialog.Title className="text-base font-medium text-foreground">{title}</Dialog.Title>
-          <Dialog.Description className="mt-2 text-sm leading-5 text-foreground/75">{description}</Dialog.Description>
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+      onCancel={(event) => {
+        event.preventDefault();
+        requestClose();
+      }}
+      onClose={() => {
+        // The browser may force-close the dialog (e.g. a repeated Escape); keep the parent state in sync.
+        if (open) onOpenChange(false);
+      }}
+      onPointerDown={(event) => {
+        pointerDownOnBackdrop.current = event.target === event.currentTarget;
+      }}
+      onClick={(event) => {
+        // The dialog has no padding, so a click whose target is the dialog itself landed on the backdrop.
+        if (pointerDownOnBackdrop.current && event.target === event.currentTarget) requestClose();
+        pointerDownOnBackdrop.current = false;
+      }}
+      className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-2xl border border-border bg-card p-0 text-foreground shadow-xl backdrop:bg-black/40"
+    >
+      <div className="p-5">
+        <h2 id={titleId} className="text-base font-medium text-foreground">{title}</h2>
+        <p id={descriptionId} className="mt-2 text-sm leading-5 text-foreground/75">{description}</p>
 
-          {error && <p className="mt-3 rounded-lg bg-red-600 px-3 py-2 text-sm text-white">{error}</p>}
+        {error && <p className="mt-3 rounded-lg bg-red-600 px-3 py-2 text-sm text-white">{error}</p>}
 
-          <div className="mt-5 flex justify-end gap-3">
-            <Dialog.Close
-              disabled={loading}
-              className="rounded-full px-4 py-2 text-sm font-medium text-foreground transition-opacity disabled:opacity-60"
-            >
-              Cancelar
-            </Dialog.Close>
-            <button
-              type="button"
-              onClick={onConfirm}
-              disabled={loading}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-opacity disabled:opacity-60 ${
-                destructive ? "bg-red-600 text-white" : "bg-primary text-primary-foreground"
-              }`}
-            >
-              {loading && <Spinner dark={destructive} />}
-              {loading ? loadingLabel : confirmLabel}
-            </button>
-          </div>
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+        <div className="mt-5 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={requestClose}
+            disabled={loading}
+            className="rounded-full px-4 py-2 text-sm font-medium text-foreground transition-opacity disabled:opacity-60"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-opacity disabled:opacity-60 ${
+              destructive ? "bg-red-600 text-white" : "bg-primary text-primary-foreground"
+            }`}
+          >
+            {loading && <Spinner dark={destructive} />}
+            {loading ? loadingLabel : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </dialog>
   );
 }
 

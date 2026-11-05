@@ -192,7 +192,8 @@ function PaymentSession({ expectedOrganizationId, onContinue, disabled = false }
                 {checkout && !error && (
                   <a
                     href={checkout}
-                    rel="noreferrer"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     aria-disabled={disabled || busy}
                     tabIndex={disabled || busy ? -1 : undefined}
                     onClick={(event) => {
@@ -201,6 +202,7 @@ function PaymentSession({ expectedOrganizationId, onContinue, disabled = false }
                     className="flex min-h-12 items-center justify-center rounded-xl bg-primary px-4 py-3 text-center text-sm font-semibold text-primary-foreground"
                   >
                     Continuar en Mercado Pago ↗
+                    <span className="sr-only"> (se abre en una pestaña nueva)</span>
                   </a>
                 )}
               </form>

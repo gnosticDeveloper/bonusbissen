@@ -10,8 +10,6 @@
     "audit:unused": "knip --include files,exports,types"
   },
   "dependencies": {
-    "@base-ui/react": "^1.8.0",
-    "class-variance-authority": "^0.7.1",
     "jose": "^6.2.12",
     "lucide-react": "^1.41.0",
     "motion": "^14.0.0",

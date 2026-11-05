@@ -27,11 +27,10 @@ export function BottomNav() {
             <Link
               key={href}
               href={href}
-              className={`flex w-17 flex-col items-center gap-1 whitespace-nowrap px-2 py-1 text-[12px] transition-colors ${active ? "text-foreground" : "text-foreground"}`}
+              className={`flex w-17 flex-col items-center gap-1 whitespace-nowrap px-2 py-1 text-[12px] transition-colors ${active ? "text-primary" : "text-foreground"}`}
             >
               <span
-                className="grid place-items-center rounded-full transition-shadow"
-                style={active ? { boxShadow: "0 4px 14px color-mix(in srgb, var(--primary) 33%, transparent)" } : undefined}
+                className={`grid place-items-center rounded-full before:content-[''] relative before:rounded-full before:blur-sm before:absolute before:inset-0 before:bg-primary  ${active ? "before:opacity-30" : "before:opacity-0"}`}
               >
                 <Icon size={24} />
               </span>

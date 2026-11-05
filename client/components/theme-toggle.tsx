@@ -12,9 +12,24 @@ const themes = [
   { value: "abismo", label: "Abismo", Icon: Eclipse },
 ] as const;
 
+function applyThemeAttribute(theme: Theme) {
+  const root = document.documentElement;
+  root.classList.add("theme-switching");
+  root.setAttribute("data-theme", theme);
+  void window.getComputedStyle(root).backgroundColor;
+  root.classList.remove("theme-switching");
+}
+
 function persistTheme(theme: Theme) {
-  document.documentElement.setAttribute("data-theme", theme);
   document.cookie = `theme=${theme}; path=/; max-age=31536000; SameSite=Lax`;
+
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduceMotion || typeof document.startViewTransition !== "function") {
+    applyThemeAttribute(theme);
+    return;
+  }
+
+  document.startViewTransition(() => applyThemeAttribute(theme));
 }
 
 function useTheme() {

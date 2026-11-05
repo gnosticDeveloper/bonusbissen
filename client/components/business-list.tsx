@@ -64,8 +64,6 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
             </header>
 
             <Carousel
-              autoSlideInterval={30000}
-              className="w-full"
               items={storefront.rewards}
               renderItem={(reward) => <RewardCard reward={reward} pointsLabel={storefront.pointLabel} color={storefront.color} />}
             />
