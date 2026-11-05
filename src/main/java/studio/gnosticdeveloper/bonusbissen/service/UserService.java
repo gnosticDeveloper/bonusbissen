@@ -740,6 +740,9 @@ public class UserService {
                 )
             );
 
+        // Points can't be spent at a business that can't cash them in.
+        subscriptionGuard.requireAvailableToCustomers(reward.getPointProgram().getOrganization().getId());
+
         tx.setReward(reward);
         tx.setPointProgram(reward.getPointProgram());
 

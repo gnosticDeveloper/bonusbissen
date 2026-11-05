@@ -1,16 +1,30 @@
 package studio.gnosticdeveloper.bonusbissen.exception;
 
-/** The organization's subscription is unpaid past its grace period; mapped to 402 for the staff who hit it. */
+/**
+ * The organization's subscription is unpaid past its grace period; mapped to 402.
+ * {@code code} tells clients which audience this is: staff get SUBSCRIPTION_LAPSED
+ * (and a message about billing), customers get BUSINESS_UNAVAILABLE with a neutral
+ * message, so a business's payment trouble isn't spelled out to its customers.
+ */
 public class SubscriptionLapsedException extends RuntimeException {
 
-    private final String publicMessage;
+    public static final String STAFF_CODE = "SUBSCRIPTION_LAPSED";
+    public static final String CUSTOMER_CODE = "BUSINESS_UNAVAILABLE";
 
-    public SubscriptionLapsedException(String message, String publicMessage) {
+    private final String publicMessage;
+    private final String code;
+
+    public SubscriptionLapsedException(String message, String publicMessage, String code) {
         super(message);
         this.publicMessage = publicMessage;
+        this.code = code;
     }
 
     public String getPublicMessage() {
         return this.publicMessage;
+    }
+
+    public String getCode() {
+        return this.code;
     }
 }

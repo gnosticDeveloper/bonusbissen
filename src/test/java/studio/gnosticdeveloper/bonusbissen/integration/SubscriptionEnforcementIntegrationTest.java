@@ -12,6 +12,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.JoinPointProgramRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.BusinessResponse;
@@ -22,6 +23,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.Invoice;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PaymentStatus;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
+import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
@@ -36,7 +38,7 @@ class SubscriptionEnforcementIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     private InvoiceRepository invoiceRepository;
 
-    private record Fixture(Organization org, Storefront storefront, String city, String cashierToken, User customer) {}
+    private record Fixture(Organization org, Storefront storefront, String city, String cashierToken, User customer, String customerKey) {}
 
     private int seq = 0;
 
@@ -65,10 +67,11 @@ class SubscriptionEnforcementIntegrationTest extends AbstractIntegrationTest {
 
         createEmployee("cashier-" + slug, TEST_USER_PASSWORD, StaffRole.CASHIER, org, storefront);
         String token = loginEmployee("cashier-" + slug, TEST_USER_PASSWORD, org.getId());
-        User customer = createUser("cust-" + slug);
+        String customerKey = "cust-" + slug;
+        User customer = createUser(customerKey);
         restTemplate.exchange(baseUrl() + "/point-programs/" + program.getId() + "/members", HttpMethod.POST,
             authed(token, new JoinPointProgramRequest(customer.getId())), Void.class);
-        return new Fixture(org, storefront, "Ciudad " + slug + ", Córdoba", token, customer);
+        return new Fixture(org, storefront, "Ciudad " + slug + ", Córdoba", token, customer, customerKey);
     }
 
     private Invoice invoice(Organization org, int dueDaysAgo, PaymentStatus status) {
@@ -130,12 +133,55 @@ class SubscriptionEnforcementIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void theByIdBusinessViewStaysReadable() {
+    void aLapsedBusinessesPagesAnswer402WithANeutralMessageButAHealthyOnesDont() {
+        Fixture lapsed = seed("regular");
+        invoice(lapsed.org(), 30, PaymentStatus.PENDING);
+        Fixture healthy = seed("regular");
+
+        for (String template : List.of("/discover/%s/business", "/discover/storefronts/%s")) {
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                baseUrl() + template.formatted(lapsed.storefront().getId()), HttpMethod.GET, null, new ParameterizedTypeReference<>() {});
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.PAYMENT_REQUIRED);
+            assertThat(response.getBody()).containsEntry("code", "BUSINESS_UNAVAILABLE");
+            assertThat(response.getBody().get("detail").toString()).doesNotContainIgnoringCase("factura").doesNotContainIgnoringCase("suscripci");
+            assertThat(restTemplate.getForEntity(baseUrl() + template.formatted(healthy.storefront().getId()), String.class).getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+        }
+    }
+
+    @Test
+    void customersCannotStartAClaimAtALapsedBusiness() {
         Fixture fx = seed("regular");
+        assertThat(grant(fx).getStatusCode()).isEqualTo(HttpStatus.OK);
+        Reward reward = reward(fx);
         invoice(fx.org(), 30, PaymentStatus.PENDING);
 
-        assertThat(restTemplate.getForEntity(baseUrl() + "/discover/" + fx.storefront().getId() + "/business", BusinessResponse.class)
-            .getStatusCode()).isEqualTo(HttpStatus.OK);
+        ResponseEntity<Map<String, Object>> blocked = restTemplate.exchange(baseUrl() + "/users/claim-reward", HttpMethod.POST,
+            authed(loginUser(fx.customerKey()), new ClaimRewardRequest(fx.customer().getId(), reward.getId())), new ParameterizedTypeReference<>() {});
+        assertThat(blocked.getStatusCode()).isEqualTo(HttpStatus.PAYMENT_REQUIRED);
+        assertThat(blocked.getBody()).containsEntry("code", "BUSINESS_UNAVAILABLE");
+    }
+
+    @Test
+    void aCustomerCanClaimAtAHealthyBusiness() {
+        Fixture fx = seed("regular");
+        assertThat(grant(fx).getStatusCode()).isEqualTo(HttpStatus.OK);
+        Reward reward = reward(fx);
+        Invoice paid = invoice(fx.org(), 30, PaymentStatus.PENDING);
+        paid.setPaymentStatus(PaymentStatus.PAID);
+        invoiceRepository.save(paid);
+
+        assertThat(restTemplate.exchange(baseUrl() + "/users/claim-reward", HttpMethod.POST,
+            authed(loginUser(fx.customerKey()), new ClaimRewardRequest(fx.customer().getId(), reward.getId())), String.class).getStatusCode())
+            .isEqualTo(HttpStatus.OK);
+    }
+
+    private Reward reward(Fixture fx) {
+        Reward reward = new Reward();
+        reward.setPointProgram(fx.storefront().getPointProgram());
+        reward.setTitle("Café");
+        reward.setCostPoints(5);
+        return rewardRepository.save(reward);
     }
 
     @Test

@@ -347,7 +347,7 @@ class UserServiceTest {
     @Test
     void grantPointsForALapsedOrganizationIsRejectedBeforeAnythingIsWritten() {
         when(organizationStaffRepository.findByUserIdAndActiveTrue(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
-        Mockito.doThrow(new SubscriptionLapsedException("lapsed", "lapsed"))
+        Mockito.doThrow(new SubscriptionLapsedException("lapsed", "lapsed", SubscriptionLapsedException.STAFF_CODE))
             .when(subscriptionGuard).requireNotLapsed(any());
 
         assertThatThrownBy(() -> userService.grantPoints(grantRequest(UUID.randomUUID(), 50), EMPLOYEE_ID, STOREFRONT_ID))
@@ -390,6 +390,23 @@ class UserServiceTest {
 
         assertThatThrownBy(() -> userService.grantPoints(grantRequest(userId, 50), EMPLOYEE_ID, STOREFRONT_ID))
             .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void claimRewardAtALapsedOrganizationIsRejectedBeforeAnythingIsWritten() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        UUID rewardId = UUID.randomUUID();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(rewardRepository.findById(rewardId)).thenReturn(Optional.of(rewardWithProgram(rewardId, 30)));
+        Mockito.doThrow(new SubscriptionLapsedException("lapsed", "lapsed", SubscriptionLapsedException.CUSTOMER_CODE))
+            .when(subscriptionGuard).requireAvailableToCustomers(ORGANIZATION_ID);
+
+        assertThatThrownBy(() -> userService.claimReward(new ClaimRewardRequest(userId, rewardId)))
+            .isInstanceOf(SubscriptionLapsedException.class);
+
+        verify(pointTransactionRepository, never()).save(any());
     }
 
     @Test
@@ -475,8 +492,11 @@ class UserServiceTest {
     }
 
     private Reward rewardWithProgram(UUID rewardId, int costPoints) {
+        Organization organization = new Organization();
+        organization.setId(ORGANIZATION_ID);
         PointProgram program = new PointProgram();
         program.setId(PROGRAM_ID);
+        program.setOrganization(organization);
         Reward reward = new Reward();
         reward.setId(rewardId);
         reward.setCostPoints(costPoints);

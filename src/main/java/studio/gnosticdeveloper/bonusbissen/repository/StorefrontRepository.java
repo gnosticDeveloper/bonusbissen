@@ -89,6 +89,7 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
             SELECT
                 s.id AS id,
                 s.name AS name,
+                o.id AS "orgId",
                 o.name AS "orgName",
                 s.color AS color,
                 s.icon_path AS "iconUrl",
@@ -107,6 +108,7 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
     interface BasicInfo {
         UUID getId();
         String getName();
+        UUID getOrgId();
         String getOrgName();
         String getColor();
         String getIconUrl();

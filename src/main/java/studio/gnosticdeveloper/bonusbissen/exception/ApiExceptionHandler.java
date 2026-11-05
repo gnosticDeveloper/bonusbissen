@@ -37,7 +37,7 @@ public class ApiExceptionHandler {
     public ResponseEntity<ProblemDetail> handleSubscriptionLapsed(SubscriptionLapsedException ex) {
         log.warn("Subscription lapsed: {}", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.PAYMENT_REQUIRED, ex.getPublicMessage());
-        problem.setProperty("code", "SUBSCRIPTION_LAPSED");
+        problem.setProperty("code", ex.getCode());
         return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(problem);
     }
 
