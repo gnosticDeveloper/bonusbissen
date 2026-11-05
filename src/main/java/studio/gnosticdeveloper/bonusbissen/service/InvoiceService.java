@@ -54,6 +54,13 @@ public class InvoiceService {
     }
 
     /** A rendered invoice document and the filename it should be downloaded as. */
+    /** The org cancelled its subscription, so there is nothing left to bill. */
+    public static class SubscriptionEndedException extends RuntimeException {
+        public SubscriptionEndedException(UUID organizationId) {
+            super("Organization " + organizationId + " cancelled its subscription; not generating an invoice.");
+        }
+    }
+
     public record InvoicePdf(String filename, byte[] content) {}
 
     @Transactional(readOnly = true)
@@ -79,6 +86,10 @@ public class InvoiceService {
     public Invoice generateForOrganization(UUID organizationId, OffsetDateTime now) {
         Organization org = organizationRepository.findByIdForUpdate(organizationId)
             .orElseThrow(() -> new NotFoundException("No se pudo encontrar la organización con ID " + organizationId + ".", "No pudimos encontrar la organización"));
+        if (org.getSubscriptionEndsAt() != null) {
+            // Cancelled between the job's query and this lock.
+            throw new SubscriptionEndedException(organizationId);
+        }
         BillingPlan plan = org.getBillingPlan();
 
         Invoice invoice = new Invoice();

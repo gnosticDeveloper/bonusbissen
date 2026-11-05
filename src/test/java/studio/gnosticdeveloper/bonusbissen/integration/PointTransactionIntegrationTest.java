@@ -1,5 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.integration;
 
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
@@ -11,10 +12,12 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.request.JoinPointProgramRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
@@ -499,7 +502,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         ResponseEntity<Void> response = restTemplate.exchange(
             baseUrl() + "/exchanges/user-cancel",
             HttpMethod.POST,
-            authed(userToken, new studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest(exchangeId)),
+            authed(userToken, new UserCancelExchangeRequest(exchangeId)),
             Void.class
         );
 
@@ -640,7 +643,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         claimReward(userToken, user.getId(), popular.getId());
         claimReward(userToken, user.getId(), rare.getId());
 
-        ResponseEntity<List<studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse>> response = restTemplate.exchange(
+        ResponseEntity<List<TopRewardResponse>> response = restTemplate.exchange(
             baseUrl() + "/rewards/top",
             HttpMethod.GET,
             authed(cashierToken),
@@ -654,7 +657,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         assertThat(ranking.get(1).claimCount()).isEqualTo(1);
     }
 
-    private Reward createRewardIn(studio.gnosticdeveloper.bonusbissen.entity.PointProgram program, String title, int costPoints) {
+    private Reward createRewardIn(PointProgram program, String title, int costPoints) {
         Reward reward = new Reward();
         reward.setPointProgram(program);
         reward.setTitle(title);
@@ -676,16 +679,16 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
      */
     @Test
     void concurrentClaimsAgainstABalanceThatCanOnlyAffordOneAllSerializeCorrectly() throws InterruptedException {
-        studio.gnosticdeveloper.bonusbissen.entity.Organization organization = new studio.gnosticdeveloper.bonusbissen.entity.Organization();
+        Organization organization = new Organization();
         organization.setName("Race Test Org");
         organization = organizationRepository.save(organization);
 
-        studio.gnosticdeveloper.bonusbissen.entity.PointProgram program = new studio.gnosticdeveloper.bonusbissen.entity.PointProgram();
+        PointProgram program = new PointProgram();
         program.setOrganization(organization);
         program.setName("Race Test Points");
         program = pointProgramRepository.save(program);
 
-        studio.gnosticdeveloper.bonusbissen.entity.Storefront storefront = new studio.gnosticdeveloper.bonusbissen.entity.Storefront();
+        Storefront storefront = new Storefront();
         storefront.setOrganization(organization);
         storefront.setName("Race Test Storefront");
         storefront.setAddress("1 Race St");
@@ -720,7 +723,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         ExecutorService pool = Executors.newFixedThreadPool(attempts);
         AtomicInteger succeeded = new AtomicInteger(0);
         try {
-            List<Runnable> tasks = java.util.stream.IntStream.range(0, attempts)
+            List<Runnable> tasks = IntStream.range(0, attempts)
                 .<Runnable>mapToObj(i -> () -> {
                     ResponseEntity<String> response = restTemplate.exchange(
                         baseUrl() + "/users/claim-reward",

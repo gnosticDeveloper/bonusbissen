@@ -60,6 +60,13 @@ public class Organization {
     @Column(name = "next_invoice_due_at")
     private OffsetDateTime nextInvoiceDueAt;
 
+    /**
+     * Set when an active subscription is cancelled: the end of the period already paid for.
+     * No invoices are generated while it's set, and access stops once it has passed.
+     */
+    @Column(name = "subscription_ends_at")
+    private OffsetDateTime subscriptionEndsAt;
+
     /** Mercado Pago's preapproval id -- the org's recurring-charge authorization (see MercadoPagoSubscriptionService). */
     @Column(name = "mercado_pago_preapproval_id")
     private String mercadoPagoPreapprovalId;
@@ -80,5 +87,27 @@ public class Organization {
         if (createdAt == null) {
             createdAt = OffsetDateTime.now();
         }
+    }
+
+    /** Cancelling keeps what was paid for: access runs to the end of the current period. Keeps an earlier cancellation's date. */
+    public void endSubscriptionAtPaidThrough() {
+        if (subscriptionEndsAt == null) {
+            subscriptionEndsAt = nextInvoiceDueAt;
+        }
+    }
+
+    /**
+     * A new subscription was authorized. If the previous paid period had already run out, billing
+     * restarts from now (so the first invoice's due date, and its grace, count from re-subscribing,
+     * not from the old date); if the org re-subscribes while still covered, the cycle carries on.
+     */
+    public void reactivateSubscription(OffsetDateTime now) {
+        if (subscriptionEndsAt == null) {
+            return;
+        }
+        if (!subscriptionEndsAt.isAfter(now)) {
+            nextInvoiceDueAt = now;
+        }
+        subscriptionEndsAt = null;
     }
 }

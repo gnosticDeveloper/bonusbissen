@@ -19,7 +19,8 @@ import java.util.UUID;
 public interface OrganizationRepository extends JpaRepository<Organization, UUID> {
 
     /** Orgs on a plan whose current cycle has come due -- the driving query for InvoiceGenerationService. */
-    List<Organization> findAllByBillingPlanIsNotNullAndNextInvoiceDueAtLessThanEqual(OffsetDateTime now);
+    /** Orgs whose cycle is due. A cancelled subscription (subscriptionEndsAt set) is never billed again. */
+    List<Organization> findAllByBillingPlanIsNotNullAndSubscriptionEndsAtIsNullAndNextInvoiceDueAtLessThanEqual(OffsetDateTime now);
 
     /** Looks up the org a Mercado Pago webhook notification refers to, by the preapproval id stored at checkout time. */
     Optional<Organization> findByMercadoPagoPreapprovalId(String mercadoPagoPreapprovalId);
@@ -42,6 +43,15 @@ public interface OrganizationRepository extends JpaRepository<Organization, UUID
      * transaction across its HTTP calls to MP, so a full-entity merge there could
      * overwrite concurrent edits to the org with stale values.
      */
+    /** Cancel path: same targeted-write reasoning as above. Keeps an existing end date, and does nothing without a plan. */
+    @Modifying
+    @Transactional
+    @Query("update Organization o set o.subscriptionEndsAt = o.nextInvoiceDueAt where o.id = :id and o.subscriptionEndsAt is null and o.billingPlan is not null")
+    int endSubscriptionAtPaidThrough(@Param("id") UUID id);
+
+    @Query("select count(o) > 0 from Organization o where o.id = :id and o.subscriptionEndsAt <= :now")
+    boolean hasSubscriptionEnded(@Param("id") UUID id, @Param("now") OffsetDateTime now);
+
     @Modifying
     @Transactional
     @Query("update Organization o set o.mercadoPagoPreapprovalId = :preapprovalId, o.mercadoPagoPreapprovalStatus = :status where o.id = :id")

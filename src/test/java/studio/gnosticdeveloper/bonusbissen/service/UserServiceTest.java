@@ -1,5 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.time.OffsetDateTime;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -51,10 +52,12 @@ import studio.gnosticdeveloper.bonusbissen.repository.UserPointProgramRepository
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import studio.gnosticdeveloper.bonusbissen.security.SessionService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
@@ -91,7 +94,7 @@ class UserServiceTest {
     @Mock
     private PointLedgerService pointLedgerService;
     @Mock
-    private studio.gnosticdeveloper.bonusbissen.security.SessionService sessionService;
+    private SessionService sessionService;
 
     @Mock
     private SubscriptionGuard subscriptionGuard;
@@ -173,7 +176,7 @@ class UserServiceTest {
         user.setId(UUID.randomUUID());
         user.setName("Someone");
         user.setUsername("someone");
-        user.setCreatedAt(java.time.OffsetDateTime.now());
+        user.setCreatedAt(OffsetDateTime.now());
 
         when(userRepository.search(eq("abc"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
         when(pointProgramRepository.existsByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(true);
@@ -192,7 +195,7 @@ class UserServiceTest {
         user.setId(UUID.randomUUID());
         user.setName("Someone");
         user.setUsername("someone");
-        user.setCreatedAt(java.time.OffsetDateTime.now());
+        user.setCreatedAt(OffsetDateTime.now());
 
         when(userRepository.search(isNull(), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
 
@@ -208,7 +211,7 @@ class UserServiceTest {
         user.setId(UUID.randomUUID());
         user.setName("Someone");
         user.setUsername("someone");
-        user.setCreatedAt(java.time.OffsetDateTime.now());
+        user.setCreatedAt(OffsetDateTime.now());
         Organization organization = new Organization();
         organization.setId(ORGANIZATION_ID);
         PointProgram program = new PointProgram();
@@ -233,7 +236,7 @@ class UserServiceTest {
         user.setId(UUID.randomUUID());
         user.setName("Someone");
         user.setUsername("someone");
-        user.setCreatedAt(java.time.OffsetDateTime.now());
+        user.setCreatedAt(OffsetDateTime.now());
         PointProgram program = new PointProgram();
         program.setActive(false);
         Storefront storefront = new Storefront();
@@ -531,7 +534,7 @@ class UserServiceTest {
         tx.setPointProgram(program);
         tx.setTransactionType(TransactionType.EARN);
         tx.setState(TransactionState.DELIVERED);
-        tx.setCreatedAt(java.time.OffsetDateTime.now());
+        tx.setCreatedAt(OffsetDateTime.now());
         return tx;
     }
 
@@ -639,7 +642,7 @@ class UserServiceTest {
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> {
             PointTransaction saved = invocation.getArgument(0);
             saved.setId(UUID.randomUUID());
-            saved.setCreatedAt(java.time.OffsetDateTime.now());
+            saved.setCreatedAt(OffsetDateTime.now());
             return saved;
         });
 
@@ -655,7 +658,7 @@ class UserServiceTest {
         assertThat(response.correctedTransaction().amount()).isEqualTo(50);
         assertThat(tx.getPoints()).isEqualTo(50);
         assertThat(tx.getNote()).isNull();
-        verify(pointTransactionRepository).save(org.mockito.ArgumentMatchers.argThat(saved -> saved != tx && saved.getCorrectedTransaction() == tx));
+        verify(pointTransactionRepository).save(argThat(saved -> saved != tx && saved.getCorrectedTransaction() == tx));
     }
 
     @Test
@@ -712,7 +715,7 @@ class UserServiceTest {
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> {
             PointTransaction saved = invocation.getArgument(0);
             saved.setId(UUID.randomUUID());
-            saved.setCreatedAt(java.time.OffsetDateTime.now());
+            saved.setCreatedAt(OffsetDateTime.now());
             return saved;
         });
 
@@ -724,7 +727,7 @@ class UserServiceTest {
         assertThat(response.correctedTransaction().id()).isEqualTo(original.getId());
         assertThat(response.correctedTransaction().amount()).isEqualTo(-30);
         assertThat(original.getPoints()).isEqualTo(-30);
-        verify(pointTransactionRepository).save(org.mockito.ArgumentMatchers.argThat(saved -> saved != original && saved.getCorrectedTransaction() == original));
+        verify(pointTransactionRepository).save(argThat(saved -> saved != original && saved.getCorrectedTransaction() == original));
     }
 
     @Test
@@ -738,7 +741,7 @@ class UserServiceTest {
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> {
             PointTransaction saved = invocation.getArgument(0);
             saved.setId(UUID.randomUUID());
-            saved.setCreatedAt(java.time.OffsetDateTime.now());
+            saved.setCreatedAt(OffsetDateTime.now());
             return saved;
         });
 
@@ -750,7 +753,7 @@ class UserServiceTest {
         assertThat(response.correctedTransaction().amount()).isEqualTo(100);
         assertThat(original.getPoints()).isEqualTo(100);
         verify(pointTransactionRepository).calculateBalance(original.getUser().getId(), PROGRAM_ID);
-        verify(pointTransactionRepository).save(org.mockito.ArgumentMatchers.argThat(saved ->
+        verify(pointTransactionRepository).save(argThat(saved ->
             saved != original && saved.getCorrectedTransaction() == original && saved.getPoints() == -100));
     }
 

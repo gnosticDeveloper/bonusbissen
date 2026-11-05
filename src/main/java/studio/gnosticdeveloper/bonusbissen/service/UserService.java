@@ -1,5 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.time.Duration;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.OffsetDateTime;
@@ -664,7 +665,7 @@ public class UserService {
     }
 
     /** Window within which an identical retried/double-clicked submission is treated as a no-op instead of a duplicate. */
-    private static final java.time.Duration DUPLICATE_SUBMISSION_WINDOW = java.time.Duration.ofSeconds(5);
+    private static final Duration DUPLICATE_SUBMISSION_WINDOW = Duration.ofSeconds(5);
 
     /** Null when no recent duplicate exists (the normal case); otherwise the earlier transaction to replay the response from. */
     private PointTransaction findRecentDuplicateGrant(UUID userId, UUID programId, UUID employeeId, int points, String note) {
