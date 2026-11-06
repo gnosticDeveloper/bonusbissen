@@ -329,7 +329,6 @@ public class UserService {
         return getBalance(userId, program.getId());
     }
 
-    @Transactional(readOnly = true)
     /**
      * {@code callerOrganizationId} null means the caller is the customer themselves -- no further
      * check needed. Non-null means staff: without a positive relationship check, any staff member
@@ -337,6 +336,7 @@ public class UserService {
      * email) by user id alone, {@code programId} or not -- the id-ownership check below only
      * covered the case where a programId happened to be supplied.
      */
+    @Transactional(readOnly = true)
     public UserPointsResponse getUserPointsById(UUID id, UUID programId, UUID callerOrganizationId) {
         User user = userRepository
             .findById(id)
@@ -565,6 +565,12 @@ public class UserService {
                     "No pudimos encontrar el local seleccionado."
                 )
             );
+        if (!storefront.isActive()) {
+            throw new BadRequestException(
+                "Point grant attempted at deactivated storefront " + storefrontId + ".",
+                "Este local está desactivado."
+            );
+        }
 
         PointProgram program = storefront.getPointProgram();
         if (program == null || !program.isActive()) {

@@ -10,7 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** See 16__subscription_operation_locks.sql. Only ever written through SubscriptionOperationLockRepository's targeted statements. */
+/** See the subscription_operation_locks table in 15__subscription_cancellation.sql. Only ever written through SubscriptionOperationLockRepository's targeted statements. */
 @Entity
 @Table(name = "subscription_operation_locks")
 @Getter

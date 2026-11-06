@@ -1,6 +1,5 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
-import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import studio.gnosticdeveloper.bonusbissen.exception.SubscriptionLapsedException;
@@ -11,14 +10,16 @@ import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
  * An organization is "lapsed" when it has a PENDING invoice more than its
  * grace tier's days past due (grace_tiers, see 14__subscription_grace.sql), or
  * when it cancelled its subscription and the period it had paid for has run
- * out (subscription_ends_at, see 15__subscription_ends_at.sql -- no grace on
- * top of that, leaving was its own choice). Orgs with no plan have no
- * invoices and are never lapsed.
+ * out (subscription_ends_at, see 15__subscription_cancellation.sql -- no grace
+ * on top of that, leaving was its own choice). Orgs with no plan have no
+ * invoices and are never lapsed. The rules themselves are the SQL
+ * predicates in LapseSql, shared with the discovery queries in StorefrontRepository.
  *
- * Lapsing only stops awarding points; everything read-only, redeeming and
- * billing itself keep working so the org can pay and recover. Customers
- * can't start a redemption or open the business's pages (402 with a neutral
- * message), and the org vanishes from discovery lists (StorefrontRepository).
+ * Lapsing stops staff from awarding points and customers from starting a
+ * redemption or opening the business's pages (402 with a neutral message), and
+ * the org vanishes from discovery lists. Everything else keeps working so the
+ * org can pay and recover: read-only access, billing itself, and staff
+ * resolving redemptions that were already pending.
  */
 @Service
 public class SubscriptionGuard {
@@ -33,21 +34,18 @@ public class SubscriptionGuard {
 
     /** Either an invoice overdue past grace, or a cancelled subscription whose paid period has run out. */
     public boolean isLapsed(UUID organizationId) {
-        OffsetDateTime now = OffsetDateTime.now();
-        return organizationRepository.hasSubscriptionEnded(organizationId, now)
-            || invoiceRepository.hasInvoiceOverdueBeyondGrace(organizationId, now);
+        return organizationRepository.isLapsed(organizationId);
     }
 
     public void requireNotLapsed(UUID organizationId) {
-        OffsetDateTime now = OffsetDateTime.now();
-        if (organizationRepository.hasSubscriptionEnded(organizationId, now)) {
+        if (organizationRepository.hasSubscriptionEnded(organizationId)) {
             throw new SubscriptionLapsedException(
                 "Organization " + organizationId + " cancelled its subscription and the paid period has ended.",
                 "La suscripción de tu organización terminó. Volvé a suscribirte para seguir sumando puntos.",
                 SubscriptionLapsedException.STAFF_ENDED_CODE
             );
         }
-        if (invoiceRepository.hasInvoiceOverdueBeyondGrace(organizationId, now)) {
+        if (invoiceRepository.hasInvoiceOverdueBeyondGrace(organizationId)) {
             throw new SubscriptionLapsedException(
                 "Organization " + organizationId + " has an invoice overdue beyond its grace period.",
                 "La suscripción de tu organización tiene una factura vencida. Regularizá el pago para volver a sumar puntos.",

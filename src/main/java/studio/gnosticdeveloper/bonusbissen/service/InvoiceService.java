@@ -53,7 +53,6 @@ public class InvoiceService {
         return invoiceRepository.findAllByOrganizationIdOrderByCreatedAtDesc(organizationId);
     }
 
-    /** A rendered invoice document and the filename it should be downloaded as. */
     /** The org cancelled its subscription, so there is nothing left to bill. */
     public static class SubscriptionEndedException extends RuntimeException {
         public SubscriptionEndedException(UUID organizationId) {
@@ -61,6 +60,7 @@ public class InvoiceService {
         }
     }
 
+    /** A rendered invoice document and the filename it should be downloaded as. */
     public record InvoicePdf(String filename, byte[] content) {}
 
     @Transactional(readOnly = true)

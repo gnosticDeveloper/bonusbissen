@@ -22,7 +22,7 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
 
     /**
      * Active storefronts running an active program (and whose org isn't lapsed,
-     * see SubscriptionGuard: overdue invoice or ended subscription), newest first, optionally by
+     * see LapseSql: overdue invoice or ended subscription), newest first, optionally by
      * city. {@code city} is matched against the same "Localidad, Provincia"
      * display string the /discover/cities picker returns -- city and province
      * are stored as separate columns, so it's rebuilt here at query time.
@@ -33,16 +33,7 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
         join point_programs pp on pp.id = s.point_program_id
         where s.active and pp.active
           and (cast(:city as text) is null or (s.city || ', ' || s.province) = cast(:city as text))
-          and not exists (
-              select 1 from organizations o
-              join grace_tiers g on g.name = o.grace_tier
-              where o.id = s.organization_id
-                and ((o.subscription_ends_at is not null and o.subscription_ends_at <= now())
-                  or exists (
-                      select 1 from invoices i
-                      where i.organization_id = o.id and i.payment_status = 'pending'
-                        and i.due_at + make_interval(days => g.grace_days) < now()))
-          )
+          """ + LapseSql.STOREFRONT_NOT_LAPSED + """
         order by s.created_at desc
         """,
         countQuery = """
@@ -50,16 +41,7 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
         join point_programs pp on pp.id = s.point_program_id
         where s.active and pp.active
           and (cast(:city as text) is null or (s.city || ', ' || s.province) = cast(:city as text))
-          and not exists (
-              select 1 from organizations o
-              join grace_tiers g on g.name = o.grace_tier
-              where o.id = s.organization_id
-                and ((o.subscription_ends_at is not null and o.subscription_ends_at <= now())
-                  or exists (
-                      select 1 from invoices i
-                      where i.organization_id = o.id and i.payment_status = 'pending'
-                        and i.due_at + make_interval(days => g.grace_days) < now()))
-          )
+          """ + LapseSql.STOREFRONT_NOT_LAPSED + """
         """,
         nativeQuery = true
     )
@@ -70,16 +52,7 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
         value = """
         select distinct s.city || ', ' || s.province from storefronts s
         where s.active and s.city is not null and s.province is not null
-          and not exists (
-              select 1 from organizations o
-              join grace_tiers g on g.name = o.grace_tier
-              where o.id = s.organization_id
-                and ((o.subscription_ends_at is not null and o.subscription_ends_at <= now())
-                  or exists (
-                      select 1 from invoices i
-                      where i.organization_id = o.id and i.payment_status = 'pending'
-                        and i.due_at + make_interval(days => g.grace_days) < now()))
-          )
+          """ + LapseSql.STOREFRONT_NOT_LAPSED + """
         order by 1
         """,
         nativeQuery = true

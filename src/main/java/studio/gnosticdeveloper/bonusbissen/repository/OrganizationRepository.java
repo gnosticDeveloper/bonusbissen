@@ -18,8 +18,10 @@ import java.util.UUID;
 
 public interface OrganizationRepository extends JpaRepository<Organization, UUID> {
 
-    /** Orgs on a plan whose current cycle has come due -- the driving query for InvoiceGenerationService. */
-    /** Orgs whose cycle is due. A cancelled subscription (subscriptionEndsAt set) is never billed again. */
+    /**
+     * Orgs on a plan whose current cycle has come due -- the driving query for InvoiceGenerationService.
+     * A cancelled subscription (subscriptionEndsAt set) is never billed again.
+     */
     List<Organization> findAllByBillingPlanIsNotNullAndSubscriptionEndsAtIsNullAndNextInvoiceDueAtLessThanEqual(OffsetDateTime now);
 
     /** Looks up the org a Mercado Pago webhook notification refers to, by the preapproval id stored at checkout time. */
@@ -39,19 +41,27 @@ public interface OrganizationRepository extends JpaRepository<Organization, UUID
     Optional<Organization> findForUpdateByMercadoPagoPreapprovalId(String mercadoPagoPreapprovalId);
 
     /**
-     * Targeted write rather than save(org): MercadoPagoSubscriptionService holds no
-     * transaction across its HTTP calls to MP, so a full-entity merge there could
-     * overwrite concurrent edits to the org with stale values.
+     * Cancel path. Keeps an existing end date, and does nothing without a plan. A targeted
+     * write rather than save(org), for the same reason as the two below.
      */
-    /** Cancel path: same targeted-write reasoning as above. Keeps an existing end date, and does nothing without a plan. */
     @Modifying
     @Transactional
     @Query("update Organization o set o.subscriptionEndsAt = o.nextInvoiceDueAt where o.id = :id and o.subscriptionEndsAt is null and o.billingPlan is not null")
     int endSubscriptionAtPaidThrough(@Param("id") UUID id);
 
-    @Query("select count(o) > 0 from Organization o where o.id = :id and o.subscriptionEndsAt <= :now")
-    boolean hasSubscriptionEnded(@Param("id") UUID id, @Param("now") OffsetDateTime now);
+    /** Cancelled, and the period it had paid for has run out -- see LapseSql. */
+    @Query(value = "select exists (select 1 from organizations o where o.id = :id and " + LapseSql.ENDED + ")", nativeQuery = true)
+    boolean hasSubscriptionEnded(@Param("id") UUID id);
 
+    /** Either of the two lapse conditions -- see LapseSql. */
+    @Query(value = "select exists (select 1 from organizations o where o.id = :id and (" + LapseSql.ENDED + " or " + LapseSql.OVERDUE + "))", nativeQuery = true)
+    boolean isLapsed(@Param("id") UUID id);
+
+    /**
+     * Targeted write rather than save(org): MercadoPagoSubscriptionService holds no
+     * transaction across its HTTP calls to MP, so a full-entity merge there could
+     * overwrite concurrent edits to the org with stale values.
+     */
     @Modifying
     @Transactional
     @Query("update Organization o set o.mercadoPagoPreapprovalId = :preapprovalId, o.mercadoPagoPreapprovalStatus = :status where o.id = :id")

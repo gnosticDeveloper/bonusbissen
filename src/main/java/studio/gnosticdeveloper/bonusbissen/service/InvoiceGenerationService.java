@@ -18,7 +18,7 @@ import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
  * directly against the database (see 9__billing.sql) -- this job only reacts
  * to {@code organizations.next_invoice_due_at}, it never decides who gets
  * billed. Orgs that cancelled their subscription ({@code subscription_ends_at}
- * set, see 15__subscription_ends_at.sql) are skipped: their paid period just
+ * set, see 15__subscription_cancellation.sql) are skipped: their paid period just
  * runs out.
  *
  * Each organization is processed and emailed independently, with failures

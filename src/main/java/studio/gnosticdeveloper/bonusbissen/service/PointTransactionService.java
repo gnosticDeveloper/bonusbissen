@@ -126,8 +126,8 @@ public class PointTransactionService {
         return pointTransactionRepository.findAllResolvedByOrganizationId(organizationId, pageable).stream().map(this::toExchangeResponse).toList();
     }
 
-    @Transactional
     /** {@code organizationId} null for a customer viewing their own; non-null to scope a staff caller to their own org -- see the repository query's javadoc. */
+    @Transactional
     public List<PendingExchangeResponse> getAllPendingExchangesById(UUID userId, UUID organizationId) {
         return pointTransactionRepository
             .findAllPendingByUserIdOrderByCreatedAtDesc(userId, TransactionState.PENDING, organizationId)
