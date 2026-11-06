@@ -330,6 +330,13 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * {@code callerOrganizationId} null means the caller is the customer themselves -- no further
+     * check needed. Non-null means staff: without a positive relationship check, any staff member
+     * of any organization could pull another organization's customer's PII (name, username,
+     * email) by user id alone, {@code programId} or not -- the id-ownership check below only
+     * covered the case where a programId happened to be supplied.
+     */
     public UserPointsResponse getUserPointsById(UUID id, UUID programId, UUID callerOrganizationId) {
         User user = userRepository
             .findById(id)
@@ -340,6 +347,12 @@ public class UserService {
                 )
             );
 
+        if (callerOrganizationId != null && !userPointProgramRepository.existsByUserIdAndOrganizationId(id, callerOrganizationId)) {
+            throw new NotFoundException(
+                "User " + id + " has no relationship to organization " + callerOrganizationId + ".",
+                "No pudimos encontrar al cliente seleccionado."
+            );
+        }
         if (programId != null && callerOrganizationId != null && !pointProgramRepository.existsByIdAndOrganizationId(programId, callerOrganizationId)) {
             throw new AccessDeniedException("Point program " + programId + " is not owned by organization " + callerOrganizationId + ".");
         }

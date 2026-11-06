@@ -16,6 +16,8 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
+import studio.gnosticdeveloper.bonusbissen.entity.Organization;
+import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 
 import java.util.List;
@@ -98,6 +100,12 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
 
         User user = createUser("+5493462003003");
         String userToken = loginUser("+5493462003003");
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
+            HttpMethod.POST,
+            authed(loginEmployee("cashier-insufficient", "password123"), new JoinPointProgramRequest(user.getId())),
+            Void.class
+        );
 
         Reward reward = createReward("Expensive Reward", 1000);
 
@@ -317,13 +325,20 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 
-    // --- Employees are still allowed to look up any user (unlike
-    // users, who are restricted to themselves above). ---
+    // --- Staff can look up a customer who actually has a relationship with their
+    // organization (joined one of its programs) -- unlike users, who are
+    // restricted to themselves above. ---
     @Test
-    void employeeCanStillViewAnyUsersBalance() {
+    void employeeCanViewTheBalanceOfACustomerOfTheirOwnOrganization() {
         User cashier = createEmployee("cashier-view-any", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-view-any", "password123");
         User user = createUser("+5493462003015");
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
+            HttpMethod.POST,
+            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
+            Void.class
+        );
 
         ResponseEntity<UserPointsResponse> response = restTemplate.exchange(
             baseUrl() + "/users/" + user.getId(),
@@ -333,6 +348,44 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    /**
+     * Cross-organization IDOR regression: staff of one organization used to be able to pull
+     * ANY customer's PII (name, username, email) by user id alone, with no relationship to
+     * that org required -- fixed in UserService#getUserPointsById by requiring the target user
+     * to belong to at least one of the caller's organization's point programs first.
+     */
+    @Test
+    void employeeCannotViewTheBalanceOfACustomerWithNoRelationshipToTheirOrganization() {
+        Organization otherOrg = new Organization();
+        otherOrg.setName("Other Org IDOR");
+        otherOrg = organizationRepository.save(otherOrg);
+        PointProgram otherProgram = new PointProgram();
+        otherProgram.setOrganization(otherOrg);
+        otherProgram.setName("Other Org Points");
+        otherProgram = pointProgramRepository.save(otherProgram);
+        User cashierOther = createEmployee("cashier-other-org", "password123", StaffRole.CASHIER, otherOrg, null);
+        String cashierOtherToken = loginEmployee("cashier-other-org", "password123", otherOrg.getId());
+        User victim = createUser("+5493462003022");
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + otherProgram.getId() + "/members",
+            HttpMethod.POST,
+            authed(cashierOtherToken, new JoinPointProgramRequest(victim.getId())),
+            Void.class
+        );
+
+        User attackerCashier = createEmployee("cashier-attacker-org", "password123", StaffRole.CASHIER);
+        String attackerToken = loginEmployee("cashier-attacker-org", "password123");
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/users/" + victim.getId(),
+            HttpMethod.GET,
+            authed(attackerToken),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     // --- Baseline: an unauthenticated request to a protected endpoint must
@@ -436,6 +489,71 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    /**
+     * Cross-organization IDOR regression: staff of one organization used to be able to read
+     * ANY customer's pending exchanges -- including the raw redemption code -- at ANY other
+     * organization, by user id alone. Fixed by scoping the lookup to the caller's own
+     * organization (PointTransactionRepository#findAllPendingByUserIdOrderByCreatedAtDescRaw);
+     * a staff member outside the org now sees an empty list, not the other org's data.
+     */
+    @Test
+    void employeeCannotViewAnotherOrganizationsCustomersPendingExchanges() {
+        studio.gnosticdeveloper.bonusbissen.entity.Organization otherOrg = new studio.gnosticdeveloper.bonusbissen.entity.Organization();
+        otherOrg.setName("Other Org Pending IDOR");
+        otherOrg = organizationRepository.save(otherOrg);
+        studio.gnosticdeveloper.bonusbissen.entity.PointProgram otherProgram = new studio.gnosticdeveloper.bonusbissen.entity.PointProgram();
+        otherProgram.setOrganization(otherOrg);
+        otherProgram.setName("Other Org Points Pending");
+        otherProgram = pointProgramRepository.save(otherProgram);
+        studio.gnosticdeveloper.bonusbissen.entity.Storefront otherStorefront = new studio.gnosticdeveloper.bonusbissen.entity.Storefront();
+        otherStorefront.setOrganization(otherOrg);
+        otherStorefront.setName("Other Org Storefront");
+        otherStorefront.setAddress("x");
+        otherStorefront.setPointProgram(otherProgram);
+        otherStorefront = storefrontRepository.save(otherStorefront);
+        User cashierOther = createEmployee("cashier-other-org-pending", "password123", StaffRole.CASHIER, otherOrg, otherStorefront);
+        String cashierOtherToken = loginEmployee("cashier-other-org-pending", "password123", otherOrg.getId());
+
+        User victim = createUser("+5493462003023");
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + otherProgram.getId() + "/members",
+            HttpMethod.POST,
+            authed(cashierOtherToken, new JoinPointProgramRequest(victim.getId())),
+            Void.class
+        );
+        restTemplate.exchange(
+            baseUrl() + "/users/grant",
+            HttpMethod.POST,
+            authed(cashierOtherToken, new GrantPointsRequest(victim.getId(), 100, null)),
+            UserPointsAwardResponse.class
+        );
+        Reward otherReward = new Reward();
+        otherReward.setPointProgram(otherProgram);
+        otherReward.setTitle("Other Org Reward");
+        otherReward.setCostPoints(30);
+        otherReward = rewardRepository.save(otherReward);
+        String victimToken = loginUser("+5493462003023");
+        restTemplate.exchange(
+            baseUrl() + "/users/claim-reward",
+            HttpMethod.POST,
+            authed(victimToken, new ClaimRewardRequest(victim.getId(), otherReward.getId())),
+            String.class
+        );
+
+        User attackerCashier = createEmployee("cashier-attacker-org-pending", "password123", StaffRole.CASHIER);
+        String attackerToken = loginEmployee("cashier-attacker-org-pending", "password123");
+
+        ResponseEntity<List<PendingExchangeResponse>> response = restTemplate.exchange(
+            baseUrl() + "/exchanges/pending/" + victim.getId(),
+            HttpMethod.GET,
+            authed(attackerToken),
+            new org.springframework.core.ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEmpty();
     }
 
     // --- A user requesting their own pending exchanges must still work
