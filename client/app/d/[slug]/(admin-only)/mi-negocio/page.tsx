@@ -39,7 +39,7 @@ export default async function MiNegocioPage() {
       </header>
 
       <div className="flex flex-col gap-6">
-        <OrganizationSection org={org!} />
+        <OrganizationSection org={org} />
         <StorefrontsSection storefronts={storefronts} />
         <PointProgramsSection pointPrograms={pointPrograms} storefronts={storefronts} />
       </div>

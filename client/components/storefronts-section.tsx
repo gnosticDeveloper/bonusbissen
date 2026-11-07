@@ -2,15 +2,26 @@
 
 import { useState } from "react";
 import { Store, Plus } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Storefront } from "@/lib/types/storefront";
 import { StorefrontCard } from "./storefront-card";
 import { StorefrontForm } from "./storefront-form";
+import { ActionResult } from "@/lib/api";
 
-export function StorefrontsSection({ storefronts }: { storefronts: Storefront[] }) {
+export function StorefrontsSection({ storefronts }: { storefronts: ActionResult<Storefront[]> }) {
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  if (!storefronts.ok) {
+    return (
+      <Card className="overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]">
+        <CardContent className="px-5 py-5 sm:px-6 sm:py-6">
+          <CardDescription>{storefronts.error}</CardDescription>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]">
@@ -32,13 +43,13 @@ export function StorefrontsSection({ storefronts }: { storefronts: Storefront[] 
       <CardContent className="flex flex-col gap-4 px-5 py-5 sm:px-6 sm:py-6">
         {creating && <StorefrontForm onDone={() => setCreating(false)} />}
 
-        {storefronts.length === 0 && !creating && (
+        {storefronts.data.length === 0 && !creating && (
           <div className="rounded-2xl border border-dashed border-border py-10 text-center text-sm text-foreground/80">
             Todavía no cargaste ninguna sucursal.
           </div>
         )}
 
-        {storefronts.map((sf) =>
+        {storefronts.data.map((sf) =>
           editingId === sf.id ? (
             <StorefrontForm key={sf.id} storefront={sf} onDone={() => setEditingId(null)} />
           ) : (

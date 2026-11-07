@@ -1,10 +1,9 @@
-// components/organization-section.tsx
 "use client";
 
 import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { Building2, Save, Type } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast";
@@ -12,6 +11,7 @@ import { Organization } from "@/lib/types/organization";
 import { FormState } from "@/app/d/types";
 import { updateOrganization, uploadOrganizationImage } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
 import { ImageUploadField } from "@/components/image-upload-field";
+import { ActionResult } from "@/lib/api";
 
 const initialState: FormState = { message: null, status: null };
 
@@ -24,7 +24,7 @@ function SubmitButton() {
   );
 }
 
-export function OrganizationSection({ org }: { org: Organization }) {
+export function OrganizationSection({ org }: { org: ActionResult<Organization> }) {
   const notify = useToast();
   const [state, formAction] = useActionState(updateOrganization, initialState);
 
@@ -32,6 +32,16 @@ export function OrganizationSection({ org }: { org: Organization }) {
     if (!state.status) return;
     notify(state.message!, state.status);
   }, [state, notify]);
+
+  if (!org.ok) {
+    return (
+      <Card className="overflow-hidden items-center justify-center rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]">
+        <CardContent className="px-5 py-5 sm:px-6 sm:py-6">
+          <CardDescription>{org.error}</CardDescription>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]">
@@ -50,15 +60,21 @@ export function OrganizationSection({ org }: { org: Organization }) {
       <CardContent className="px-5 py-5 sm:px-6 sm:py-6">
         <form action={formAction} className="flex flex-col gap-5" noValidate>
           <Field label="Nombre del negocio" htmlFor="org-name" required>
-            <Input defaultValue={org.name} id="org-name" name="org-name" placeholder="Café Aurora" icon={<Type className="size-4" />} />
+            <Input defaultValue={org.data.name} id="org-name" name="org-name" placeholder="Café Aurora" icon={<Type className="size-4" />} />
           </Field>
           <div className="flex justify-end">
             <SubmitButton />
           </div>
         </form>
         <div className="mt-6 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4 border-t border-border pt-6 sm:gap-6">
-          <ImageUploadField label="Logo" initialUrl={org.logoUrl} showHint={false} upload={(data) => uploadOrganizationImage("logo", data)} />
-          <ImageUploadField label="Banner" initialUrl={org.bannerUrl} shape="banner" showHint={false} upload={(data) => uploadOrganizationImage("banner", data)} />
+          <ImageUploadField label="Logo" initialUrl={org.data.logoUrl} showHint={false} upload={(data) => uploadOrganizationImage("logo", data)} />
+          <ImageUploadField
+            label="Banner"
+            initialUrl={org.data.bannerUrl}
+            shape="banner"
+            showHint={false}
+            upload={(data) => uploadOrganizationImage("banner", data)}
+          />
           <p className="col-span-2 text-xs text-foreground/75">WEBP, JPG, JPEG o PNG · máximo 2 MB. Hacé clic en la imagen para cambiarla.</p>
         </div>
       </CardContent>

@@ -18,23 +18,18 @@ function toFormState(result: ActionResult<unknown>, successMessage: string): For
   return { message: successMessage, status: "success" };
 }
 
-async function unwrap<T>(result: ActionResult<T>): Promise<T> {
-  if (!result.ok) throw new Error(result.error);
-  return result.data;
-}
-
 // --- Reads ---
 
-export async function getOrganization(): Promise<Organization> {
-  return unwrap(await dashboardRequest<Organization>("/organization"));
+export async function getOrganization(): Promise<ActionResult<Organization>> {
+  return await dashboardRequest<Organization>("/organization");
 }
 
-export async function getStorefronts(): Promise<Storefront[]> {
-  return unwrap(await dashboardRequest<Storefront[]>("/storefronts"));
+export async function getStorefronts(): Promise<ActionResult<Storefront[]>> {
+  return await dashboardRequest<Storefront[]>("/storefronts");
 }
 
-export async function getPointPrograms(): Promise<PointProgram[]> {
-  return unwrap(await dashboardRequest<PointProgram[]>("/point-programs"));
+export async function getPointPrograms(): Promise<ActionResult<PointProgram[]>> {
+  return await dashboardRequest<PointProgram[]>("/point-programs");
 }
 
 // --- Organization ---
@@ -107,10 +102,11 @@ export async function updateStorefront(id: string, _prev: FormState, formData: F
   return toFormState(result, "Sucursal actualizada.");
 }
 
-export async function deactivateStorefront(id: string): Promise<void> {
-  // Nota: este endpoint responde 204 — ver comentario sobre dashboardRequest más abajo.
+export async function deactivateStorefront(id: string): Promise<ActionResult<void>> {
+  // The endpoint answers 204; backendFetch treats the empty body as success.
   const result = await dashboardRequest<void>(`/storefronts/${id}`, { method: "DELETE" });
   if (result.ok) revalidatePath(PATH, "page");
+  return result;
 }
 
 // --- Point programs ---
@@ -149,21 +145,28 @@ export async function updatePointProgram(id: string, _prev: FormState, formData:
 
   if (!result.ok) return toFormState(result, "");
 
+  // The program is saved from here on, so refresh the page even if moving
+  // storefronts fails below. Otherwise it would keep showing the old values.
+  revalidatePath(PATH, "page");
+
   if (toAttach.length) {
-    await dashboardRequest(`/point-programs/${id}/storefronts`, {
+    const attachResult = await dashboardRequest(`/point-programs/${id}/storefronts`, {
       method: "POST",
       headers: JSON_HEADERS,
       body: JSON.stringify({ storefrontIds: toAttach }),
     });
+
+    if (!attachResult.ok) return toFormState(attachResult, "");
   }
   if (toDetach.length) {
-    await dashboardRequest(`/point-programs/${id}/storefronts`, {
+    const detachResult = await dashboardRequest(`/point-programs/${id}/storefronts`, {
       method: "DELETE",
       headers: JSON_HEADERS,
       body: JSON.stringify({ storefrontIds: toDetach }),
     });
+
+    if (!detachResult.ok) return toFormState(detachResult, "");
   }
 
-  revalidatePath(PATH, "page");
   return toFormState(result, "Programa de puntos actualizado.");
 }

@@ -2,17 +2,37 @@
 
 import { useState } from "react";
 import { Award, Plus } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PointProgram } from "@/lib/types/point-program";
 import { Storefront } from "@/lib/types/storefront";
 import { PointProgramCard } from "./point-program-card";
 import { PointProgramForm } from "./point-program-form";
+import { ActionResult } from "@/lib/api";
 
-export function PointProgramsSection({ pointPrograms, storefronts }: { pointPrograms: PointProgram[]; storefronts: Storefront[] }) {
+export function PointProgramsSection({
+  pointPrograms,
+  storefronts,
+}: {
+  pointPrograms: ActionResult<PointProgram[]>;
+  storefronts: ActionResult<Storefront[]>;
+}) {
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const activeStorefronts = storefronts.filter((s) => s.active);
+
+  if (!pointPrograms.ok) {
+    return (
+      <Card className="overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]">
+        <CardContent className="flex flex-col gap-4 px-5 py-5 sm:px-6 sm:py-6">
+          <CardDescription>{pointPrograms.error}</CardDescription>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const storefrontsData = storefronts.ok ? storefronts.data : [];
+
+  const activeStorefronts = storefrontsData.filter((s) => s.active);
 
   return (
     <Card className="overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]">
@@ -26,13 +46,7 @@ export function PointProgramsSection({ pointPrograms, storefronts }: { pointProg
             <span className="mt-1 block text-xs font-normal text-foreground/80">Cada sucursal corre un único programa.</span>
           </span>
         </CardTitle>
-        <Button
-          type="button"
-          variant="ghost"
-          className="gap-1.5"
-          disabled={activeStorefronts.length === 0}
-          onClick={() => setCreating((v) => !v)}
-        >
+        <Button type="button" variant="ghost" className="gap-1.5" disabled={activeStorefronts.length === 0} onClick={() => setCreating((v) => !v)}>
           <Plus className="size-4" /> Agregar
         </Button>
       </CardHeader>
@@ -44,23 +58,21 @@ export function PointProgramsSection({ pointPrograms, storefronts }: { pointProg
           </div>
         )}
 
-        {creating && (
-          <PointProgramForm pointPrograms={pointPrograms} storefronts={activeStorefronts} onDone={() => setCreating(false)} />
-        )}
+        {creating && <PointProgramForm pointPrograms={pointPrograms.data} storefronts={activeStorefronts} onDone={() => setCreating(false)} />}
 
-        {activeStorefronts.length > 0 && pointPrograms.length === 0 && !creating && (
+        {activeStorefronts.length > 0 && pointPrograms.data.length === 0 && !creating && (
           <div className="rounded-2xl border border-dashed border-border py-10 text-center text-sm text-foreground/80">
             Todavía no creaste ningún programa de puntos.
           </div>
         )}
 
-        {pointPrograms.map((pp) =>
+        {pointPrograms.data.map((pp) =>
           editingId === pp.id ? (
             <PointProgramForm
               key={pp.id}
               pointProgram={pp}
-              pointPrograms={pointPrograms}
-              storefronts={storefronts}
+              storefronts={storefrontsData}
+              pointPrograms={pointPrograms.data}
               onDone={() => setEditingId(null)}
             />
           ) : (
