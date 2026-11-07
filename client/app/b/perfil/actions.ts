@@ -1,9 +1,6 @@
 "use server";
 
-import { ActionResult } from "@/lib/action-result";
-import { request } from "@/lib/api";
-import { backendUrl } from "@/lib/backend-url";
-import { getSessionToken } from "@/lib/auth/session";
+import { ActionResult, request } from "@/lib/api";
 import { clearAllSessions, CUSTOMER_ACCESS_COOKIE, CUSTOMER_REFRESH_COOKIE, deleteSessionCookies } from "@/lib/auth/refresh";
 import { UserInfo } from "@/lib/types/customer";
 import { validateImageUpload } from "@/lib/image-upload";
@@ -19,33 +16,6 @@ export type DeviceSession = {
 };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
- * Authed call that tolerates an empty (204) body — the shared `request` helper
- * in `@/lib/api` assumes a JSON payload, which these endpoints don't return.
- */
-async function mutate(path: string, method: "POST" | "DELETE"): Promise<ActionResult<null>> {
-  const token = await getSessionToken();
-  if (!token) return { ok: false, error: "Necesitás iniciar sesión." };
-
-
-  try {
-    const response = await fetch(backendUrl(path), {
-      method,
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { detail?: string; error?: string } | null;
-      return { ok: false, error: body?.detail ?? body?.error ?? "No pudimos completar la solicitud." };
-    }
-
-    return { ok: true, data: null };
-  } catch {
-    return { ok: false, error: "El servicio no está disponible en este momento." };
-  }
-}
 
 export async function updateProfile(input: { name: string; email: string }): Promise<ActionResult<UserInfo>> {
   const result = await request<UserInfo>("/users/me", {
@@ -80,8 +50,8 @@ export async function updatePassword(input: { currentPassword: string; newPasswo
 }
 
 /** Re-send the email verification message to the logged-in customer's address. */
-export async function resendVerificationEmail(): Promise<ActionResult<null>> {
-  return mutate("/users/me/resend-verification", "POST");
+export async function resendVerificationEmail(): Promise<ActionResult<void>> {
+  return request<void>("/users/me/resend-verification", { method: "POST", cache: "no-store" });
 }
 
 export async function getDeviceSessions(): Promise<ActionResult<DeviceSession[]>> {
@@ -96,12 +66,12 @@ export async function getDeviceSessions(): Promise<ActionResult<DeviceSession[]>
   });
 }
 
-export async function revokeDeviceSession(sessionId: string, current: boolean): Promise<ActionResult<null>> {
+export async function revokeDeviceSession(sessionId: string, current: boolean): Promise<ActionResult<void>> {
   if (typeof sessionId !== "string" || !UUID_PATTERN.test(sessionId)) {
     return { ok: false, error: "La sesión no es válida." };
   }
 
-  const result = await mutate(`/auth/sessions/${sessionId}`, "DELETE");
+  const result = await request<void>(`/auth/sessions/${sessionId}`, { method: "DELETE", cache: "no-store" });
   if (result.ok && current) deleteSessionCookies(await cookies(), "customer");
   return result;
 }
@@ -110,8 +80,8 @@ export async function revokeDeviceSession(sessionId: string, current: boolean): 
  * The backend revoked every session of this account, so no cookie left in this
  * browser can still be valid: both areas only ever hold the same identity.
  */
-export async function revokeAllDeviceSessions(): Promise<ActionResult<null>> {
-  const result = await mutate("/auth/sessions", "DELETE");
+export async function revokeAllDeviceSessions(): Promise<ActionResult<void>> {
+  const result = await request<void>("/auth/sessions", { method: "DELETE", cache: "no-store" });
   if (result.ok) await clearAllSessions();
   return result;
 }
@@ -120,8 +90,8 @@ export async function revokeAllDeviceSessions(): Promise<ActionResult<null>> {
  * Deactivate the logged-in customer's account (soft delete). On success the
  * session cookie is cleared so the caller can redirect to sign-in.
  */
-export async function deleteAccount(): Promise<ActionResult<null>> {
-  const result = await mutate("/users/me", "DELETE");
+export async function deleteAccount(): Promise<ActionResult<void>> {
+  const result = await request<void>("/users/me", { method: "DELETE", cache: "no-store" });
   if (result.ok) deleteSessionCookies(await cookies(), "customer");
   return result;
 }

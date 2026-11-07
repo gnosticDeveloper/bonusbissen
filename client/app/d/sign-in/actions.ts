@@ -1,8 +1,8 @@
 "use server";
 
-import { ActionResult } from "@/lib/action-result";
-import { backendUrl } from "@/lib/backend-url";
-import { dashboardRequest, publicRequest } from "@/lib/api";
+import { z } from "zod";
+import { ActionResult, backendFetchWithResponse, dashboardRequest, publicRequest } from "@/lib/api";
+import { sessionTokenSchema } from "@/schemas/user";
 import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
 import { cookies } from "next/headers";
 import { checkSession, currentSession } from "@/lib/auth/session";
@@ -35,6 +35,10 @@ export type StorefrontSummary = {
   name: string;
 };
 
+const dashboardSignInSchema = sessionTokenSchema.extend({
+  storefronts: z.array(z.object({ id: z.string(), name: z.string() })),
+});
+
 export async function getDashboardStorefronts(): Promise<StorefrontSummary[]> {
   const value = (await cookies()).get(DASHBOARD_STOREFRONTS_COOKIE)?.value;
   if (!value) return [];
@@ -65,35 +69,31 @@ export async function signIn(formData: FormData): Promise<ActionResult<{ storefr
   if (!identifier || !password) return { ok: false, error: "Completá usuario y contraseña." };
   if (!organizationId) return { ok: false, error: "Elegí tu negocio antes de continuar." };
 
-
-  try {
-    const response = await fetch(backendUrl("/auth/dashboard/sign-in"), {
+  const result = await backendFetchWithResponse(
+    "/auth/dashboard/sign-in",
+    {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ identifier, password, organizationId }),
       cache: "no-store",
-    });
+    },
+    {
+      schema: dashboardSignInSchema,
+      messages: {
+        byStatus: { 401: "Usuario, contraseña o negocio incorrectos." },
+        failed: "No pudimos completar el inicio de sesión.",
+      },
+    },
+  );
+  if (!result.ok) return result;
 
-    if (!response.ok) {
-      if (response.status === 401) return { ok: false, error: "Usuario, contraseña o negocio incorrectos." };
-      return { ok: false, error: "No pudimos completar el inicio de sesión." };
-    }
-
-    const { token, storefronts } = (await response.json()) as { token: string; storefronts: StorefrontSummary[] };
-
-    if (!(await saveDashboardSession(response, token))) {
-      return { ok: false, error: "No pudimos iniciar sesión. Probá de nuevo." };
-    }
-    const cookieStore = await cookies();
-    saveStorefronts(cookieStore, storefronts);
-
-    return {
-      ok: true,
-      data: { storefronts },
-    };
-  } catch {
-    return { ok: false, error: "El servicio no está disponible en este momento." };
+  const { token, storefronts } = result.data;
+  if (!(await saveDashboardSession(result.response, token))) {
+    return { ok: false, error: "No pudimos iniciar sesión. Probá de nuevo." };
   }
+  saveStorefronts(await cookies(), storefronts);
+
+  return { ok: true, data: { storefronts } };
 }
 
 export async function selectStorefront(storefrontId: string): Promise<{ success: true } | { success: false; error: string }> {

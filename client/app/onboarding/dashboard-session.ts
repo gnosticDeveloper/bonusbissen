@@ -1,8 +1,9 @@
 import "server-only";
 
-import { backendUrl } from "@/lib/backend-url";
+import { backendFetchWithResponse } from "@/lib/api";
 import { currentSession, getSessionToken } from "@/lib/auth/session";
 import { saveDashboardSession } from "@/lib/auth/refresh";
+import { sessionTokenSchema } from "@/schemas/user";
 
 /**
  * Trades the verified customer session for a dashboard (ADMIN) one via
@@ -26,18 +27,13 @@ export async function exchangeDashboardSession(organizationId: string): Promise<
   const token = await getSessionToken();
   if (!token) return false;
 
-  try {
-    const response = await fetch(backendUrl("/auth/dashboard/session"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ organizationId }),
-      cache: "no-store",
-    });
-    if (!response.ok) return false;
-    const { token: staffToken } = (await response.json()) as { token: string };
-    // saveDashboardSession verifies the signature, role and area before writing.
-    return await saveDashboardSession(response, staffToken);
-  } catch {
-    return false;
-  }
+  const result = await backendFetchWithResponse(
+    "/auth/dashboard/session",
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organizationId }), cache: "no-store" },
+    { token, schema: sessionTokenSchema },
+  );
+  if (!result.ok) return false;
+
+  // saveDashboardSession verifies the signature, role and area before writing.
+  return saveDashboardSession(result.response, result.data.token).catch(() => false);
 }

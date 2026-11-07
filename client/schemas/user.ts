@@ -27,6 +27,5 @@ export const userLoginSchema = z.object({
   password: z.string().min(1, "La contraseña es obligatoria"),
 });
 
-export type UserLoginRequest = z.infer<typeof userLoginSchema>;
-
-export type UserRegisterRequest = z.infer<typeof userRegisterSchema>;
+/** Body of the auth endpoints that issue an access token; the refresh token arrives as a `Set-Cookie`. */
+export const sessionTokenSchema = z.object({ token: z.string() });

@@ -22,6 +22,7 @@ mock.module("next/headers", () => ({ cookies: async () => ({
 }) }));
 mock.module("@/lib/auth/session", () => ({
   getDashboardSessionToken,
+  getSessionToken: async () => undefined,
   checkSession,
   currentSession: async area => checkSession(await getDashboardSessionToken(), area),
   decodeJwt: () => ({ sub: "admin-id" }),

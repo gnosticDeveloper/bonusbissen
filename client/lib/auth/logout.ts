@@ -1,4 +1,4 @@
-import { backendUrl } from "@/lib/backend-url";
+import { backendFetch } from "@/lib/api";
 
 /**
  * Revokes one backend session. Both credentials are sent when available: the
@@ -8,18 +8,20 @@ import { backendUrl } from "@/lib/backend-url";
 export async function logoutFromBackend(token?: string, refreshCookie?: string): Promise<void> {
   if (!token && !refreshCookie) return;
 
-  try {
-    const response = await fetch(backendUrl("/auth/logout"), {
+  const result = await backendFetch<void>(
+    "/auth/logout",
+    {
       method: "POST",
       headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(refreshCookie ? { Cookie: `bb_rt=${refreshCookie}` } : {}),
         "X-Requested-With": "XMLHttpRequest",
       },
       cache: "no-store",
-    });
-    if (!response.ok) console.error("Backend logout failed:", response.status);
-  } catch {
-    console.error("Backend logout was unavailable");
-  }
+    },
+    { token },
+  );
+
+  if (result.ok) return;
+  if (result.status) console.error("Backend logout failed:", result.status);
+  else console.error("Backend logout was unavailable");
 }

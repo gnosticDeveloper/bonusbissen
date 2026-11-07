@@ -1,7 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
-import { backendUrl } from "@/lib/backend-url";
+import { backendFetch } from "@/lib/api";
 import { UserRole } from "@/lib/definitions";
 import type { SessionCheck } from "@/lib/auth/session";
 import { ONBOARDING_STEPS, type OnboardingBackendStep } from "@/lib/types/onboarding";
@@ -42,21 +42,16 @@ export async function readOnboardingProgress(
   const token = usableToken(sessions, expectedUserId);
   if (!token) return { status: "skipped" };
 
-  try {
-    const response = await fetch(backendUrl("/onboarding"), {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-      redirect: "error",
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (response.status === 401 || response.status === 403) return { status: "rejected" };
-    if (!response.ok) return { status: "unavailable" };
-    const parsed = onboardingSchema.safeParse(await response.json());
-    if (!parsed.success) return { status: "unavailable" };
-    return { status: "ok", step: parsed.data.currentStep, organizationId: parsed.data.organizationId ?? null };
-  } catch {
-    return { status: "unavailable" };
-  }
+  const result = await backendFetch(
+    "/onboarding",
+    { cache: "no-store", redirect: "error" },
+    { token, schema: onboardingSchema, timeoutMs: 10_000 },
+  );
+
+  if (result.ok) return { status: "ok", step: result.data.currentStep, organizationId: result.data.organizationId ?? null };
+  if (result.status === 401 || result.status === 403) return { status: "rejected" };
+  // Any other status, an invalid payload, a timeout or a network error.
+  return { status: "unavailable" };
 }
 
 /**
