@@ -1,7 +1,6 @@
 "use server";
 
-import { dashboardRequest } from "@/lib/api";
-import type { ActionResult } from "@/lib/action-result";
+import { ActionResult, dashboardRequest } from "@/lib/api";
 import type { PagedResponse, SearchOptions } from "@/lib/definitions";
 import { auditQuery } from "@/lib/helpers/traceability";
 import type { AuditFilters, AuditRecord, AuditUser } from "@/lib/types/traceability";

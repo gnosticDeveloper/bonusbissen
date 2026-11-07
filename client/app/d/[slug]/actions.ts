@@ -1,8 +1,7 @@
 "use server";
 
-import { ActionResult } from "@/lib/action-result";
 import { clearAllSessions } from "@/lib/auth/refresh";
-import { dashboardRequest } from "@/lib/api";
+import { ActionResult, dashboardRequest } from "@/lib/api";
 import { AdminUserInfo } from "@/lib/definitions";
 import { redirect } from "next/navigation";
 import { cache } from "react";

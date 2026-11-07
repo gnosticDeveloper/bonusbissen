@@ -1,8 +1,7 @@
 "use server";
 
-import { ActionResult } from "@/lib/action-result";
 import { clearAllSessions } from "@/lib/auth/refresh";
-import { publicRequest, request } from "@/lib/api";
+import { ActionResult, publicRequest, request } from "@/lib/api";
 import { Location, Business, PagedResponse, PointsResponse } from "@/lib/definitions";
 import { UserInfo } from "@/lib/types/customer";
 import { redirect } from "next/navigation";

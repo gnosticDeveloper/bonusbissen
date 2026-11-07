@@ -1,8 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { ActionResult } from "@/lib/action-result";
-import { request } from "@/lib/api";
+import { ActionResult, request } from "@/lib/api";
 import { currentUserId } from "@/lib/auth/session";
 import { HistoricalExchangeResponse } from "@/lib/types/exchange";
 
