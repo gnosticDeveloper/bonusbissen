@@ -1,3 +1,4 @@
+import "server-only"
 import { cookies } from "next/headers";
 import { backendUrl } from "@/lib/backend-url";
 import { checkSession, decodeJwt } from "./session";
@@ -27,9 +28,9 @@ export {
   type SessionArea,
 } from "./cookies";
 
-export type RefreshCookie = { value: string; maxAge: number };
+type RefreshCookie = { value: string; maxAge: number };
 
-export function readBackendRefreshCookie(response: Response): RefreshCookie | null {
+function readBackendRefreshCookie(response: Response): RefreshCookie | null {
   const header = response.headers.get("set-cookie");
   const value = /^bb_rt=([A-Za-z0-9_-]+)(?:;|$)/.exec(header ?? "")?.[1];
   const maxAge = /(?:^|;)\s*Max-Age=(\d+)/i.exec(header ?? "")?.[1];

@@ -1,16 +1,15 @@
-"use server";
-
+import "server-only"
 import { cookies } from "next/headers";
-import type { BillingResult } from "@/lib/billing";
 import { UserRole } from "@/lib/definitions";
-import { checkSession, getDashboardSessionToken } from "./session";
+import { checkSession, getDashboardSessionToken } from "@/lib/auth/session";
 import {
   accessCookieOptions,
   DASHBOARD_ACCESS_COOKIE,
   DASHBOARD_REFRESH_COOKIE,
   refreshCookieOptions,
   refreshSession,
-} from "./refresh";
+} from "@/lib/auth/refresh";
+import { ActionResult } from "@/lib/api";
 
 /**
  * The one ADMIN guard for billing. Pages, server actions and the invoice route
@@ -24,7 +23,7 @@ import {
  * expired, invalid and temporarily unverifiable is preserved, because only the
  * last one is worth retrying.
  */
-export async function billingAdminToken(): Promise<BillingResult<string>> {
+export async function billingAdminToken(): Promise<ActionResult<string>> {
   // One cookie read, then one verification of exactly that token.
   let token = await getDashboardSessionToken();
   let session = await checkSession(token, "dashboard");
