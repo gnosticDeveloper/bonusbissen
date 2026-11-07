@@ -1,10 +1,10 @@
 import { Spinner } from "@/components/spinner";
 import { Business } from "@/lib/definitions";
 import { RewardCard } from "./reward-card";
-import { formatPoints } from "@/lib/helpers/format";
 import { resolveAssetUrl } from "@/lib/helpers/assets";
 import { Carousel } from "./carousel";
 import Link from "next/link";
+import { formatNumber } from "@/lib/helpers/format";
 
 interface BusinessListProps {
   businesses: Business[];
@@ -74,7 +74,7 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
               <div className="mt-3 flex items-center justify-between gap-3 text-[11px]">
                 <span className="truncate text-foreground/80">{storefront.category}</span>
                 <strong className="shrink-0 font-semibold text-foreground underline decoration-primary underline-offset-2">
-                  {formatPoints(storefront.points)} {storefront.pointLabel}
+                  {formatNumber(storefront.points)} {storefront.pointLabel}
                 </strong>
               </div>
             </div>

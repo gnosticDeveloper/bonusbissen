@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { BillingData, BillingResult } from "@/lib/billing";
+import type { BillingData } from "@/lib/billing";
 import { RequestGate } from "./request-gate";
+import { ActionResult } from "@/lib/api";
 
 export type BillingScreenProps = {
   expectedOrganizationId?: string;
@@ -11,7 +12,7 @@ export type BillingScreenProps = {
 };
 
 export function useBillingFlow<T extends BillingData>(
-  loader: (id?: string) => Promise<BillingResult<T>>,
+  loader: (id?: string) => Promise<ActionResult<T>>,
   expectedOrganizationId?: string,
 ) {
   const [data, setData] = useState<T | null>(null);

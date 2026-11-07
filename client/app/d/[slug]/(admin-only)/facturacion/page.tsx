@@ -5,19 +5,16 @@ import { useParams } from "next/navigation";
 import { Download, LoaderCircle, ReceiptText, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  billingDate,
-  billingMoney,
-  invoiceLabel,
-  subscriptionLabel,
   type BillingInvoice,
   type BillingOrganization,
-  type BillingResult,
 } from "@/lib/billing";
 import { getDashboardBilling } from "./actions";
+import { ActionResult } from "@/lib/api";
+import { billingDate, formatMoney, invoiceLabel, subscriptionLabel } from "@/lib/helpers/format";
 
 type DashboardBilling = {
-  organization: BillingResult<BillingOrganization>;
-  invoices: BillingResult<BillingInvoice[]>;
+  organization: ActionResult<BillingOrganization>;
+  invoices: ActionResult<BillingInvoice[]>;
 };
 
 function SectionError({ message, retry }: { message: string; retry: () => void }) {
@@ -107,7 +104,7 @@ function InvoiceCard({ invoice, slug }: { invoice: BillingInvoice; slug: string 
       <dl className="mt-5 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-foreground/70">Importe</dt>
-          <dd className="mt-1 wrap-break-word font-semibold">{billingMoney(invoice.amount, invoice.currency)} <span className="font-normal">({invoice.currency})</span></dd>
+          <dd className="mt-1 wrap-break-word font-semibold">{formatMoney(invoice.amount, invoice.currency)} <span className="font-normal">({invoice.currency})</span></dd>
         </div>
         <div>
           <dt className="text-foreground/70">Vencimiento</dt>

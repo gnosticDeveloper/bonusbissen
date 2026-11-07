@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { safeCheckoutUrl, subscriptionLabel } from "@/lib/billing";
+import { safeCheckoutUrl } from "@/lib/billing";
 import { loadBilling, startCheckout } from "./actions";
 import { PlanArt } from "./plan-art";
 import { POLL_INTERVAL_MS, PollBudget } from "./request-gate";
 import { useBillingFlow, type BillingScreenProps } from "./use-billing-flow";
+import { subscriptionLabel } from "@/lib/helpers/format";
 
 export function PaymentScreen(props: BillingScreenProps) {
   return <PaymentSession key={props.expectedOrganizationId ?? "current"} {...props} />;

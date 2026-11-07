@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { billingMoney, type BillingPlan } from "@/lib/billing";
+import { type BillingPlan } from "@/lib/billing";
 import { getBillingPlans, loadBilling, selectBillingPlan } from "./actions";
 import { PlanArt } from "./plan-art";
 import { useBillingFlow, type BillingScreenProps } from "./use-billing-flow";
+import { formatMoney } from "@/lib/helpers/format";
 
 const checklist = ["Gestión de sucursales", "Programa de puntos y recompensas", "Acceso para tu equipo"];
 
@@ -89,7 +90,7 @@ export function PlanSelectionScreen({ expectedOrganizationId, onContinue, disabl
                     <div className="space-y-3">
                       <h3 className="wrap-break-word text-xl font-semibold">{plan.name}</h3>
                       <p>
-                        <span className="text-3xl font-semibold tracking-tight">{billingMoney(plan.price, plan.currency)}</span>{" "}
+                        <span className="text-3xl font-semibold tracking-tight">{formatMoney(plan.price, plan.currency)}</span>{" "}
                         <span className="text-sm text-zinc-400">{plan.currency} / mes</span>
                       </p>
                     </div>
@@ -108,7 +109,7 @@ export function PlanSelectionScreen({ expectedOrganizationId, onContinue, disabl
                       disabled={!!error}
                       className="h-11 w-full bg-primary text-primary-foreground hover:bg-primary/90"
                       onClick={() => choose(plan)}
-                      aria-label={`Elegir plan ${plan.name}, ${billingMoney(plan.price, plan.currency)} ${plan.currency} por mes`}
+                      aria-label={`Elegir plan ${plan.name}, ${formatMoney(plan.price, plan.currency)} ${plan.currency} por mes`}
                     >
                       Elegir este plan
                     </Button>

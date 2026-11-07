@@ -1,4 +1,5 @@
 import { getMemberPoints } from "@/app/s/[slug]/(member-only)/inicio/actions";
+import { formatNumber } from "@/lib/helpers/format";
 
 export async function UserPointsCard({ storefrontId, pointLabel }: { storefrontId: string; pointLabel: string | null }) {
   const result = await getMemberPoints(storefrontId);
@@ -7,7 +8,7 @@ export async function UserPointsCard({ storefrontId, pointLabel }: { storefrontI
   return (
     <section className="rounded-2xl border border-border bg-card px-5 py-6 text-center text-foreground shadow-sm">
       <p className="text-xs font-medium uppercase tracking-[0.2em] text-foreground/80">Tus {pointLabel ?? "puntos"}</p>
-      <p className="mt-2 text-4xl font-semibold tabular-nums">{points !== null ? points.toLocaleString("es-AR") : "—"}</p>
+      <p className="mt-2 text-4xl font-semibold tabular-nums">{points !== null ? formatNumber(points) : "—"}</p>
     </section>
   );
 }

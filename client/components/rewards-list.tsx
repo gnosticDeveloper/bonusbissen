@@ -1,9 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatPoints, truncate } from "@/lib/helpers/format";
 import { Gift } from "lucide-react";
 import { Reward } from "@/lib/types/reward";
 import { DeleteRewardButton, EditRewardButton } from "./create-reward-button";
+import { formatNumber } from "@/lib/helpers/format";
 
 export default function RewardsList({ rewards, isAdmin, view }: { rewards: Reward[]; isAdmin: boolean; view: "list" | "grid" }) {
   return (
@@ -33,7 +33,7 @@ export default function RewardsList({ rewards, isAdmin, view }: { rewards: Rewar
             />
             <div className="absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-foreground/50 to-transparent" />
             <div className="absolute bottom-3 left-3 rounded-full bg-card/90 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur-sm">
-              {formatPoints(reward.costPoints)} pts
+              {formatNumber(reward.costPoints)} pts
             </div>
           </div>
 
@@ -54,12 +54,12 @@ export default function RewardsList({ rewards, isAdmin, view }: { rewards: Rewar
               )}
             </div>
 
-            <p className="line-clamp-3 text-sm leading-5 text-foreground/80">{truncate(reward.description, view === "list" ? 180 : 96)}</p>
+            <p className="line-clamp-3 text-sm leading-5 text-foreground/80 truncate">{reward.description}</p>
 
             <div className="mt-auto flex flex-wrap items-end justify-between gap-3 border-t border-border/70 pt-3">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground/80">Costo</p>
-                <p className="mt-1 text-sm font-bold text-foreground">{formatPoints(reward.costPoints)} pts</p>
+                <p className="mt-1 text-sm font-bold text-foreground">{formatNumber(reward.costPoints)} pts</p>
               </div>
               {isAdmin ? (
                 <div className="flex items-center gap-1 rounded-xl border border-border bg-background p-1">

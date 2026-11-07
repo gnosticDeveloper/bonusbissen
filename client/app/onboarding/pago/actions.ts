@@ -11,10 +11,10 @@ import {
   type BillingData,
   type BillingOrganization,
   type BillingPlansData,
-  type BillingResult,
 } from "@/lib/billing";
+import { ActionResult } from "@/lib/api";
 
-async function context(expectedOrganizationId?: string): Promise<BillingResult<{ token: string; organization: BillingOrganization }>> {
+async function context(expectedOrganizationId?: string): Promise<ActionResult<{ token: string; organization: BillingOrganization }>> {
   const auth = await billingAdminToken();
   if (!auth.ok) return auth;
   const organization = await billingRequest(auth.data, "/organization", billingOrganizationSchema);
@@ -24,13 +24,13 @@ async function context(expectedOrganizationId?: string): Promise<BillingResult<{
   return { ok: true, data: { token: auth.data, organization: organization.data } };
 }
 
-export async function loadBilling(expectedOrganizationId?: string): Promise<BillingResult<BillingData>> {
+export async function loadBilling(expectedOrganizationId?: string): Promise<ActionResult<BillingData>> {
   const current = await context(expectedOrganizationId);
   if (!current.ok) return current;
   return { ok: true, data: { organization: current.data.organization } };
 }
 
-export async function getBillingPlans(expectedOrganizationId?: string): Promise<BillingResult<BillingPlansData>> {
+export async function getBillingPlans(expectedOrganizationId?: string): Promise<ActionResult<BillingPlansData>> {
   const current = await context(expectedOrganizationId);
   if (!current.ok) return current;
   const { token, organization } = current.data;
@@ -39,7 +39,7 @@ export async function getBillingPlans(expectedOrganizationId?: string): Promise<
   return { ok: true, data: { organization, plans: plans.data } };
 }
 
-export async function selectBillingPlan(organizationId: string, billingPlanId: string): Promise<BillingResult<BillingOrganization>> {
+export async function selectBillingPlan(organizationId: string, billingPlanId: string): Promise<ActionResult<BillingOrganization>> {
   if (!z.uuid().safeParse(billingPlanId).success) return { ok: false, error: "Elegí un plan válido." };
   const current = await context(organizationId);
   if (!current.ok) return current;
@@ -47,7 +47,7 @@ export async function selectBillingPlan(organizationId: string, billingPlanId: s
     return { ok: false, error: "Tu plan ya está confirmado. Continuá con la configuración del negocio." };
   const plans = await billingRequest(current.data.token, "/organization/billing-plans", z.array(billingPlanSchema));
   if (!plans.ok) return plans;
-  if (!plans.data.some(plan => plan.id === billingPlanId))
+  if (!plans.data.some((plan) => plan.id === billingPlanId))
     return { ok: false, error: "Este plan ya no está disponible. Volvé a consultar los planes." };
   return billingRequest(current.data.token, "/organization/billing-plan", billingOrganizationSchema, {
     method: "PUT",
@@ -56,7 +56,7 @@ export async function selectBillingPlan(organizationId: string, billingPlanId: s
   });
 }
 
-export async function startCheckout(organizationId: string, payerEmail: string): Promise<BillingResult<{ initPoint: string; status: string }>> {
+export async function startCheckout(organizationId: string, payerEmail: string): Promise<ActionResult<{ initPoint: string; status: string }>> {
   const email = z.email().safeParse(typeof payerEmail === "string" ? payerEmail.trim() : payerEmail);
   if (!email.success) return { ok: false, error: "Ingresá un correo válido para pagar con Mercado Pago." };
   const current = await context(organizationId);
@@ -75,13 +75,13 @@ export async function startCheckout(organizationId: string, payerEmail: string):
   if (!initPoint)
     return {
       ok: false,
-      error:
-        "No pudimos verificar el enlace de Mercado Pago. Reintentá la consulta antes de volver a preparar el pago.",
+      error: "No pudimos verificar el enlace de Mercado Pago. Reintentá la consulta antes de volver a preparar el pago.",
     };
   return { ok: true, data: { initPoint, status: result.data.status } };
 }
 
-export async function cancelBillingSubscription(organizationId: string): Promise<BillingResult<BillingOrganization>> {
+/** Sin UI todavía; cubierto por tests. */
+export async function cancelBillingSubscription(organizationId: string): Promise<ActionResult<BillingOrganization>> {
   const current = await context(organizationId);
   if (!current.ok) return current;
   return billingRequest(current.data.token, "/organization/billing/subscription", billingOrganizationSchema, { method: "DELETE" });

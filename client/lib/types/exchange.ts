@@ -4,7 +4,7 @@ export enum ExchangeState {
   CANCELLED = "cancelled",
 }
 
-export interface HistoricalExchangeBase {
+interface HistoricalExchangeBase {
   id: string;
   rewardTitle: string;
   rewardDescription: string;
@@ -23,7 +23,7 @@ export interface PendingExchange extends HistoricalExchangeBase {
   exchangeCode: string; // required here
 }
 
-export interface CompletedExchange extends HistoricalExchangeBase {
+interface CompletedExchange extends HistoricalExchangeBase {
   state: ExchangeState.COMPLETED | ExchangeState.CANCELLED;
   exchangeCode?: never; // forbidden here
 }

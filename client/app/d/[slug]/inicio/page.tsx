@@ -3,7 +3,7 @@ import { Gift, Clock, Users, Sparkles, Trophy, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getHomeStats, getPendingExchanges, getTopClients, getTopRewards } from "../../actions";
 import { HomeStats, PendingExchangeReview, TopClient, TopReward } from "../../types";
-import { formatPoints } from "@/lib/helpers/format";
+import { formatNumber } from "@/lib/helpers/format";
 
 export default function HomePage() {
   return (
@@ -144,7 +144,7 @@ function StatsGrid({ stats }: { stats: HomeStats }) {
                 <Icon className="size-4" />
               </div>
             </div>
-            <p className="font-serif text-2xl font-semibold text-foreground sm:text-3xl">{item.value.toLocaleString("es-AR")}</p>
+            <p className="font-serif text-2xl font-semibold text-foreground sm:text-3xl">{formatNumber(item.value)}</p>
           </div>
         );
       })}
@@ -173,7 +173,7 @@ function PendingExchangesCard({ items }: { items: PendingExchangeReview[] }) {
               <p className="mt-0.5 text-sm text-foreground/80">{item.rewardTitle}</p>
               <p className="mt-1 text-xs text-foreground/80">{item.createdAtFormatted}</p>
             </div>
-            <span className="shrink-0 text-sm font-semibold text-foreground">{formatPoints(Math.abs(item.points))} pts</span>
+            <span className="shrink-0 text-sm font-semibold text-foreground">{formatNumber(Math.abs(item.points))} pts</span>
           </div>
         ))}
       </div>
@@ -203,7 +203,7 @@ function TopRewardsCard({ items }: { items: TopReward[] }) {
                   {item.claimCount} {item.claimCount === 1 ? "canje" : "canjes"} este mes
                 </p>
               </div>
-              <span className="shrink-0 text-sm font-semibold text-foreground">{item.points.toLocaleString("es-AR")} pts</span>
+              <span className="shrink-0 text-sm font-semibold text-foreground">{formatNumber(item.points)} pts</span>
             </div>
           ))}
         </div>
@@ -230,7 +230,7 @@ function TopClientsCard({ items }: { items: TopClient[] }) {
               </span>
               <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{item.name}</p>
               <span className="shrink-0 text-sm font-semibold text-foreground">
-                {item.totalPoints.toLocaleString("es-AR")} pts
+                {formatNumber(item.totalPoints)} pts
               </span>
             </div>
           ))}

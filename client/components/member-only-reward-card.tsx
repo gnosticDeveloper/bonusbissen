@@ -4,6 +4,7 @@ import { Gift } from "lucide-react";
 import type { Reward } from "@/lib/types/reward";
 import { useModal } from "@/components/modal";
 import { RewardClaimModal } from "@/components/modals/rewards/claim-reward-modal";
+import { formatNumber } from "@/lib/helpers/format";
 
 export function MemberOnlyRewardCard({ reward }: { reward: Reward }) {
   const { open } = useModal();
@@ -11,7 +12,7 @@ export function MemberOnlyRewardCard({ reward }: { reward: Reward }) {
   const handleOpen = () => {
     open(<RewardClaimModal reward={reward} />, {
       title: reward.title,
-      description: `${reward.costPoints.toLocaleString("es-AR")} pts para canjear`,
+      description: `${formatNumber(reward.costPoints)} pts para canjear`,
     });
   };
 
@@ -48,7 +49,7 @@ export function MemberOnlyRewardCard({ reward }: { reward: Reward }) {
                 <span className="rounded-full bg-muted/20 px-2.5 py-1 text-[11px] font-semibold text-foreground">{reward.discountValue}% OFF</span>
               )}
               <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-foreground">
-                {reward.costPoints.toLocaleString("es-AR")} pts
+                {formatNumber(reward.costPoints)} pts
               </span>
             </div>
           </div>

@@ -1,9 +1,9 @@
 import type { CSSProperties } from "react";
 import { Gift, Heart, Sparkles, Star } from "lucide-react";
 import { CARD_PALETTES, pickCardVariant } from "@/lib/helpers/color";
-import { formatPoints } from "@/lib/helpers/format";
 import { Reward } from "@/lib/types/reward";
 import { CarouselReveal } from "./carousel";
+import { formatNumber } from "@/lib/helpers/format";
 
 export function RewardCard({ reward, color, pointsLabel }: { reward: Reward; color: string; pointsLabel: string | null }) {
   const palette = CARD_PALETTES[pickCardVariant(color)];
@@ -26,7 +26,7 @@ export function RewardCard({ reward, color, pointsLabel }: { reward: Reward; col
 
           <CarouselReveal className="shrink-0">
             <span className="block rounded-full px-2.5 py-1 text-[10px] font-semibold" style={{ backgroundColor: color, color: palette.text }}>
-              {formatPoints(reward.costPoints)} {pointsLabel ?? "puntos"}
+              {formatNumber(reward.costPoints)} {pointsLabel ?? "puntos"}
             </span>
           </CarouselReveal>
         </div>

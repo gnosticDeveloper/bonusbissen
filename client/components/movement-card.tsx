@@ -1,10 +1,11 @@
 import { MovementResponse } from "@/app/s/[slug]/(member-only)/historial/actions";
 import { Gift, Coins, MapPin, Store } from "lucide-react";
 import { PointExpirationBadge } from "@/components/point-expiration-badge";
+import { formatNumber } from "@/lib/helpers/format";
 
 export function MovementCard({ movement }: { movement: MovementResponse }) {
   const isEarn = movement.points > 0;
-  const pointsText = `${Math.abs(movement.points).toLocaleString("es-AR")} ${movement.pointsLabel || "puntos"}`;
+  const pointsText = `${formatNumber(Math.abs(movement.points))} ${movement.pointsLabel || "puntos"}`;
 
   return (
     <article className="overflow-hidden rounded-3xl border border-border bg-card shadow-[0_12px_30px_rgba(20,16,25,0.05)]">
@@ -14,11 +15,7 @@ export function MovementCard({ movement }: { movement: MovementResponse }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={movement.imageUrl} alt={movement.title} className="h-full w-full object-cover" />
           ) : (
-            <div
-              className={`grid h-full w-full place-items-center ${
-                isEarn ? "bg-green-500/10 text-foreground" : "text-foreground/80"
-              }`}
-            >
+            <div className={`grid h-full w-full place-items-center ${isEarn ? "bg-green-500/10 text-foreground" : "text-foreground/80"}`}>
               {movement.type !== "redeem" ? <Coins className="h-8 w-8" aria-hidden="true" /> : <Gift className="h-8 w-8" aria-hidden="true" />}
             </div>
           )}
@@ -26,7 +23,12 @@ export function MovementCard({ movement }: { movement: MovementResponse }) {
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-foreground">{movement.title}</p>
-          {movement.correction && <p className="mt-1 text-xs font-medium text-foreground/80">Corrección del movimiento original de {movement.correctedTransactionAmount?.toLocaleString("es-AR")} puntos</p>}
+          {movement.correction && (
+            <p className="mt-1 text-xs font-medium text-foreground/80">
+              Corrección del movimiento original de{" "}
+              {movement.correctedTransactionAmount ? `${formatNumber(movement.correctedTransactionAmount)} puntos` : "puntos"}
+            </p>
+          )}
 
           {movement.orgName && (
             <div className="mt-1.5 flex items-center gap-1.5 text-xs text-foreground/80">
