@@ -4,6 +4,7 @@ import { ActionResult, backendFetch, backendFetchWithResponse, REQUEST_FAILED_ME
 import { SignInUser } from "@/lib/definitions";
 import { sessionTokenSchema, userLoginSchema } from "@/schemas/user";
 import { saveCustomerSession } from "@/lib/auth/refresh";
+import { parseOrError } from "@/lib/action-helpers";
 import { z } from "zod";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -15,11 +16,8 @@ export async function signIn(formData: FormData): Promise<ActionResult<SignInUse
     password: String(formData.get("password") ?? ""),
   };
 
-  const parsed = userLoginSchema.safeParse(raw);
-  if (!parsed.success) {
-    const firstError = parsed.error.issues[0]?.message ?? "Revisá los datos ingresados.";
-    return { ok: false, error: firstError };
-  }
+  const parsed = parseOrError(userLoginSchema, raw);
+  if (!parsed.ok) return parsed;
 
   const { identifier, password } = parsed.data;
 

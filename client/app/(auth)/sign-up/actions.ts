@@ -4,6 +4,7 @@ import { ActionResult, backendFetchWithResponse, REQUEST_FAILED_MESSAGE } from "
 import { SignInUser } from "@/lib/definitions";
 import { sessionTokenSchema, userRegisterSchema } from "@/schemas/user";
 import { saveCustomerSession } from "@/lib/auth/refresh";
+import { parseOrError } from "@/lib/action-helpers";
 
 export async function signUp(formData: FormData): Promise<ActionResult<SignInUser>> {
   const raw = {
@@ -13,11 +14,8 @@ export async function signUp(formData: FormData): Promise<ActionResult<SignInUse
     email: String(formData.get("email") ?? ""),
   };
 
-  const parsed = userRegisterSchema.safeParse(raw);
-  if (!parsed.success) {
-    const firstError = parsed.error.issues[0]?.message ?? "Revisá los datos ingresados.";
-    return { ok: false, error: firstError };
-  }
+  const parsed = parseOrError(userRegisterSchema, raw);
+  if (!parsed.ok) return parsed;
 
   const { name, username, password, email } = parsed.data;
 

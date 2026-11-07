@@ -13,6 +13,7 @@ import {
   type BillingPlansData,
 } from "@/lib/billing";
 import { ActionResult } from "@/lib/api";
+import { isBillingAuthorized, parseOrError } from "@/lib/action-helpers";
 
 async function context(expectedOrganizationId?: string): Promise<ActionResult<{ token: string; organization: BillingOrganization }>> {
   const auth = await billingAdminToken();
@@ -40,10 +41,11 @@ export async function getBillingPlans(expectedOrganizationId?: string): Promise<
 }
 
 export async function selectBillingPlan(organizationId: string, billingPlanId: string): Promise<ActionResult<BillingOrganization>> {
-  if (!z.uuid().safeParse(billingPlanId).success) return { ok: false, error: "Elegí un plan válido." };
+  const planId = parseOrError(z.uuid("Elegí un plan válido."), billingPlanId);
+  if (!planId.ok) return planId;
   const current = await context(organizationId);
   if (!current.ok) return current;
-  if (current.data.organization.mercadoPagoSubscriptionStatus === "authorized")
+  if (isBillingAuthorized(current.data.organization))
     return { ok: false, error: "Tu plan ya está confirmado. Continuá con la configuración del negocio." };
   const plans = await billingRequest(current.data.token, "/organization/billing-plans", z.array(billingPlanSchema));
   if (!plans.ok) return plans;
@@ -57,13 +59,16 @@ export async function selectBillingPlan(organizationId: string, billingPlanId: s
 }
 
 export async function startCheckout(organizationId: string, payerEmail: string): Promise<ActionResult<{ initPoint: string; status: string }>> {
-  const email = z.email().safeParse(typeof payerEmail === "string" ? payerEmail.trim() : payerEmail);
-  if (!email.success) return { ok: false, error: "Ingresá un correo válido para pagar con Mercado Pago." };
+  const email = parseOrError(
+    z.email("Ingresá un correo válido para pagar con Mercado Pago."),
+    typeof payerEmail === "string" ? payerEmail.trim() : payerEmail,
+  );
+  if (!email.ok) return email;
   const current = await context(organizationId);
   if (!current.ok) return current;
   const { organization, token } = current.data;
   if (!organization.billingPlanName) return { ok: false, error: "Guardá un plan antes de ir a Mercado Pago." };
-  if (organization.mercadoPagoSubscriptionStatus === "authorized")
+  if (isBillingAuthorized(organization))
     return { ok: false, status: 409, error: "Ya autorizaste los cobros. Podés continuar con la configuración." };
   const result = await billingRequest(token, "/organization/billing/checkout", billingCheckoutSchema, {
     method: "POST",
