@@ -51,10 +51,6 @@ export function formatDate(iso: string): string {
   return formatIso(iso, dateFormatter);
 }
 
-export function formatDateTime(iso: string): string {
-  return formatIso(iso, dateTimeFormatter);
-}
-
 export function formatNumber(value: number): string {
   return numberFormatter.format(value);
 }

@@ -18,6 +18,7 @@ import {
 import { useUser } from "@/providers/user-provider";
 import { CitySelect } from "@/components/city-select";
 import { ImageUploadField } from "@/components/image-upload-field";
+import { formatDate } from "@/lib/helpers/format";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 type VerifyState = "idle" | "sending" | "sent" | "error";
@@ -38,10 +39,6 @@ type ConfirmDialogProps = {
 };
 
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,72}$/;
-const dateFormatter = new Intl.DateTimeFormat("es-AR", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
 
 function Spinner({ dark = false }: { dark?: boolean }) {
   return <span className={`size-3.5 animate-spin rounded-full border-2 ${dark ? "border-white" : "border-primary-foreground"} border-t-transparent`} />;
@@ -138,11 +135,6 @@ function ConfirmDialog({
       </div>
     </dialog>
   );
-}
-
-function formatDate(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "Fecha desconocida" : dateFormatter.format(date);
 }
 
 export default function ProfilePage() {
