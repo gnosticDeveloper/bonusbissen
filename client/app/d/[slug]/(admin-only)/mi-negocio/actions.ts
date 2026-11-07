@@ -8,10 +8,44 @@ import { validateImageUpload } from "@/lib/image-upload";
 import { Storefront, StorefrontPayload } from "@/lib/types/storefront";
 import { PointProgram, PointProgramCreateRequest } from "@/lib/types/point-program";
 import { pointProgramUpdatePayloadFrom } from "@/lib/helpers/point-program-settings";
+import { parseOrError } from "@/lib/action-helpers";
+import { z } from "zod";
 
 const PATH = "/d/[slug]/(admin-only)/mi-negocio";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
+
+// --- Input ---
+// Limits follow the database columns (and the onboarding form), so a long value
+// gets a clear message instead of a failed request.
+
+const NAME_TOO_LONG = "El nombre no puede superar los 255 caracteres.";
+
+/** An optional text field. Left empty, it isn't sent at all. */
+function optionalText(max: number, message: string) {
+  return z.string().trim().max(max, message).transform((value) => value || undefined).optional();
+}
+
+const organizationNameSchema = z.string().trim().min(1, "Completá el nombre del negocio.").max(255, NAME_TOO_LONG);
+
+const storefrontSchema = z.object({
+  name: z.string().trim().min(1, "Completá el nombre de la sucursal.").max(255, NAME_TOO_LONG),
+  address: optionalText(255, "La dirección no puede superar los 255 caracteres."),
+  city: optionalText(120, "La localidad no puede superar los 120 caracteres."),
+  province: optionalText(120, "La provincia no puede superar los 120 caracteres."),
+  category: optionalText(80, "El rubro no puede superar los 80 caracteres."),
+  color: z.string().regex(/^#[0-9a-f]{6}$/i, "Elegí un color válido.").optional(),
+  hours: optionalText(255, "El horario no puede superar los 255 caracteres."),
+  description: optionalText(2000, "La descripción no puede superar los 2000 caracteres."),
+});
+
+const storefrontIdsSchema = z.array(z.uuid("Una de las sucursales elegidas ya no está disponible. Volvé a cargar la página."));
+
+const pointProgramCreateSchema = z.object({
+  name: z.string().trim().min(1, "Completá el nombre del programa.").max(255, NAME_TOO_LONG),
+  unitLabel: optionalText(50, "El nombre de los puntos no puede superar los 50 caracteres."),
+  storefrontIds: storefrontIdsSchema,
+});
 
 function toFormState(result: ActionResult<unknown>, successMessage: string): FormState {
   if (!result.ok) return { message: result.error, status: "error" };
@@ -35,12 +69,13 @@ export async function getPointPrograms(): Promise<ActionResult<PointProgram[]>> 
 // --- Organization ---
 
 export async function updateOrganization(_prev: FormState, formData: FormData): Promise<FormState> {
-  const name = formData.get("org-name") as string;
+  const name = parseOrError(organizationNameSchema, formData.get("org-name"));
+  if (!name.ok) return toFormState(name, "");
 
   const result = await dashboardRequest<Organization>("/organization", {
     method: "POST",
     headers: JSON_HEADERS,
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name: name.data }),
   });
 
   if (result.ok) revalidatePath(PATH, "page");
@@ -64,25 +99,20 @@ export async function uploadOrganizationImage(kind: "logo" | "banner", formData:
 
 // --- Storefronts ---
 
-function storefrontPayloadFrom(formData: FormData): StorefrontPayload {
-  return {
-    name: formData.get("name") as string,
-    online: formData.get("online") === "true",
-    address: (formData.get("address") as string) || undefined,
-    city: (formData.get("city") as string) || undefined,
-    province: (formData.get("province") as string) || undefined,
-    category: (formData.get("category") as string) || undefined,
-    color: (formData.get("color") as string) || undefined,
-    hours: (formData.get("hours") as string) || undefined,
-    description: (formData.get("description") as string) || undefined,
-  };
+function storefrontPayloadFrom(formData: FormData): ActionResult<StorefrontPayload> {
+  const fields = parseOrError(storefrontSchema, Object.fromEntries(formData));
+  if (!fields.ok) return fields;
+  return { ok: true, data: { ...fields.data, online: formData.get("online") === "true" } };
 }
 
 export async function createStorefront(_prev: FormState, formData: FormData): Promise<FormState> {
+  const payload = storefrontPayloadFrom(formData);
+  if (!payload.ok) return toFormState(payload, "");
+
   const result = await dashboardRequest<Storefront>("/storefronts", {
     method: "POST",
     headers: JSON_HEADERS,
-    body: JSON.stringify(storefrontPayloadFrom(formData)),
+    body: JSON.stringify(payload.data),
   });
 
   if (result.ok) revalidatePath(PATH, "page");
@@ -90,12 +120,13 @@ export async function createStorefront(_prev: FormState, formData: FormData): Pr
 }
 
 export async function updateStorefront(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
-  const payload = { ...storefrontPayloadFrom(formData), active: formData.get("active") === "true" };
+  const payload = storefrontPayloadFrom(formData);
+  if (!payload.ok) return toFormState(payload, "");
 
   const result = await dashboardRequest<Storefront>(`/storefronts/${id}`, {
     method: "PATCH",
     headers: JSON_HEADERS,
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload.data, active: formData.get("active") === "true" }),
   });
 
   if (result.ok) revalidatePath(PATH, "page");
@@ -112,16 +143,16 @@ export async function deactivateStorefront(id: string): Promise<ActionResult<voi
 // --- Point programs ---
 
 export async function createPointProgram(_prev: FormState, formData: FormData): Promise<FormState> {
-  const payload: PointProgramCreateRequest = {
-    name: formData.get("name") as string,
-    unitLabel: (formData.get("unitLabel") as string) || undefined,
-    storefrontIds: formData.getAll("storefrontIds") as string[],
-  };
+  const payload = parseOrError(pointProgramCreateSchema, {
+    ...Object.fromEntries(formData),
+    storefrontIds: formData.getAll("storefrontIds"),
+  });
+  if (!payload.ok) return toFormState(payload, "");
 
   const result = await dashboardRequest<PointProgram>("/point-programs", {
     method: "POST",
     headers: JSON_HEADERS,
-    body: JSON.stringify(payload),
+    body: JSON.stringify(payload.data satisfies PointProgramCreateRequest),
   });
 
   if (result.ok) revalidatePath(PATH, "page");
@@ -132,8 +163,14 @@ export async function updatePointProgram(id: string, _prev: FormState, formData:
   const payload = pointProgramUpdatePayloadFrom(formData);
   if (!payload.ok) return { message: payload.error, status: "error" };
 
-  const selected = new Set(formData.getAll("storefrontIds") as string[]);
-  const original = new Set(((formData.get("originalStorefrontIds") as string) || "").split(",").filter(Boolean));
+  const storefrontIds = parseOrError(z.object({ selected: storefrontIdsSchema, original: storefrontIdsSchema }), {
+    selected: formData.getAll("storefrontIds"),
+    original: String(formData.get("originalStorefrontIds") ?? "").split(",").filter(Boolean),
+  });
+  if (!storefrontIds.ok) return toFormState(storefrontIds, "");
+
+  const selected = new Set(storefrontIds.data.selected);
+  const original = new Set(storefrontIds.data.original);
   const toAttach = [...selected].filter((id) => !original.has(id));
   const toDetach = [...original].filter((id) => !selected.has(id));
 
