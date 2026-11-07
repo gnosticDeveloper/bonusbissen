@@ -5,10 +5,10 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { X } from "lucide-react";
 import { ActionStatusModal } from "@/components/modals/action-status-modal";
 import { Button } from "@/components/ui/button";
-import type { ActionResult } from "@/lib/action-result";
 import { cn } from "@/lib/helpers/utils";
+import { ActionResult } from "@/lib/api";
 
-export type ModalHeaderText = {
+type ModalHeaderText = {
   title: string;
   description: string;
 };
@@ -30,10 +30,9 @@ type ModalState = {
 };
 
 interface ContextType {
-  modal: ReactNode | null;
   open: (content: ReactNode, options: ModalOptions) => void;
   close: () => void;
-  runAction: <T>(action: () => Promise<ActionResult<T>>, messages: ActionMessages<T>) => Promise<ActionResult<T>>;
+  runWithStatus: <T>(action: () => Promise<ActionResult<T>>, messages: ActionMessages<T>) => Promise<ActionResult<T>>;
 }
 
 const ModalContext = createContext<ContextType | null>(null);
@@ -65,7 +64,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
     [setModal],
   );
 
-  const runAction = useCallback(
+  const runWithStatus = useCallback(
     async <T,>(action: () => Promise<ActionResult<T>>, messages: ActionMessages<T>): Promise<ActionResult<T>> => {
       setModal(<ActionStatusModal status="loading" onClose={close} />, { ...messages.loading, dismissible: false });
 
@@ -116,7 +115,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
     };
   }, [close, state]);
 
-  const context = useMemo<ContextType>(() => ({ modal: state?.content ?? null, open, close, runAction }), [close, open, runAction, state?.content]);
+  const context = useMemo<ContextType>(() => ({ open, close, runWithStatus }), [close, open, runWithStatus]);
 
   return (
     <ModalContext.Provider value={context}>

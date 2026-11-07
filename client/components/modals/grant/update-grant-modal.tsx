@@ -5,11 +5,11 @@ import { PointAction } from "@/app/d/types";
 import { useModal } from "@/components/modal";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
-import { formatPoints } from "@/lib/helpers/format";
+import { formatNumber } from "@/lib/helpers/format";
 import { SubmitEvent, useState } from "react";
 
 export function UpdateGrantModal({ a, onSucceed }: { a: PointAction; onSucceed?: (a: PointAction) => void }) {
-  const { close, open, runAction } = useModal();
+  const { close, open, runWithStatus } = useModal();
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
@@ -41,14 +41,14 @@ export function UpdateGrantModal({ a, onSucceed }: { a: PointAction; onSucceed?:
         );
         return;
       }
-      const shown = await runAction(async () => result, {
+      const shown = await runWithStatus(async () => result, {
         loading: {
           title: "Corrigiendo puntos",
           description: `Estamos registrando una corrección para ${a.userName}.`,
         },
         success: (updated) => ({
           title: "Corrección registrada",
-          description: `Se registró un ajuste de ${formatPoints(updated.amount)} puntos para ${updated.userName}.`,
+          description: `Se registró un ajuste de ${formatNumber(updated.amount)} puntos para ${updated.userName}.`,
         }),
         errorTitle: "No pudimos corregir los puntos",
       });

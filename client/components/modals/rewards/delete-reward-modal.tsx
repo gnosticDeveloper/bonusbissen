@@ -8,10 +8,10 @@ import { deleteReward } from "@/app/d/[slug]/gestion-recompensas/actions";
 
 export function DeleteRewardModal({ reward }: { reward: Reward }) {
   const router = useRouter();
-  const { close, runAction } = useModal();
+  const { close, runWithStatus } = useModal();
 
   async function handleDelete() {
-    const result = await runAction(() => deleteReward(reward.id), {
+    const result = await runWithStatus(() => deleteReward(reward.id), {
       loading: {
         title: "Eliminando recompensa",
         description: `Estamos quitando ${reward.title} del catálogo.`,

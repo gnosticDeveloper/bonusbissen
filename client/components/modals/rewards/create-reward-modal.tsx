@@ -15,7 +15,7 @@ import { ModalContentLoader } from "@/components/modals/action-status-modal";
 
 export function CreateRewardModal() {
   const router = useRouter();
-  const { close, runAction } = useModal();
+  const { close, runWithStatus } = useModal();
   const notify = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -28,7 +28,7 @@ export function CreateRewardModal() {
     let cancelled = false;
     getPointPrograms()
       .then((programs) => {
-        if (!cancelled) setPointPrograms(programs.filter((p) => p.active));
+        if (!cancelled && programs.ok) setPointPrograms(programs.data.filter((p) => p.active));
       })
       .catch(() => {
         if (!cancelled) setLoadError(true);
@@ -66,7 +66,7 @@ export function CreateRewardModal() {
       data.set("image", image);
     }
 
-    const result = await runAction(() => createReward(data), {
+    const result = await runWithStatus(() => createReward(data), {
       loading: {
         title: "Creando recompensa",
         description: `Estamos agregando ${title} al catálogo.`,

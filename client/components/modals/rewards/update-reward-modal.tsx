@@ -16,7 +16,7 @@ interface Props {
 
 export function UpdateRewardModal({ reward }: Props) {
   const router = useRouter();
-  const { close, runAction } = useModal();
+  const { close, runWithStatus } = useModal();
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +63,7 @@ export function UpdateRewardModal({ reward }: Props) {
 
     data.set("removeImage", String(removeImage));
 
-    const result = await runAction(() => editReward(reward.id, data), {
+    const result = await runWithStatus(() => editReward(reward.id, data), {
       loading: {
         title: "Actualizando recompensa",
         description: `Estamos guardando los cambios de ${title}.`,
