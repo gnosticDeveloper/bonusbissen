@@ -35,7 +35,11 @@ export async function updateGrant(id: string, values: UpdateGrantRequest) {
   return res;
 }
 
-
+/**
+ * Throws on failure instead of returning an `ActionResult`: it's a
+ * `PagedRequestFunction`, and `Autocomplete` catches the error to show its own
+ * message. Callers outside `Autocomplete` need a `try`/`catch`.
+ */
 export const getAllCustomers: PagedRequestFunction<Customer> = async ({ search, page, size }) => {
   const params = new URLSearchParams();
   params.append("page", page.toString());
