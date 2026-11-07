@@ -3,6 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { redemptionStatusLabel } from "@/lib/helpers/format";
 import { Skeleton } from "./ui/skeleton";
+import { ErrorState } from "@/components/error-state";
+import { History } from "lucide-react";
 
 export function ResolvedRedemptionsSkeleton() {
   return (
@@ -28,9 +30,8 @@ export function ResolvedRedemptionsSkeleton() {
 }
 
 export default async function ResolvedRedemptionsList() {
-  const resolved = await getResolvedExchanges();
-
-  if (!resolved) return null;
+  const result = await getResolvedExchanges();
+  const resolved = result.ok ? result.data : [];
 
   return (
     <Card className="flex min-h-0 max-h-[calc(100dvh-13rem)] flex-col overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)] sm:max-h-[calc(100dvh-11rem)]">
@@ -40,16 +41,22 @@ export default async function ResolvedRedemptionsList() {
           <CardTitle className="text-base tracking-[-0.02em]">Canjes resueltos</CardTitle>
           <p className="mt-1 text-xs text-foreground/80">Últimas recompensas entregadas o anuladas.</p>
         </div>
-        <Badge tone="neutral" className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground/80">
-          {resolved.length}
-        </Badge>
+        {result.ok ? (
+          <Badge tone="neutral" className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground/80">
+            {resolved.length}
+          </Badge>
+        ) : null}
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-4 sm:px-6">
-        {resolved.length === 0 ? (
+        {!result.ok ? <ErrorState icon={History} title="No pudimos cargar los canjes resueltos" description={result.error} /> : null}
+
+        {result.ok && resolved.length === 0 ? (
           <div className="flex min-h-48 items-center justify-center rounded-2xl border border-dashed border-border bg-background/50 px-5 text-center">
             <p className="max-w-xs text-sm leading-5 text-foreground/80">Todavía no hay canjes resueltos.</p>
           </div>
-        ) : (
+        ) : null}
+
+        {result.ok && resolved.length > 0 ? (
           <ul className="mt-4 min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain pr-1 scrollbar-gutter-stable">
             {resolved.map((r) => {
               return (
@@ -73,7 +80,7 @@ export default async function ResolvedRedemptionsList() {
               );
             })}
           </ul>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldError, Input, Label } from "@/components/ui/input";
-import { truncate } from "@/lib/helpers/format";
 import { CheckCircle2, Search, Ticket, XCircle } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -35,7 +34,7 @@ export function RedemptionValidatorSkeleton() {
 
 export default function RedemptionValidator() {
   const router = useRouter();
-  const { runAction } = useModal();
+  const { runWithStatus } = useModal();
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [found, setFound] = useState<ExchangeResponse | null>(null);
@@ -51,11 +50,12 @@ export default function RedemptionValidator() {
       setError("Ingresá un código de canje para validar.");
       return;
     }
-    const match = await validateCode(normalized);
-    if (!match) {
-      setError("No encontramos ningún canje con ese código. Revisá que esté bien escrito.");
+    const result = await validateCode(normalized);
+    if (!result.ok) {
+      setError(result.status === 404 ? "No encontramos ningún canje con ese código. Revisá que esté bien escrito." : result.error);
       return;
     }
+    const match = result.data;
     if (match.state !== "pending") {
       setError(`Este canje ya fue ${match.state === "delivered" ? "entregado" : "anulado"}. No se puede volver a resolver.`);
       return;
@@ -73,7 +73,7 @@ export default function RedemptionValidator() {
   async function confirmExchange() {
     if (!found) return;
 
-    const result = await runAction(() => confirmRedemption(found.id), {
+    const result = await runWithStatus(() => confirmRedemption(found.id), {
       loading: {
         title: "Confirmando entrega",
         description: `Estamos confirmando la entrega de ${found.rewardTitle} a ${found.userName}.`,
@@ -94,7 +94,7 @@ export default function RedemptionValidator() {
   async function cancelExchange() {
     if (!found) return;
 
-    const result = await runAction(() => annulateExchange(found.id, refund), {
+    const result = await runWithStatus(() => annulateExchange(found.id, refund), {
       loading: {
         title: "Anulando canje",
         description: refund ? "Estamos anulando el canje y devolviendo los puntos al cliente." : "Estamos anulando el canje sin devolver los puntos.",
@@ -169,7 +169,7 @@ export default function RedemptionValidator() {
                     {found.rewardDiscountValue}
                   </Badge>
                 </div>
-                <p className="mt-1.5 text-xs leading-5 text-foreground/80"> {truncate(found.rewardDescription, 90)} </p>
+                <p className="mt-1.5 text-xs leading-5 text-foreground/80 truncate max-w-[80ch]"> {found.rewardDescription} </p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border pt-3">
