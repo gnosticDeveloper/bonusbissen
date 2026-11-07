@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, ImagePlus, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
-import { appendRewardFields, isValidImage } from "./helpers";
+import { appendRewardFields } from "./helpers";
 import { Reward } from "@/lib/types/reward";
 import { useModal } from "@/components/modal";
 import { editReward } from "@/app/d/[slug]/gestion-recompensas/actions";
+import { validateImageUpload } from "@/lib/image-upload";
 
 interface Props {
   reward: Reward;
@@ -24,12 +25,15 @@ export function UpdateRewardModal({ reward }: Props) {
   const [removeImage, setRemoveImage] = useState(false);
 
   function handleFileChange(file?: File) {
+    setError(null);
     if (!file) return;
-    if (!isValidImage(file)) {
-      setError("Seleccioná un archivo de imagen válido.");
+
+    const errorText = validateImageUpload(file);
+
+    if (errorText) {
+      setError(errorText);
       return;
     }
-    setError(null);
     setRemoveImage(false);
     setPreview(URL.createObjectURL(file));
   }

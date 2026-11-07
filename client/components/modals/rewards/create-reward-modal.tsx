@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isValidImage } from "./helpers";
 import { useModal } from "@/components/modal";
 import { Input, Textarea } from "@/components/ui/input";
 import { AlertCircle, ImagePlus, Upload, X } from "lucide-react";
@@ -10,13 +9,13 @@ import { Button } from "@/components/ui/button";
 import { createReward } from "@/app/d/[slug]/gestion-recompensas/actions";
 import { getPointPrograms } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
 import { PointProgram } from "@/lib/types/point-program";
-import { useToast } from "@/components/toast";
 import { ModalContentLoader } from "@/components/modals/action-status-modal";
+import { validateImageUpload } from "@/lib/image-upload";
 
 export function CreateRewardModal() {
   const router = useRouter();
   const { close, runWithStatus } = useModal();
-  const notify = useToast();
+  const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -39,9 +38,13 @@ export function CreateRewardModal() {
   }, []);
 
   function handleFileChange(file?: File) {
+    setError(null);
     if (!file) return;
-    if (!isValidImage(file)) {
-      notify("Selecciona un archivo de imagen válido.", "error");
+
+    const errorText = validateImageUpload(file);
+
+    if (errorText) {
+      setError(errorText);
       return;
     }
     setPreview(URL.createObjectURL(file));
@@ -57,7 +60,7 @@ export function CreateRewardModal() {
     const pointProgramId = String(data.get("pointProgramId") ?? "");
 
     if (!title || !Number.isInteger(costPoints) || costPoints <= 0 || !Number.isFinite(discountValue) || discountValue < 0 || !pointProgramId) {
-      notify("Revisa el título, los puntos, el valor del descuento y el programa de puntos.", "error");
+      setError("Revisa el título, los puntos, el valor del descuento y el programa de puntos.");
       return;
     }
 
@@ -85,9 +88,7 @@ export function CreateRewardModal() {
   }
 
   if (pointPrograms === null && !loadError) {
-    return (
-      <ModalContentLoader label="Cargando programas de puntos…" />
-    );
+    return <ModalContentLoader label="Cargando programas de puntos…" />;
   }
 
   if (loadError) {
@@ -183,7 +184,9 @@ export function CreateRewardModal() {
         {singleProgram ? (
           <>
             <input type="hidden" name="pointProgramId" value={singleProgram.id} />
-            <div className="flex h-11 items-center rounded-xl border border-border bg-background px-3.5 text-sm text-foreground/80">{singleProgram.name}</div>
+            <div className="flex h-11 items-center rounded-xl border border-border bg-background px-3.5 text-sm text-foreground/80">
+              {singleProgram.name}
+            </div>
           </>
         ) : (
           <select
@@ -265,6 +268,13 @@ export function CreateRewardModal() {
           </Button>
         ) : null}
       </div>
+
+      {error ? (
+        <div role="alert" className="flex items-start gap-3 rounded-xl border border-primary/25 bg-primary/10 px-3.5 py-3 text-sm text-foreground">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-foreground" aria-hidden="true" />
+          <p>{error}</p>
+        </div>
+      ) : null}
 
       <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">
         <Button
