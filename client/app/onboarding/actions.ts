@@ -10,6 +10,7 @@ import { signIn as customerSignIn } from "@/app/(auth)/sign-in/actions";
 import { signUp } from "@/app/(auth)/sign-up/actions";
 import { signIn as dashboardSignIn } from "@/app/d/sign-in/actions";
 import { userLoginSchema } from "@/schemas/user";
+import { isBillingAuthorized, parseOrError } from "@/lib/action-helpers";
 import { currentSession } from "@/lib/auth/session";
 import type { Storefront } from "@/lib/types/storefront";
 import type { PointProgram } from "@/lib/types/point-program";
@@ -90,8 +91,8 @@ export async function createOrganization(form: FormData): Promise<Result> {
   }
   // A different account's hint cannot block this user or choose their business.
   // Replace it only after the backend confirms creation for the verified user.
-  const parsed = nameSchema.safeParse(form.get("name"));
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const parsed = parseOrError(nameSchema, form.get("name"));
+  if (!parsed.ok) return parsed;
   const result = await request<Organization>("/organizations", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -119,8 +120,8 @@ export async function authenticateAdmin(form: FormData): Promise<Result> {
   const previousAdmin = await currentSession("dashboard");
   const owner = customer.status === "valid" ? customer.payload.sub : previousAdmin.status === "valid" ? previousAdmin.payload.sub : null;
   const organizationId = (owner && progress?.owner === owner ? progress.organizationId : null) ?? String(form.get("organizationId") ?? "");
-  const credentials = userLoginSchema.safeParse(Object.fromEntries(form));
-  if (!credentials.success) return { ok: false, error: credentials.error.issues[0].message };
+  const credentials = parseOrError(userLoginSchema, Object.fromEntries(form));
+  if (!credentials.ok) return credentials;
   if (!z.uuid().safeParse(organizationId).success) return { ok: false, error: "Elegí el negocio que querés retomar." };
   const login = new FormData();
   login.set("identifier", credentials.data.identifier);
@@ -144,7 +145,7 @@ export async function createStorefront(form: FormData): Promise<Result> {
   const org = await adminOrganization();
   if (!org.ok) return org;
   if (!org.data.billingPlanName) return { ok: false, error: "Elegí un plan antes de configurar la sucursal." };
-  if (org.data.mercadoPagoSubscriptionStatus !== "authorized")
+  if (!isBillingAuthorized(org.data))
     return { ok: false, error: "Autorizá los cobros en Mercado Pago antes de configurar la sucursal." };
   const existing = await dashboardRequest<Storefront[]>("/storefronts", { cache: "no-store" });
   if (!existing.ok) return existing;
@@ -154,8 +155,8 @@ export async function createStorefront(form: FormData): Promise<Result> {
     const ready = await ensureOnboardingStorefront(active.id);
     return ready.ok ? refreshOnboarding() : ready;
   }
-  const parsed = storefrontSchema.safeParse(Object.fromEntries(form));
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const parsed = parseOrError(storefrontSchema, Object.fromEntries(form));
+  if (!parsed.ok) return parsed;
 
   const result = await dashboardRequest<Storefront>("/storefronts", {
     method: "POST",
@@ -171,16 +172,17 @@ export async function createPointProgram(form: FormData): Promise<Result> {
   const org = await adminOrganization();
   if (!org.ok) return org;
   if (!org.data.billingPlanName) return { ok: false, error: "Elegí un plan antes de configurar el programa." };
-  if (org.data.mercadoPagoSubscriptionStatus !== "authorized")
+  if (!isBillingAuthorized(org.data))
     return { ok: false, error: "Autorizá los cobros en Mercado Pago antes de configurar el programa." };
-  const parsed = z
-    .object({
+  const parsed = parseOrError(
+    z.object({
       name: nameSchema,
       unitLabel: z.string().trim().min(1, "Indicá cómo se llaman los puntos.").max(50, "El nombre de los puntos no puede superar los 50 caracteres."),
       storefrontId: z.uuid("Elegí una sucursal."),
-    })
-    .safeParse(Object.fromEntries(form));
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+    }),
+    Object.fromEntries(form),
+  );
+  if (!parsed.ok) return parsed;
   const [storefronts, programs] = await Promise.all([
     dashboardRequest<Storefront[]>("/storefronts", { cache: "no-store" }),
     dashboardRequest<PointProgram[]>("/point-programs", { cache: "no-store" }),
@@ -206,26 +208,24 @@ export async function leaveOnboarding(): Promise<void> {
   await clearProgress();
 }
 
-export type FinishResult = { error: string } | { error: null; userId: string; destination: string };
-
-export async function finishOnboarding(): Promise<FinishResult> {
+export async function finishOnboarding(): Promise<ActionResult<{ userId: string; destination: string }>> {
   const org = await adminOrganization();
-  if (!org.ok) return { error: org.error };
+  if (!org.ok) return org;
   const state = await loadOnboarding();
-  if (state.error) return { error: state.error };
+  if (state.error) return { ok: false, error: state.error };
   if (!org.data.billingPlanName || !state.organization?.billingPlanName)
-    return { error: "Elegí un plan antes de finalizar la configuración." };
-  if (org.data.mercadoPagoSubscriptionStatus !== "authorized" || state.organization?.mercadoPagoSubscriptionStatus !== "authorized")
-    return { error: "Autorizá los cobros en Mercado Pago antes de finalizar la configuración." };
+    return { ok: false, error: "Elegí un plan antes de finalizar la configuración." };
+  if (!isBillingAuthorized(org.data) || !isBillingAuthorized(state.organization))
+    return { ok: false, error: "Autorizá los cobros en Mercado Pago antes de finalizar la configuración." };
   const storefront = state.storefronts.find((sf) => state.programs.some((p) => p.storefronts.some((s) => s.id === sf.id)));
   if (!state.userId || state.organization?.id !== org.data.id || !storefront)
-    return { error: "Creá una sucursal con su programa de puntos antes de terminar." };
+    return { ok: false, error: "Creá una sucursal con su programa de puntos antes de terminar." };
   const ready = await ensureOnboardingStorefront(storefront.id);
-  if (!ready.ok) return { error: ready.error };
+  if (!ready.ok) return ready;
   const session = await currentSession("dashboard");
   if (session.status !== "valid" || session.payload.sub !== state.userId ||
     session.payload.role !== "ADMIN" || session.payload.sf !== storefront.id)
-    return { error: "No pudimos confirmar la sucursal de tu sesión. Probá de nuevo." };
+    return { ok: false, error: "No pudimos confirmar la sucursal de tu sesión. Probá de nuevo." };
   await clearProgress();
-  return { error: null, userId: state.userId, destination: `/d/${org.data.id}/mi-negocio` };
+  return { ok: true, data: { userId: state.userId, destination: `/d/${org.data.id}/mi-negocio` } };
 }

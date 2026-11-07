@@ -1,3 +1,4 @@
+import type { ActionResult } from "./api";
 import type { OnboardingBackendStep } from "./types/onboarding";
 
 type OnboardingProgress = {
@@ -141,18 +142,18 @@ export function orderedOnboardingProgressStore(store: OnboardingProgressStore): 
 }
 
 export async function completeOnboardingNavigation(
-  result: { error: string | null; userId?: string; destination?: string },
+  result: ActionResult<{ userId: string; destination: string }>,
   store: OnboardingProgressStore,
   navigate: (destination: string) => void,
   onClearError: (error: unknown) => void = () => {},
 ) {
-  if (result.error !== null || !result.userId || !result.destination) return false;
+  if (!result.ok || !result.data.userId || !result.data.destination) return false;
   try {
-    await store.clear(result.userId);
+    await store.clear(result.data.userId);
   } catch (error) {
     // Browser storage is optional, not a prerequisite for backend completion.
     onClearError(error);
   }
-  navigate(result.destination);
+  navigate(result.data.destination);
   return true;
 }

@@ -143,7 +143,7 @@ export function Onboarding({ initial, progressStore, recoverAccount = false }: {
     startTransition(async () => {
       try {
         const result = await finishOnboarding();
-        if (result.error !== null) {
+        if (!result.ok) {
           setError(result.error);
           const refreshed = await refreshOnboarding();
           if (refreshed.ok) {

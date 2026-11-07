@@ -682,7 +682,7 @@ describe("asignación y sesión de sucursal", () => {
     const saved = jar.get(PROGRESS);
     const result = await actions.finishOnboarding();
     expect(result.error).toBeTruthy();
-    expect(result).not.toHaveProperty("destination");
+    expect(result).not.toHaveProperty("data");
     expect(jar.get("d_token")).toBe("dashboard-token");
     expect(jar.get(PROGRESS)).toBe(saved);
     expect(setCookie).not.toHaveBeenCalled();
@@ -703,7 +703,7 @@ describe("finalización mediante acción de formulario", () => {
     saveProgress();
     storefronts = [branch()];
     programs = [program()];
-    expect(await actions.finishOnboarding()).toEqual({ error: null, userId: OWNER, destination: `/d/${ORG}/mi-negocio` });
+    expect(await actions.finishOnboarding()).toEqual({ ok: true, data: { userId: OWNER, destination: `/d/${ORG}/mi-negocio` } });
     expect(setCookie).toHaveBeenLastCalledWith(PROGRESS, "", expect.objectContaining({ maxAge: 0, path: "/onboarding" }));
     expect(redirect).not.toHaveBeenCalled();
     expect(posts("/auth/storefront")).toHaveLength(1);
@@ -713,7 +713,7 @@ describe("finalización mediante acción de formulario", () => {
   test("finalizar selecciona la sucursal vinculada y no la primera sin programa", async () => {
     storefronts = [branch({ id: OTHER_SF }), branch()];
     programs = [program()];
-    expect((await actions.finishOnboarding()).error).toBeNull();
+    expect((await actions.finishOnboarding()).ok).toBe(true);
     expect(posts("/auth/storefront")[0].body).toEqual({ storefrontId: SF });
   });
 
@@ -725,7 +725,7 @@ describe("finalización mediante acción de formulario", () => {
     failures.set("POST /auth/storefront", { status: 503, detail: "No disponible" });
     const result = await actions.finishOnboarding();
     expect(result.error).toBeTruthy();
-    expect(result).not.toHaveProperty("destination");
+    expect(result).not.toHaveProperty("data");
     expect(jar.get(PROGRESS)).toBe(saved);
   });
 

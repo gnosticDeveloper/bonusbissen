@@ -131,7 +131,7 @@ describe("async onboarding persistence", () => {
     await expect(store.clear("alice")).rejects.toThrow("Blocked");
     let navigated = false;
     const failures = [];
-    expect(await completeOnboardingNavigation({ error: null, userId: "alice", destination: "/verified" }, store, () => { navigated = true; }, error => failures.push(error.message))).toBe(true);
+    expect(await completeOnboardingNavigation({ ok: true, data: { userId: "alice", destination: "/verified" } }, store, () => { navigated = true; }, error => failures.push(error.message))).toBe(true);
     expect(failures).toEqual(["Blocked"]);
     expect(navigated).toBe(true);
   });
@@ -145,7 +145,7 @@ describe("async onboarding persistence", () => {
     });
     await expect(store.load("alice")).rejects.toThrow("Blocked read");
     await expect(store.save("alice", progress)).rejects.toThrow("Quota exceeded");
-    await completeOnboardingNavigation({ error: null, userId: "alice", destination: "/verified" }, store, path => events.push(path));
+    await completeOnboardingNavigation({ ok: true, data: { userId: "alice", destination: "/verified" } }, store, path => events.push(path));
     expect(events).toEqual(["clear", "/verified"]);
   });
 
@@ -159,7 +159,7 @@ describe("async onboarding persistence", () => {
       clear: async userId => { events.push(`clear:${userId}`); },
     });
     const saving = store.save("alice", progress);
-    const finishing = completeOnboardingNavigation({ error: null, userId: "alice", destination: "/verified" }, store, path => { events.push(path); });
+    const finishing = completeOnboardingNavigation({ ok: true, data: { userId: "alice", destination: "/verified" } }, store, path => { events.push(path); });
     expect(events).toEqual([]);
     release();
     await Promise.all([saving, finishing]);
@@ -229,7 +229,7 @@ describe("async onboarding persistence", () => {
   test("failed backend completion preserves progress and never navigates", async () => {
     const { store } = fixture();
     await store.save("alice", progress);
-    expect(await completeOnboardingNavigation({ error: "expired" }, store, () => { throw new Error("Must not navigate"); })).toBe(false);
+    expect(await completeOnboardingNavigation({ ok: false, error: "expired" }, store, () => { throw new Error("Must not navigate"); })).toBe(false);
     expect(await store.load("alice")).toEqual(progress);
   });
 });
