@@ -39,8 +39,7 @@ export function CitySelect() {
     setOpen(next);
     if (!next || fetchedRef.current) return;
 
-    // i'm just larping performance atp.
-    if (cities?.length ?? 0 > 0) return;
+    if ((cities?.length ?? 0) > 0) return;
 
     fetchedRef.current = true;
     setLoading(true);
