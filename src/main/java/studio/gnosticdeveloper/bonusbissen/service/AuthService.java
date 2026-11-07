@@ -102,7 +102,7 @@ public class AuthService {
     }
 
     public LoginResult issueStaffToken(User user, OrganizationStaff staff, String userAgent) {
-        List<Storefront> storefronts = staff.getStorefronts().stream().toList();
+        List<Storefront> storefronts = staff.selectableStorefronts();
         List<StorefrontSummary> summaries = storefronts.stream().map(StorefrontSummary::from).toList();
         UUID storefrontId = storefronts.size() == 1 ? storefronts.getFirst().getId() : null;
 
@@ -132,8 +132,12 @@ public class AuthService {
         if (!assigned) {
             throw new AccessDeniedException("No estás asignado a ese local.");
         }
+        List<Storefront> selectable = staff.selectableStorefronts();
+        if (selectable.stream().noneMatch(s -> s.getId().equals(storefrontId))) {
+            throw new AccessDeniedException("Ese local está desactivado.");
+        }
 
-        List<StorefrontSummary> summaries = staff.getStorefronts().stream().map(StorefrontSummary::from).toList();
+        List<StorefrontSummary> summaries = selectable.stream().map(StorefrontSummary::from).toList();
         JwtService.Issued issued = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
         return new StorefrontResult(new LoginResponse(issued.token(), summaries), issued.jti());
     }

@@ -6,12 +6,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.UserPointProgram;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
+import studio.gnosticdeveloper.bonusbissen.exception.SubscriptionLapsedException;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
@@ -27,6 +29,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verify;
@@ -49,6 +52,8 @@ class PointProgramServiceTest {
     private PointTransactionRepository pointTransactionRepository;
     @Mock
     private OnboardingService onboardingService;
+    @Mock
+    private SubscriptionGuard subscriptionGuard;
 
     @InjectMocks
     private PointProgramService pointProgramService;
@@ -62,6 +67,9 @@ class PointProgramServiceTest {
         PointProgram program = new PointProgram();
         program.setId(PROGRAM_ID);
         program.setActive(true);
+        Organization organization = new Organization();
+        organization.setId(ORGANIZATION_ID);
+        program.setOrganization(organization);
         return program;
     }
 
@@ -118,6 +126,17 @@ class PointProgramServiceTest {
         verify(userPointProgramRepository).save(captor.capture());
         assertThat(captor.getValue().getUser().getId()).isEqualTo(USER_ID);
         assertThat(captor.getValue().getPointProgram().getId()).isEqualTo(PROGRAM_ID);
+    }
+
+    @Test
+    void joinIsRefusedWhenTheBusinessIsLapsed() {
+        when(pointProgramRepository.findById(PROGRAM_ID)).thenReturn(Optional.of(activeProgram()));
+        doThrow(new SubscriptionLapsedException("lapsed", "no disponible", SubscriptionLapsedException.CUSTOMER_CODE))
+            .when(subscriptionGuard).requireAvailableToCustomers(ORGANIZATION_ID);
+
+        assertThatThrownBy(() -> pointProgramService.join(USER_ID, PROGRAM_ID)).isInstanceOf(SubscriptionLapsedException.class);
+
+        verify(userPointProgramRepository, never()).save(any());
     }
 
     @Test

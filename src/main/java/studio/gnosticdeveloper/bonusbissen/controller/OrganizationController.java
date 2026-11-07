@@ -134,7 +134,11 @@ public class OrganizationController {
         return MercadoPagoCheckoutResponse.from(mercadoPagoSubscriptionService.createCheckout(principal.organizationId(), payerEmail));
     }
 
-    /** Cancels the org's Mercado Pago subscription. Invoices and their payment status are untouched. */
+    /**
+     * Cancels the org's Mercado Pago subscription: MP stops charging and no more invoices are generated.
+     * The org keeps access until the end of the period it already paid for ({@code subscriptionEndsAt}
+     * in the response); existing invoices and their payment status are untouched.
+     */
     @DeleteMapping("/billing/subscription")
     @PreAuthorize("hasRole('ADMIN')")
     public OrganizationResponse cancelBillingSubscription(@AuthenticationPrincipal AuthenticatedPrincipal principal) {

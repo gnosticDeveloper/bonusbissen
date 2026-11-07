@@ -3,17 +3,20 @@ package studio.gnosticdeveloper.bonusbissen.mercadopago;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,8 +26,10 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import studio.gnosticdeveloper.bonusbissen.entity.BillingPlan;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
@@ -34,6 +39,7 @@ import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.InvoiceRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.SubscriptionOperationLockRepository;
 
 @ExtendWith(MockitoExtension.class)
 class MercadoPagoSubscriptionServiceTest {
@@ -43,6 +49,7 @@ class MercadoPagoSubscriptionServiceTest {
     @Mock private MercadoPagoClient client;
     @Mock private OrganizationRepository organizationRepository;
     @Mock private InvoiceRepository invoiceRepository;
+    @Mock private SubscriptionOperationLockRepository operationLockRepository;
 
     private MercadoPagoSubscriptionService service;
     private Organization organization;
@@ -50,7 +57,9 @@ class MercadoPagoSubscriptionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new MercadoPagoSubscriptionService(client, organizationRepository, invoiceRepository, BACK_URL);
+        service = new MercadoPagoSubscriptionService(client, organizationRepository, invoiceRepository, operationLockRepository, BACK_URL);
+        // By default nobody else holds the lease; the tests about contention override this.
+        lenient().when(operationLockRepository.tryAcquire(any(), any(), anyDouble())).thenReturn(1);
 
         plan = new BillingPlan();
         plan.setId(UUID.randomUUID());
@@ -145,6 +154,129 @@ class MercadoPagoSubscriptionServiceTest {
 
         verify(client, never()).updatePreapproval(any(), anyMap());
         verify(client, never()).createPreapproval(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    /**
+     * Shaped like MP's real GET for a pending subscription: payer_email is an empty string unless
+     * {@code echoedPayerEmail} is given, and start_date is always present -- the creation time when
+     * {@code startDate} is null (i.e. "charge on authorization").
+     */
+    private Map<String, Object> livePending(Object amount, String echoedPayerEmail, String startDate) {
+        Map<String, Object> recurring = new HashMap<>(Map.of(
+            "transaction_amount", amount, "currency_id", "ARS",
+            "start_date", startDate != null ? startDate : OffsetDateTime.now().minusSeconds(30).toString()));
+        return new HashMap<>(Map.of(
+            "id", "existing-pending", "status", "pending", "init_point", "https://mp.example/existing",
+            "payer_email", echoedPayerEmail == null ? "" : echoedPayerEmail, "auto_recurring", recurring));
+    }
+
+    private void givenExistingPending(Map<String, Object> live) {
+        organization.setMercadoPagoPreapprovalId("existing-pending");
+        when(organizationRepository.findByIdWithBillingPlan(organization.getId())).thenReturn(Optional.of(organization));
+        when(client.getPreapproval("existing-pending")).thenReturn(live);
+    }
+
+    @Test
+    void aPendingCheckoutThatStillMatchesIsReturnedInsteadOfBeingReplaced() {
+        Map<String, Object> live = livePending(5000.0, null, null);
+        givenExistingPending(live);
+
+        Map<String, Object> result = service.createCheckout(organization.getId(), null);
+
+        assertThat(result).isSameAs(live);
+        verify(client, never()).createPreapproval(any(), any(), any(), any(), any(), any(), any());
+        verify(client, never()).updatePreapproval(any(), anyMap());
+    }
+
+    @Test
+    void aMatchingPendingCheckoutIsReusedWhenMpEchoesTheSamePayerEmail() {
+        givenExistingPending(livePending(new BigDecimal("5000.00"), "BILLING@example.com", null));
+
+        service.createCheckout(organization.getId(), null);
+
+        verify(client, never()).createPreapproval(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aPendingCheckoutWithTheFirstChargeDateStillMatchingIsReused() {
+        OffsetDateTime due = OffsetDateTime.now().plusDays(20).withNano(0);
+        organization.setNextInvoiceDueAt(due);
+        when(invoiceRepository.existsByOrganizationIdAndPaymentStatus(organization.getId(), PaymentStatus.PENDING)).thenReturn(false);
+        givenExistingPending(livePending(5000, null, due.toString()));
+
+        service.createCheckout(organization.getId(), null);
+
+        verify(client, never()).createPreapproval(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aPendingCheckoutMadeForAnotherPriceIsReplaced() {
+        givenExistingPending(livePending(9000.0, null, null));
+        stubCreate();
+
+        service.createCheckout(organization.getId(), null);
+
+        verify(client).updatePreapproval("existing-pending", Map.of("status", "cancelled"));
+        verify(client).createPreapproval(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aPendingCheckoutWhoseEchoedPayerEmailDiffersIsReplaced() {
+        givenExistingPending(livePending(5000.0, "someone-else@example.com", null));
+        stubCreate();
+
+        service.createCheckout(organization.getId(), null);
+
+        verify(client).updatePreapproval("existing-pending", Map.of("status", "cancelled"));
+        verify(client).createPreapproval(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aPendingCheckoutWhoseFirstChargeDateNoLongerMatchesIsReplaced() {
+        // made while the first invoice was still ahead (start_date set); an invoice is pending now, so it must charge on authorization
+        when(invoiceRepository.existsByOrganizationIdAndPaymentStatus(organization.getId(), PaymentStatus.PENDING)).thenReturn(true);
+        givenExistingPending(livePending(5000.0, null, OffsetDateTime.now().plusDays(20).toString()));
+        stubCreate();
+
+        service.createCheckout(organization.getId(), null);
+
+        verify(client).updatePreapproval("existing-pending", Map.of("status", "cancelled"));
+        verify(client).createPreapproval(any(), any(), any(), any(), any(), any(), isNull());
+    }
+
+    @Test
+    void aGivenPayerEmailEqualToTheSavedOneStillReusesThePendingCheckout() {
+        organization.setMercadoPagoPayerEmail("billing@example.com");
+        givenExistingPending(livePending(5000.0, null, null));
+
+        service.createCheckout(organization.getId(), "Billing@Example.com");
+
+        verify(client, never()).createPreapproval(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aPendingCheckoutMadeToChargeNowIsReplacedOnceTheNextChargeIsScheduledForLater() {
+        organization.setNextInvoiceDueAt(OffsetDateTime.now().plusDays(20));
+        when(invoiceRepository.existsByOrganizationIdAndPaymentStatus(organization.getId(), PaymentStatus.PENDING)).thenReturn(false);
+        givenExistingPending(livePending(5000.0, null, null));
+        stubCreate();
+
+        service.createCheckout(organization.getId(), null);
+
+        verify(client).updatePreapproval("existing-pending", Map.of("status", "cancelled"));
+    }
+
+    @Test
+    void aGivenPayerEmailDifferentFromTheSavedOneReplacesThePendingCheckout() {
+        organization.setMercadoPagoPayerEmail("billing@example.com");
+        givenExistingPending(livePending(5000.0, null, null));
+        when(client.createPreapproval(any(), any(), any(), eq("new@example.com"), any(), any(), any()))
+            .thenReturn(Map.of("id", "new-preapproval", "init_point", "https://mp.example/new", "status", "pending"));
+
+        Map<String, Object> result = service.createCheckout(organization.getId(), "new@example.com");
+
+        assertThat(result.get("init_point")).isEqualTo("https://mp.example/new");
+        verify(client).updatePreapproval("existing-pending", Map.of("status", "cancelled"));
     }
 
     @Test
@@ -252,6 +384,33 @@ class MercadoPagoSubscriptionServiceTest {
 
         verify(client).updatePreapproval("preapproval-id", Map.of("status", "cancelled"));
         verify(organizationRepository).updateMercadoPagoPreapproval(organization.getId(), "preapproval-id", "cancelled");
+        verify(organizationRepository).endSubscriptionAtPaidThrough(organization.getId());
+    }
+
+    @Test
+    void cancellingASubscriptionThatWasNeverAuthorizedDoesNotScheduleTheEndOfAccess() {
+        organization.setMercadoPagoPreapprovalId("preapproval-id");
+        organization.setMercadoPagoPreapprovalStatus("pending");
+        when(organizationRepository.findById(organization.getId())).thenReturn(Optional.of(organization));
+        when(client.getPreapproval("preapproval-id")).thenReturn(Map.of("status", "pending"));
+
+        service.cancelSubscription(organization.getId());
+
+        verify(client).updatePreapproval("preapproval-id", Map.of("status", "cancelled"));
+        verify(organizationRepository, never()).endSubscriptionAtPaidThrough(any());
+    }
+
+    @Test
+    void cancellingAfterMpAlreadyCancelledAnActiveSubscriptionStillSchedulesTheEndWhenTheWebhookWasMissed() {
+        organization.setMercadoPagoPreapprovalId("preapproval-id");
+        organization.setMercadoPagoPreapprovalStatus("authorized");
+        when(organizationRepository.findById(organization.getId())).thenReturn(Optional.of(organization));
+        when(client.getPreapproval("preapproval-id")).thenReturn(Map.of("status", "cancelled"));
+
+        service.cancelSubscription(organization.getId());
+
+        verify(client, never()).updatePreapproval(any(), anyMap());
+        verify(organizationRepository).endSubscriptionAtPaidThrough(organization.getId());
     }
 
     @Test
@@ -264,6 +423,7 @@ class MercadoPagoSubscriptionServiceTest {
 
         verify(client, never()).updatePreapproval(any(), anyMap());
         verify(organizationRepository).updateMercadoPagoPreapproval(organization.getId(), "preapproval-id", "cancelled");
+        verify(organizationRepository, never()).endSubscriptionAtPaidThrough(any());
     }
 
     @Test
@@ -278,6 +438,8 @@ class MercadoPagoSubscriptionServiceTest {
     @Test
     void aSecondCheckoutForTheSameOrgWhileOneIsInFlightIsAConflictAndCreatesNothing() throws Exception {
         when(organizationRepository.findByIdWithBillingPlan(organization.getId())).thenReturn(Optional.of(organization));
+        // the first caller gets the lease; the checkout and the cancel that follow find it taken
+        when(operationLockRepository.tryAcquire(any(), any(), anyDouble())).thenReturn(1, 0, 0);
         CountDownLatch firstIsCallingMp = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
         when(client.createPreapproval(any(), any(), any(), any(), any(), any(), any())).thenAnswer(invocation -> {
@@ -294,7 +456,32 @@ class MercadoPagoSubscriptionServiceTest {
 
         releaseFirst.countDown();
         assertThat(first.get(5, TimeUnit.SECONDS)).containsEntry("id", "new-preapproval");
-        verify(client, org.mockito.Mockito.times(1)).createPreapproval(any(), any(), any(), any(), any(), any(), any());
+        verify(client, Mockito.times(1)).createPreapproval(any(), any(), any(), any(), any(), any(), any());
+        // only the caller that acquired the lease releases it
+        verify(operationLockRepository, Mockito.times(1)).release(eq(organization.getId()), any());
+    }
+
+    @Test
+    void theLeaseIsAcquiredAndReleasedByTheSameHolder() {
+        when(organizationRepository.findByIdWithBillingPlan(organization.getId())).thenReturn(Optional.of(organization));
+        stubCreate();
+
+        service.createCheckout(organization.getId(), null);
+
+        ArgumentCaptor<UUID> acquired = ArgumentCaptor.forClass(UUID.class);
+        ArgumentCaptor<UUID> released = ArgumentCaptor.forClass(UUID.class);
+        verify(operationLockRepository).tryAcquire(eq(organization.getId()), acquired.capture(), anyDouble());
+        verify(operationLockRepository).release(eq(organization.getId()), released.capture());
+        assertThat(released.getValue()).isEqualTo(acquired.getValue());
+    }
+
+    @Test
+    void aFailureReleasingTheLeaseDoesNotFailAnOperationThatSucceeded() {
+        when(organizationRepository.findByIdWithBillingPlan(organization.getId())).thenReturn(Optional.of(organization));
+        stubCreate();
+        when(operationLockRepository.release(any(), any())).thenThrow(new IllegalStateException("db down"));
+
+        assertThat(service.createCheckout(organization.getId(), null)).containsEntry("id", "new-preapproval");
     }
 
     @Test

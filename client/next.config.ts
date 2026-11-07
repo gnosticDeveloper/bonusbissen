@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
   //   // Use the Rust port instead of the Babel transform
   //   turbopackRustReactCompiler: true,
   // },
-  allowedDevOrigins: ['192.168.1.73'],
+  allowedDevOrigins: ['192.168.1.223'],
 };
 
 export default nextConfig;

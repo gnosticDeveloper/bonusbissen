@@ -2,12 +2,14 @@ package studio.gnosticdeveloper.bonusbissen.service;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import studio.gnosticdeveloper.bonusbissen.entity.Invoice;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
+import studio.gnosticdeveloper.bonusbissen.service.InvoiceService.SubscriptionEndedException;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 
 /**
@@ -15,7 +17,9 @@ import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
  * due. Plan assignment, billing cycle and the first due date are all set
  * directly against the database (see 9__billing.sql) -- this job only reacts
  * to {@code organizations.next_invoice_due_at}, it never decides who gets
- * billed.
+ * billed. Orgs that cancelled their subscription ({@code subscription_ends_at}
+ * set, see 15__subscription_cancellation.sql) are skipped: their paid period just
+ * runs out.
  *
  * Each organization is processed and emailed independently, with failures
  * logged rather than aborting the batch -- same shape as PointExpirationService.
@@ -36,12 +40,14 @@ public class InvoiceGenerationService {
     @Scheduled(cron = "${app.billing.invoice-cron}")
     public void runScheduledInvoicing() {
         OffsetDateTime now = OffsetDateTime.now();
-        List<Organization> due = organizationRepository.findAllByBillingPlanIsNotNullAndNextInvoiceDueAtLessThanEqual(now);
+        List<Organization> due = organizationRepository.findAllByBillingPlanIsNotNullAndSubscriptionEndsAtIsNullAndNextInvoiceDueAtLessThanEqual(now);
         int processed = 0;
         for (Organization org : due) {
             try {
                 processOrganization(org.getId(), now);
                 processed++;
+            } catch (SubscriptionEndedException e) {
+                log.info("Skipped invoicing organization {}: its subscription was cancelled meanwhile", org.getId());
             } catch (Exception e) {
                 log.error("Failed to generate invoice for organization {}", org.getId(), e);
             }
@@ -53,7 +59,7 @@ public class InvoiceGenerationService {
     // through its proxy -- the invoice-creation + due-date-advance boundary lives
     // there, not here. Emailing happens afterwards, outside that transaction, so a
     // slow/failed send can never roll back an already-committed invoice.
-    private void processOrganization(java.util.UUID organizationId, OffsetDateTime now) {
+    private void processOrganization(UUID organizationId, OffsetDateTime now) {
         Invoice invoice = invoiceService.generateForOrganization(organizationId, now);
         invoiceService.sendInvoiceEmail(invoice.getOrganization(), invoice);
     }

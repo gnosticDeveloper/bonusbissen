@@ -1,5 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.time.Duration;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.OffsetDateTime;
@@ -79,6 +80,7 @@ public class UserService {
     private final PointLedgerService pointLedgerService;
     private final StorageService storageService;
     private final SessionService sessionService;
+    private final SubscriptionGuard subscriptionGuard;
 
     public UserService(
         UserRepository userRepository,
@@ -95,7 +97,8 @@ public class UserService {
         BalanceLockService balanceLockService,
         PointLedgerService pointLedgerService,
         StorageService storageService,
-        SessionService sessionService
+        SessionService sessionService,
+        SubscriptionGuard subscriptionGuard
     ) {
         this.userRepository = userRepository;
         this.pointTransactionRepository = pointTransactionRepository;
@@ -112,6 +115,7 @@ public class UserService {
         this.pointLedgerService = pointLedgerService;
         this.storageService = storageService;
         this.sessionService = sessionService;
+        this.subscriptionGuard = subscriptionGuard;
     }
 
     /** Resets the password of a currently-active staff account -- scoped to the calling admin's own organization. */
@@ -325,6 +329,13 @@ public class UserService {
         return getBalance(userId, program.getId());
     }
 
+    /**
+     * {@code callerOrganizationId} null means the caller is the customer themselves -- no further
+     * check needed. Non-null means staff: without a positive relationship check, any staff member
+     * of any organization could pull another organization's customer's PII (name, username,
+     * email) by user id alone, {@code programId} or not -- the id-ownership check below only
+     * covered the case where a programId happened to be supplied.
+     */
     @Transactional(readOnly = true)
     public UserPointsResponse getUserPointsById(UUID id, UUID programId, UUID callerOrganizationId) {
         User user = userRepository
@@ -336,6 +347,12 @@ public class UserService {
                 )
             );
 
+        if (callerOrganizationId != null && !userPointProgramRepository.existsByUserIdAndOrganizationId(id, callerOrganizationId)) {
+            throw new NotFoundException(
+                "User " + id + " has no relationship to organization " + callerOrganizationId + ".",
+                "No pudimos encontrar al cliente seleccionado."
+            );
+        }
         if (programId != null && callerOrganizationId != null && !pointProgramRepository.existsByIdAndOrganizationId(programId, callerOrganizationId)) {
             throw new AccessDeniedException("Point program " + programId + " is not owned by organization " + callerOrganizationId + ".");
         }
@@ -528,6 +545,8 @@ public class UserService {
                 )
             );
 
+        subscriptionGuard.requireNotLapsed(employee.getOrganization().getId());
+
         User user = userRepository
             .findById(request.userId())
             .filter(User::isActive)
@@ -546,6 +565,12 @@ public class UserService {
                     "No pudimos encontrar el local seleccionado."
                 )
             );
+        if (!storefront.isActive()) {
+            throw new BadRequestException(
+                "Point grant attempted at deactivated storefront " + storefrontId + ".",
+                "Este local está desactivado."
+            );
+        }
 
         PointProgram program = storefront.getPointProgram();
         if (program == null || !program.isActive()) {
@@ -622,6 +647,10 @@ public class UserService {
             }
             throw new BadRequestException("Invalid or empty correction delta: " + delta, "La corrección debe cambiar los puntos dentro del rango permitido.");
         }
+        if (delta > 0) {
+            // Adding points is awarding; taking points back stays allowed while lapsed.
+            subscriptionGuard.requireNotLapsed(organizationId);
+        }
         requireAffordableAdjustment(userId, programId, (int) delta, request.allowDebt());
 
         PointTransaction correction = new PointTransaction();
@@ -655,7 +684,7 @@ public class UserService {
     }
 
     /** Window within which an identical retried/double-clicked submission is treated as a no-op instead of a duplicate. */
-    private static final java.time.Duration DUPLICATE_SUBMISSION_WINDOW = java.time.Duration.ofSeconds(5);
+    private static final Duration DUPLICATE_SUBMISSION_WINDOW = Duration.ofSeconds(5);
 
     /** Null when no recent duplicate exists (the normal case); otherwise the earlier transaction to replay the response from. */
     private PointTransaction findRecentDuplicateGrant(UUID userId, UUID programId, UUID employeeId, int points, String note) {
@@ -730,6 +759,9 @@ public class UserService {
                     "No pudimos encontrar la recompensa seleccionada."
                 )
             );
+
+        // Points can't be spent at a business that can't cash them in.
+        subscriptionGuard.requireAvailableToCustomers(reward.getPointProgram().getOrganization().getId());
 
         tx.setReward(reward);
         tx.setPointProgram(reward.getPointProgram());

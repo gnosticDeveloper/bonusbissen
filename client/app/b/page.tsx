@@ -31,7 +31,7 @@ export default function MainHomePage() {
   }, []);
 
   return (
-    <main className="relative mx-auto min-h-screen w-full max-w-107.5 overflow-hidden bg-background transition-colors duration-200 sm:border-x sm:border-border">
+    <main className="relative mx-auto min-h-screen w-full max-w-107.5 overflow-hidden bg-background sm:border-x sm:border-border">
       <CustomerHeader />
 
       <PointsCard points={pointsError ? null : points} />

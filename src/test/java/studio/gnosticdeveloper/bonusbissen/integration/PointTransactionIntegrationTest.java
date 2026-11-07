@@ -1,5 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.integration;
 
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
@@ -11,10 +12,12 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.request.JoinPointProgramRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
@@ -22,6 +25,9 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
+import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
+import studio.gnosticdeveloper.bonusbissen.entity.Organization;
+import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 
 import java.util.List;
@@ -496,7 +502,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         ResponseEntity<Void> response = restTemplate.exchange(
             baseUrl() + "/exchanges/user-cancel",
             HttpMethod.POST,
-            authed(userToken, new studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest(exchangeId)),
+            authed(userToken, new UserCancelExchangeRequest(exchangeId)),
             Void.class
         );
 
@@ -589,22 +595,55 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         assertThat(ranking.get(0).id()).isEqualTo(bigSpender.getId());
     }
 
+    /**
+     * Uses its own organization -- /rewards/top is a top-10-for-the-org ranking, and in the
+     * shared default org claims made by other tests can push a 1-claim reward out of the
+     * top 10 depending on test order.
+     */
     @Test
     void topRewardsRanksByClaimCountDescending() {
-        User cashier = createEmployee("cashier-top-rewards", "password123", StaffRole.CASHIER);
-        String cashierToken = loginEmployee("cashier-top-rewards", "password123");
+        Organization organization = new Organization();
+        organization.setName("Top Rewards Org");
+        organization = organizationRepository.save(organization);
+
+        PointProgram program = new PointProgram();
+        program.setOrganization(organization);
+        program.setName("Top Rewards Points");
+        program = pointProgramRepository.save(program);
+
+        Storefront storefront = new Storefront();
+        storefront.setOrganization(organization);
+        storefront.setName("Top Rewards Storefront");
+        storefront.setAddress("1 Top St");
+        storefront.setPointProgram(program);
+        storefront = storefrontRepository.save(storefront);
+
+        createEmployee("cashier-top-rewards", "password123", StaffRole.CASHIER, organization, storefront);
+        String cashierToken = loginEmployee("cashier-top-rewards", "password123", organization.getId());
         User user = createUser("+5493462001012");
-        grant(cashierToken, user.getId(), 1000);
         String userToken = loginUser("+5493462001012");
 
-        Reward popular = createReward("Popular Reward", 10);
-        Reward rare = createReward("Rare Reward", 10);
+        Reward popular = createRewardIn(program, "Popular Reward", 10);
+        Reward rare = createRewardIn(program, "Rare Reward", 10);
+
+        restTemplate.exchange(
+            baseUrl() + "/point-programs/" + program.getId() + "/members",
+            HttpMethod.POST,
+            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
+            Void.class
+        );
+        restTemplate.exchange(
+            baseUrl() + "/users/grant",
+            HttpMethod.POST,
+            authed(cashierToken, new GrantPointsRequest(user.getId(), 1000, null)),
+            UserPointsAwardResponse.class
+        );
 
         claimReward(userToken, user.getId(), popular.getId());
         claimReward(userToken, user.getId(), popular.getId());
         claimReward(userToken, user.getId(), rare.getId());
 
-        ResponseEntity<List<studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse>> response = restTemplate.exchange(
+        ResponseEntity<List<TopRewardResponse>> response = restTemplate.exchange(
             baseUrl() + "/rewards/top",
             HttpMethod.GET,
             authed(cashierToken),
@@ -613,10 +652,17 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         var ranking = response.getBody();
-        var popularEntry = ranking.stream().filter(r -> r.id().equals(popular.getId())).findFirst().orElseThrow();
-        var rareEntry = ranking.stream().filter(r -> r.id().equals(rare.getId())).findFirst().orElseThrow();
-        assertThat(popularEntry.claimCount()).isEqualTo(2);
-        assertThat(rareEntry.claimCount()).isEqualTo(1);
+        assertThat(ranking).extracting(r -> r.id()).containsExactly(popular.getId(), rare.getId());
+        assertThat(ranking.get(0).claimCount()).isEqualTo(2);
+        assertThat(ranking.get(1).claimCount()).isEqualTo(1);
+    }
+
+    private Reward createRewardIn(PointProgram program, String title, int costPoints) {
+        Reward reward = new Reward();
+        reward.setPointProgram(program);
+        reward.setTitle(title);
+        reward.setCostPoints(costPoints);
+        return rewardRepository.save(reward);
     }
 
     /**
@@ -633,16 +679,16 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
      */
     @Test
     void concurrentClaimsAgainstABalanceThatCanOnlyAffordOneAllSerializeCorrectly() throws InterruptedException {
-        studio.gnosticdeveloper.bonusbissen.entity.Organization organization = new studio.gnosticdeveloper.bonusbissen.entity.Organization();
+        Organization organization = new Organization();
         organization.setName("Race Test Org");
         organization = organizationRepository.save(organization);
 
-        studio.gnosticdeveloper.bonusbissen.entity.PointProgram program = new studio.gnosticdeveloper.bonusbissen.entity.PointProgram();
+        PointProgram program = new PointProgram();
         program.setOrganization(organization);
         program.setName("Race Test Points");
         program = pointProgramRepository.save(program);
 
-        studio.gnosticdeveloper.bonusbissen.entity.Storefront storefront = new studio.gnosticdeveloper.bonusbissen.entity.Storefront();
+        Storefront storefront = new Storefront();
         storefront.setOrganization(organization);
         storefront.setName("Race Test Storefront");
         storefront.setAddress("1 Race St");
@@ -677,7 +723,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         ExecutorService pool = Executors.newFixedThreadPool(attempts);
         AtomicInteger succeeded = new AtomicInteger(0);
         try {
-            List<Runnable> tasks = java.util.stream.IntStream.range(0, attempts)
+            List<Runnable> tasks = IntStream.range(0, attempts)
                 .<Runnable>mapToObj(i -> () -> {
                     ResponseEntity<String> response = restTemplate.exchange(
                         baseUrl() + "/users/claim-reward",

@@ -1,5 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.dto.response;
 
+import java.time.OffsetDateTime;
 import java.util.UUID;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.storage.DeliveryVariant;
@@ -17,9 +18,11 @@ public record OrganizationResponse(
     String billingEmail,
     String billingPlanName,
     String billingCycle,
-    java.time.OffsetDateTime nextInvoiceDueAt,
+    OffsetDateTime nextInvoiceDueAt,
     /** Mercado Pago preapproval status (pending/authorized/paused/cancelled), null if checkout was never started. */
-    String mercadoPagoSubscriptionStatus
+    String mercadoPagoSubscriptionStatus,
+    /** Set once the subscription was cancelled: when access ends (the end of the period already paid). Null otherwise. */
+    OffsetDateTime subscriptionEndsAt
 ) {
     public static OrganizationResponse from(Organization organization, StorageService storage) {
         return new OrganizationResponse(
@@ -35,7 +38,8 @@ public record OrganizationResponse(
             organization.getBillingPlan() == null ? null : organization.getBillingPlan().getName(),
             organization.getBillingCycle() == null ? null : organization.getBillingCycle().getValue(),
             organization.getNextInvoiceDueAt(),
-            organization.getMercadoPagoPreapprovalStatus()
+            organization.getMercadoPagoPreapprovalStatus(),
+            organization.getSubscriptionEndsAt()
         );
     }
 }

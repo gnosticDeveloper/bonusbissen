@@ -13,7 +13,7 @@ export default async function DiscoverLayout({ children }: { children: React.Rea
   return (
     <UserProvider user={userResult?.ok ? userResult.data : null}>
       <div
-        className={`mx-auto min-h-svh w-full max-w-107.5 bg-background transition-colors duration-200 sm:border-x sm:border-border ${
+        className={`mx-auto min-h-svh w-full max-w-107.5 bg-background sm:border-x sm:border-border ${
           authenticated ? "pb-26" : "pb-10"
         }`}
       >

@@ -1,10 +1,12 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.time.OffsetDateTime;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -37,6 +39,7 @@ import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.IncorrectPasswordException;
 import studio.gnosticdeveloper.bonusbissen.exception.InsufficientPointsException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
+import studio.gnosticdeveloper.bonusbissen.exception.SubscriptionLapsedException;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
@@ -49,10 +52,12 @@ import studio.gnosticdeveloper.bonusbissen.repository.UserPointProgramRepository
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import studio.gnosticdeveloper.bonusbissen.security.SessionService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
@@ -89,7 +94,10 @@ class UserServiceTest {
     @Mock
     private PointLedgerService pointLedgerService;
     @Mock
-    private studio.gnosticdeveloper.bonusbissen.security.SessionService sessionService;
+    private SessionService sessionService;
+
+    @Mock
+    private SubscriptionGuard subscriptionGuard;
 
     @InjectMocks
     private UserService userService;
@@ -168,7 +176,7 @@ class UserServiceTest {
         user.setId(UUID.randomUUID());
         user.setName("Someone");
         user.setUsername("someone");
-        user.setCreatedAt(java.time.OffsetDateTime.now());
+        user.setCreatedAt(OffsetDateTime.now());
 
         when(userRepository.search(eq("abc"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
         when(pointProgramRepository.existsByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(true);
@@ -187,7 +195,7 @@ class UserServiceTest {
         user.setId(UUID.randomUUID());
         user.setName("Someone");
         user.setUsername("someone");
-        user.setCreatedAt(java.time.OffsetDateTime.now());
+        user.setCreatedAt(OffsetDateTime.now());
 
         when(userRepository.search(isNull(), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
 
@@ -203,7 +211,7 @@ class UserServiceTest {
         user.setId(UUID.randomUUID());
         user.setName("Someone");
         user.setUsername("someone");
-        user.setCreatedAt(java.time.OffsetDateTime.now());
+        user.setCreatedAt(OffsetDateTime.now());
         Organization organization = new Organization();
         organization.setId(ORGANIZATION_ID);
         PointProgram program = new PointProgram();
@@ -228,7 +236,7 @@ class UserServiceTest {
         user.setId(UUID.randomUUID());
         user.setName("Someone");
         user.setUsername("someone");
-        user.setCreatedAt(java.time.OffsetDateTime.now());
+        user.setCreatedAt(OffsetDateTime.now());
         PointProgram program = new PointProgram();
         program.setActive(false);
         Storefront storefront = new Storefront();
@@ -340,6 +348,18 @@ class UserServiceTest {
     }
 
     @Test
+    void grantPointsForALapsedOrganizationIsRejectedBeforeAnythingIsWritten() {
+        when(organizationStaffRepository.findByUserIdAndActiveTrue(EMPLOYEE_ID)).thenReturn(Optional.of(employeeWithOrganization()));
+        Mockito.doThrow(new SubscriptionLapsedException("lapsed", "lapsed", SubscriptionLapsedException.STAFF_CODE))
+            .when(subscriptionGuard).requireNotLapsed(any());
+
+        assertThatThrownBy(() -> userService.grantPoints(grantRequest(UUID.randomUUID(), 50), EMPLOYEE_ID, STOREFRONT_ID))
+            .isInstanceOf(SubscriptionLapsedException.class);
+
+        verify(pointTransactionRepository, never()).save(any());
+    }
+
+    @Test
     void grantPointsCreatesDeliveredEarnTransaction() {
         UUID userId = UUID.randomUUID();
         User user = new User();
@@ -373,6 +393,23 @@ class UserServiceTest {
 
         assertThatThrownBy(() -> userService.grantPoints(grantRequest(userId, 50), EMPLOYEE_ID, STOREFRONT_ID))
             .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void claimRewardAtALapsedOrganizationIsRejectedBeforeAnythingIsWritten() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        UUID rewardId = UUID.randomUUID();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(rewardRepository.findById(rewardId)).thenReturn(Optional.of(rewardWithProgram(rewardId, 30)));
+        Mockito.doThrow(new SubscriptionLapsedException("lapsed", "lapsed", SubscriptionLapsedException.CUSTOMER_CODE))
+            .when(subscriptionGuard).requireAvailableToCustomers(ORGANIZATION_ID);
+
+        assertThatThrownBy(() -> userService.claimReward(new ClaimRewardRequest(userId, rewardId)))
+            .isInstanceOf(SubscriptionLapsedException.class);
+
+        verify(pointTransactionRepository, never()).save(any());
     }
 
     @Test
@@ -458,8 +495,11 @@ class UserServiceTest {
     }
 
     private Reward rewardWithProgram(UUID rewardId, int costPoints) {
+        Organization organization = new Organization();
+        organization.setId(ORGANIZATION_ID);
         PointProgram program = new PointProgram();
         program.setId(PROGRAM_ID);
+        program.setOrganization(organization);
         Reward reward = new Reward();
         reward.setId(rewardId);
         reward.setCostPoints(costPoints);
@@ -494,7 +534,7 @@ class UserServiceTest {
         tx.setPointProgram(program);
         tx.setTransactionType(TransactionType.EARN);
         tx.setState(TransactionState.DELIVERED);
-        tx.setCreatedAt(java.time.OffsetDateTime.now());
+        tx.setCreatedAt(OffsetDateTime.now());
         return tx;
     }
 
@@ -602,7 +642,7 @@ class UserServiceTest {
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> {
             PointTransaction saved = invocation.getArgument(0);
             saved.setId(UUID.randomUUID());
-            saved.setCreatedAt(java.time.OffsetDateTime.now());
+            saved.setCreatedAt(OffsetDateTime.now());
             return saved;
         });
 
@@ -618,7 +658,7 @@ class UserServiceTest {
         assertThat(response.correctedTransaction().amount()).isEqualTo(50);
         assertThat(tx.getPoints()).isEqualTo(50);
         assertThat(tx.getNote()).isNull();
-        verify(pointTransactionRepository).save(org.mockito.ArgumentMatchers.argThat(saved -> saved != tx && saved.getCorrectedTransaction() == tx));
+        verify(pointTransactionRepository).save(argThat(saved -> saved != tx && saved.getCorrectedTransaction() == tx));
     }
 
     @Test
@@ -675,7 +715,7 @@ class UserServiceTest {
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> {
             PointTransaction saved = invocation.getArgument(0);
             saved.setId(UUID.randomUUID());
-            saved.setCreatedAt(java.time.OffsetDateTime.now());
+            saved.setCreatedAt(OffsetDateTime.now());
             return saved;
         });
 
@@ -687,7 +727,7 @@ class UserServiceTest {
         assertThat(response.correctedTransaction().id()).isEqualTo(original.getId());
         assertThat(response.correctedTransaction().amount()).isEqualTo(-30);
         assertThat(original.getPoints()).isEqualTo(-30);
-        verify(pointTransactionRepository).save(org.mockito.ArgumentMatchers.argThat(saved -> saved != original && saved.getCorrectedTransaction() == original));
+        verify(pointTransactionRepository).save(argThat(saved -> saved != original && saved.getCorrectedTransaction() == original));
     }
 
     @Test
@@ -701,7 +741,7 @@ class UserServiceTest {
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> {
             PointTransaction saved = invocation.getArgument(0);
             saved.setId(UUID.randomUUID());
-            saved.setCreatedAt(java.time.OffsetDateTime.now());
+            saved.setCreatedAt(OffsetDateTime.now());
             return saved;
         });
 
@@ -713,7 +753,7 @@ class UserServiceTest {
         assertThat(response.correctedTransaction().amount()).isEqualTo(100);
         assertThat(original.getPoints()).isEqualTo(100);
         verify(pointTransactionRepository).calculateBalance(original.getUser().getId(), PROGRAM_ID);
-        verify(pointTransactionRepository).save(org.mockito.ArgumentMatchers.argThat(saved ->
+        verify(pointTransactionRepository).save(argThat(saved ->
             saved != original && saved.getCorrectedTransaction() == original && saved.getPoints() == -100));
     }
 

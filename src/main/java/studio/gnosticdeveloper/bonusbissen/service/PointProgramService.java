@@ -36,6 +36,7 @@ public class PointProgramService {
     private final UserRepository userRepository;
     private final PointTransactionRepository pointTransactionRepository;
     private final OnboardingService onboardingService;
+    private final SubscriptionGuard subscriptionGuard;
 
     public PointProgramService(
         PointProgramRepository pointProgramRepository,
@@ -44,7 +45,8 @@ public class PointProgramService {
         UserPointProgramRepository userPointProgramRepository,
         UserRepository userRepository,
         PointTransactionRepository pointTransactionRepository,
-        OnboardingService onboardingService
+        OnboardingService onboardingService,
+        SubscriptionGuard subscriptionGuard
     ) {
         this.pointProgramRepository = pointProgramRepository;
         this.storefrontRepository = storefrontRepository;
@@ -53,6 +55,7 @@ public class PointProgramService {
         this.userRepository = userRepository;
         this.pointTransactionRepository = pointTransactionRepository;
         this.onboardingService = onboardingService;
+        this.subscriptionGuard = subscriptionGuard;
     }
 
     @Transactional(readOnly = true)
@@ -173,7 +176,7 @@ public class PointProgramService {
         }
     }
 
-    /** Self-service join: a user opts in to any active program. */
+    /** Self-service join: a user opts in to any active program of a business that is not lapsed. */
     @Transactional
     public void join(UUID userId, UUID programId) {
         PointProgram program = pointProgramRepository
@@ -185,6 +188,7 @@ public class PointProgramService {
                     "No pudimos encontrar el programa de puntos elegido."
                 )
             );
+        subscriptionGuard.requireAvailableToCustomers(program.getOrganization().getId());
         User user = userRepository
             .findById(userId)
             .orElseThrow(() ->
@@ -208,6 +212,7 @@ public class PointProgramService {
         if (program == null || !program.isActive()) {
             throw new NotFoundException("The storefront has no point programs.", "Esta sucursal no tiene un programa de puntos activo.");
         }
+        subscriptionGuard.requireAvailableToCustomers(program.getOrganization().getId());
         User user = userRepository
             .findById(userId)
             .orElseThrow(() ->

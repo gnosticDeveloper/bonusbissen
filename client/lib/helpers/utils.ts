@@ -1,16 +1,6 @@
-import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
-import z from 'zod';
+import { twMerge, type ClassNameValue } from 'tailwind-merge'
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
-
-export function flattenZodErrors(error: z.ZodError): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const issue of error.issues) {
-    const key = issue.path[0];
-    if (typeof key === "string" && !out[key]) out[key] = issue.message;
-  }
-  return out;
+/** Joins class names (strings, nested arrays, falsy values are skipped) and resolves Tailwind conflicts; later classes win. */
+export function cn(...inputs: ClassNameValue[]) {
+  return twMerge(inputs)
 }

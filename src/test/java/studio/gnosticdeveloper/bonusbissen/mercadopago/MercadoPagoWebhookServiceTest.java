@@ -2,11 +2,14 @@ package studio.gnosticdeveloper.bonusbissen.mercadopago;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -77,7 +80,7 @@ class MercadoPagoWebhookServiceTest {
     @Test
     void preapprovalUpdateSyncsStatusOntoTheMatchingOrganization() {
         when(client.getPreapproval("preapproval-id")).thenReturn(Map.of("status", "authorized"));
-        when(organizationRepository.findByMercadoPagoPreapprovalId("preapproval-id")).thenReturn(Optional.of(organization));
+        when(organizationRepository.findForUpdateByMercadoPagoPreapprovalId("preapproval-id")).thenReturn(Optional.of(organization));
 
         service.handle("subscription_preapproval", "preapproval-id");
 
@@ -85,10 +88,78 @@ class MercadoPagoWebhookServiceTest {
         verify(organizationRepository).save(organization);
     }
 
+    private void stubPreapprovalStatus(String status) {
+        when(client.getPreapproval("preapproval-id")).thenReturn(Map.of("status", status));
+        when(organizationRepository.findForUpdateByMercadoPagoPreapprovalId("preapproval-id")).thenReturn(Optional.of(organization));
+    }
+
+    @Test
+    void cancellingAnActiveSubscriptionOnMpsSideStartsTheRunDownToTheEndOfThePaidPeriod() {
+        OffsetDateTime paidThrough = OffsetDateTime.now().plusDays(12);
+        organization.setNextInvoiceDueAt(paidThrough);
+        organization.setMercadoPagoPreapprovalStatus("authorized");
+        stubPreapprovalStatus("cancelled");
+
+        service.handle("subscription_preapproval", "preapproval-id");
+
+        assertThat(organization.getSubscriptionEndsAt()).isEqualTo(paidThrough);
+    }
+
+    @Test
+    void aSubscriptionCancelledBeforeEverBeingAuthorizedDoesNotCutAccess() {
+        organization.setNextInvoiceDueAt(OffsetDateTime.now().plusDays(12));
+        organization.setMercadoPagoPreapprovalStatus("pending");
+        stubPreapprovalStatus("cancelled");
+
+        service.handle("subscription_preapproval", "preapproval-id");
+
+        assertThat(organization.getSubscriptionEndsAt()).isNull();
+    }
+
+    @Test
+    void aRepeatCancelledNotificationKeepsTheOriginalEndDate() {
+        OffsetDateTime originalEnd = OffsetDateTime.now().plusDays(3);
+        organization.setNextInvoiceDueAt(originalEnd);
+        organization.setSubscriptionEndsAt(originalEnd);
+        organization.setMercadoPagoPreapprovalStatus("authorized");
+        organization.setNextInvoiceDueAt(OffsetDateTime.now().plusDays(40));
+        stubPreapprovalStatus("cancelled");
+
+        service.handle("subscription_preapproval", "preapproval-id");
+
+        assertThat(organization.getSubscriptionEndsAt()).isEqualTo(originalEnd);
+    }
+
+    @Test
+    void authorizingANewSubscriptionAfterThePaidPeriodRanOutRestartsBillingFromNow() {
+        organization.setNextInvoiceDueAt(OffsetDateTime.now().minusDays(20));
+        organization.setSubscriptionEndsAt(OffsetDateTime.now().minusDays(20));
+        stubPreapprovalStatus("authorized");
+
+        OffsetDateTime before = OffsetDateTime.now();
+        service.handle("subscription_preapproval", "preapproval-id");
+
+        assertThat(organization.getSubscriptionEndsAt()).isNull();
+        assertThat(organization.getNextInvoiceDueAt()).isAfterOrEqualTo(before);
+    }
+
+    @Test
+    void authorizingANewSubscriptionWhileStillCoveredKeepsTheBillingCycle() {
+        OffsetDateTime due = OffsetDateTime.now().plusDays(9);
+        organization.setNextInvoiceDueAt(due);
+        organization.setSubscriptionEndsAt(due);
+        stubPreapprovalStatus("authorized");
+
+        service.handle("subscription_preapproval", "preapproval-id");
+
+        assertThat(organization.getSubscriptionEndsAt()).isNull();
+        assertThat(organization.getNextInvoiceDueAt()).isEqualTo(due);
+    }
+
     @Test
     void preapprovalUpdateForAnUnknownPreapprovalIsIgnoredWithoutError() {
         when(client.getPreapproval("unknown-id")).thenReturn(Map.of("status", "authorized"));
-        when(organizationRepository.findByMercadoPagoPreapprovalId("unknown-id")).thenReturn(Optional.empty());
+        when(organizationRepository.findForUpdateByMercadoPagoPreapprovalId("unknown-id")).thenReturn(Optional.empty());
 
         service.handle("subscription_preapproval", "unknown-id");
 
@@ -137,7 +208,7 @@ class MercadoPagoWebhookServiceTest {
 
     @Test
     void approvedPaymentFallsBackToExternalReferenceForAReplacedPreapproval() {
-        Map<String, Object> payment = new java.util.HashMap<>(authorizedPayment("approved", "old-preapproval"));
+        Map<String, Object> payment = new HashMap<>(authorizedPayment("approved", "old-preapproval"));
         payment.put("external_reference", organization.getId().toString());
         when(client.getAuthorizedPayment("payment-id")).thenReturn(payment);
         when(organizationRepository.findForUpdateByMercadoPagoPreapprovalId("old-preapproval")).thenReturn(Optional.empty());
@@ -185,7 +256,7 @@ class MercadoPagoWebhookServiceTest {
         service.handle("subscription_authorized_payment", "payment-id");
 
         ArgumentCaptor<MercadoPagoPayment> captor = ArgumentCaptor.forClass(MercadoPagoPayment.class);
-        verify(invoiceService).applyPayment(org.mockito.ArgumentMatchers.eq(invoice), captor.capture());
+        verify(invoiceService).applyPayment(eq(invoice), captor.capture());
         assertThat(captor.getValue().getAuthorizedPaymentId()).isEqualTo("payment-id");
     }
 }

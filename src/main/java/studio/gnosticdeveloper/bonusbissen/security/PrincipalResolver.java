@@ -29,7 +29,7 @@ public class PrincipalResolver {
                         staff.getUser().getUsername(),
                         staff.getRole().name(),
                         staff.getOrganization().getId(),
-                        storefrontId != null && staff.getStorefronts().stream()
+                        storefrontId != null && staff.selectableStorefronts().stream()
                             .anyMatch(s -> s.getId().equals(storefrontId) && s.getOrganization().getId().equals(staff.getOrganization().getId()))
                             ? storefrontId
                             : null

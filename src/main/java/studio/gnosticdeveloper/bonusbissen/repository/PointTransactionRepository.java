@@ -29,14 +29,23 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
     String ORG_JOIN = " join point_programs pp on pp.id = t.point_program_id ";
     String ORG_MATCH = " pp.organization_id = :organizationId ";
 
+    /**
+     * {@code organizationId} null means "the caller is the customer themselves" -- every one of
+     * their own pending exchanges, across every business they belong to. Non-null means "the
+     * caller is staff", scoped to that one organization's exchanges only -- without this, any
+     * authenticated staff member could read another organization's customer's pending
+     * redemptions (including the redemption code) by guessing/enumerating a user id.
+     */
     @Query(
-        value = "select t.* from point_transactions t where t.user_id = :userId and t.state = :state order by t.created_at desc",
+        value = "select t.* from point_transactions t " + ORG_JOIN +
+            " where t.user_id = :userId and t.state = :state and (cast(:organizationId as uuid) is null or " + ORG_MATCH + ") order by t.created_at desc",
         nativeQuery = true
     )
-    List<PointTransaction> findAllPendingByUserIdOrderByCreatedAtDescRaw(@Param("userId") UUID userId, @Param("state") String state);
+    List<PointTransaction> findAllPendingByUserIdOrderByCreatedAtDescRaw(
+        @Param("userId") UUID userId, @Param("state") String state, @Param("organizationId") UUID organizationId);
 
-    default List<PointTransaction> findAllPendingByUserIdOrderByCreatedAtDesc(UUID userId, TransactionState state) {
-        return findAllPendingByUserIdOrderByCreatedAtDescRaw(userId, state.getValue());
+    default List<PointTransaction> findAllPendingByUserIdOrderByCreatedAtDesc(UUID userId, TransactionState state, UUID organizationId) {
+        return findAllPendingByUserIdOrderByCreatedAtDescRaw(userId, state.getValue(), organizationId);
     }
 
     @Query(

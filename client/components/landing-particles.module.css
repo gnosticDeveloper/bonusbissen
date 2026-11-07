@@ -1,0 +1,58 @@
+.root {
+    --particles-color: var(--primary);
+}
+
+.glow {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 48svh;
+    opacity: 0.8;
+    background: linear-gradient(to top, color-mix(in srgb, var(--particles-color) 19%, transparent), transparent);
+    mask-image: linear-gradient(to top, black 0%, black 35%, transparent 100%);
+}
+
+.field {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 1;
+    height: 52svh;
+}
+
+.particle {
+    position: absolute;
+    display: block;
+    border-radius: 999px;
+    background: var(--particles-color);
+    box-shadow: 0 0 8px var(--particles-color);
+    opacity: 0;
+    animation: particle-fire linear infinite;
+}
+
+.root[data-paused] .particle {
+    animation-play-state: paused;
+}
+
+@keyframes particle-fire {
+    0% {
+        opacity: 0;
+        transform: translate(0, 0) scale(0.55) rotate(0deg);
+    }
+    14% {
+        opacity: 0.5;
+    }
+    78% {
+        opacity: 0.16;
+    }
+    100% {
+        opacity: 0;
+        transform: translate(var(--particle-drift), var(--particle-rise)) scale(0.12) rotate(var(--particle-rotate));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .particle {
+        animation: none;
+    }
+}

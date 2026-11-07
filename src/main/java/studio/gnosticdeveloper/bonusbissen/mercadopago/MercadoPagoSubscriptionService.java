@@ -1,10 +1,12 @@
 package studio.gnosticdeveloper.bonusbissen.mercadopago;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +20,7 @@ import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.InvoiceRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.SubscriptionOperationLockRepository;
 
 /**
  * Bridges bonusbissen's own billing model ({@link BillingPlan}/{@link Organization})
@@ -37,35 +40,41 @@ public class MercadoPagoSubscriptionService {
     private static final Logger log = LoggerFactory.getLogger(MercadoPagoSubscriptionService.class);
 
     private static final String STATUS_AUTHORIZED = "authorized";
+    private static final String STATUS_PENDING = "pending";
     private static final String STATUS_CANCELLED = "cancelled";
     /** Preapproval states MP will never charge from again. */
     private static final Set<String> TERMINAL_STATUSES = Set.of(STATUS_CANCELLED, "finished");
+    /** A subscription in one of these is one the org was actually covered by -- cancelling it starts the countdown to losing access. */
+    private static final Set<String> ACTIVE_STATUSES = Set.of(STATUS_AUTHORIZED, "paused");
+
+    /** Null-safe (Set.of rejects null lookups) -- a stored status can be null. */
+    static boolean isActiveStatus(String status) {
+        return status != null && ACTIVE_STATUSES.contains(status);
+    }
 
     /**
-     * Orgs with a checkout or cancel currently talking to MP. Those calls span several
-     * HTTP round trips with no DB transaction around them (see the class comment), so
-     * nothing else stops two of them for one org from interleaving -- both would read
-     * the same pending preapproval, both cancel it, and both create a replacement,
-     * leaving two live preapprovals that could each end up authorized and charging.
-     * The loser is turned away with a 409 instead. In-process, which is enough for a
-     * single backend instance; running several would need this moved to the database.
+     * How long a checkout/cancel may hold its lease before it counts as abandoned. A real
+     * operation is a handful of MP calls, seconds at most; this only has to outlast that.
      */
-    private final Set<UUID> inFlight = ConcurrentHashMap.newKeySet();
+    private static final double OPERATION_LEASE_SECONDS = 120;
 
     private final MercadoPagoClient client;
     private final OrganizationRepository organizationRepository;
     private final InvoiceRepository invoiceRepository;
+    private final SubscriptionOperationLockRepository operationLockRepository;
     private final String backUrl;
 
     public MercadoPagoSubscriptionService(
         MercadoPagoClient client,
         OrganizationRepository organizationRepository,
         InvoiceRepository invoiceRepository,
+        SubscriptionOperationLockRepository operationLockRepository,
         @Value("${app.mercadopago.back-url}") String backUrl
     ) {
         this.client = client;
         this.organizationRepository = organizationRepository;
         this.invoiceRepository = invoiceRepository;
+        this.operationLockRepository = operationLockRepository;
         this.backUrl = backUrl;
     }
 
@@ -81,7 +90,9 @@ public class MercadoPagoSubscriptionService {
      * email as a last resort. A given one is saved once the checkout is created.
      *
      * An org has at most one live preapproval: an already-authorized one is a
-     * conflict, and a still-pending/paused one is cancelled at MP before its
+     * conflict; a pending one that still matches the current plan, payer and
+     * first-charge date is handed back as is (so repeated clicks give the same
+     * link); any other pending/paused one is cancelled at MP before its
      * replacement is created -- otherwise both could end up authorized and
      * charging. The existing one's status is read live from MP, not from the
      * stored copy, in case a webhook was missed.
@@ -107,14 +118,24 @@ public class MercadoPagoSubscriptionService {
         }
 
         String existingId = org.getMercadoPagoPreapprovalId();
+        OffsetDateTime wantedStart = firstChargeAt(org);
         if (existingId != null) {
-            String liveStatus = String.valueOf(client.getPreapproval(existingId).get("status"));
+            Map<String, Object> live = client.getPreapproval(existingId);
+            String liveStatus = String.valueOf(live.get("status"));
             if (STATUS_AUTHORIZED.equals(liveStatus)) {
                 organizationRepository.updateMercadoPagoPreapproval(organizationId, existingId, liveStatus);
                 throw new ConflictException(
                     "Organization " + organizationId + " already has authorized preapproval " + existingId + ".",
                     "Tu suscripción de Mercado Pago ya está activa."
                 );
+            }
+            if (STATUS_PENDING.equals(liveStatus) && isStillTheRightCheckout(live, plan, resolvedPayerEmail, givenPayerEmail, org.getMercadoPagoPayerEmail(), wantedStart)) {
+                // A repeated click, a refresh, or coming back to finish: hand back the same link
+                // instead of cancelling it and creating a replacement (which kills a checkout page
+                // the payer may already have open).
+                organizationRepository.updateMercadoPagoPreapproval(organizationId, existingId, liveStatus);
+                log.info("Reusing pending Mercado Pago checkout {} for organization {}", existingId, organizationId);
+                return live;
             }
             if (!TERMINAL_STATUSES.contains(liveStatus)) {
                 cancelAtMercadoPago(existingId);
@@ -130,7 +151,7 @@ public class MercadoPagoSubscriptionService {
             resolvedPayerEmail,
             org.getId().toString(),
             backUrl,
-            firstChargeAt(org)
+            wantedStart
         );
         String preapprovalId = String.valueOf(preapproval.get("id"));
         String status = String.valueOf(preapproval.get("status"));
@@ -146,9 +167,13 @@ public class MercadoPagoSubscriptionService {
     }
 
     /**
-     * Cancels the org's Mercado Pago subscription so MP stops charging. Only
-     * the recurring authorization ends: invoices keep being generated and
-     * pending ones stay payable. Idempotent -- an already cancelled/finished
+     * Cancels the org's Mercado Pago subscription so MP stops charging, and
+     * (if it was active) schedules the end of access: the org keeps the period
+     * it already paid for, no further invoices are generated, and it is locked
+     * once {@code subscription_ends_at} passes. Invoices that already exist
+     * are untouched -- pending ones stay payable and subject to the usual
+     * overdue lock. Re-subscribing (a new checkout, once MP authorizes it)
+     * undoes the cancellation. Idempotent -- an already cancelled/finished
      * preapproval just has its stored status synced. The live status is read
      * from MP first, in case a webhook was missed.
      */
@@ -172,10 +197,18 @@ public class MercadoPagoSubscriptionService {
         }
 
         String liveStatus = String.valueOf(client.getPreapproval(preapprovalId).get("status"));
+        // Cancelling a subscription the org never got to authorize (still pending) leaves its
+        // access untouched; only an active one starts the run-down to subscription_ends_at.
+        // The stored status counts too, in case MP cancelled it and the webhook was missed.
+        boolean wasActive = isActiveStatus(liveStatus) || isActiveStatus(org.getMercadoPagoPreapprovalStatus());
         if (!TERMINAL_STATUSES.contains(liveStatus)) {
             cancelAtMercadoPago(preapprovalId);
             liveStatus = STATUS_CANCELLED;
             log.info("Cancelled preapproval {} for organization {}", preapprovalId, organizationId);
+        }
+        if (wasActive) {
+            // Before the status update, so a crash in between leaves a retry that still sees it as active.
+            organizationRepository.endSubscriptionAtPaidThrough(organizationId);
         }
         organizationRepository.updateMercadoPagoPreapproval(organizationId, preapprovalId, liveStatus);
     }
@@ -207,8 +240,84 @@ public class MercadoPagoSubscriptionService {
         }
     }
 
+    /**
+     * A pending preapproval can be handed back only if it would still be created exactly the
+     * same today: it has a checkout link, and the price, currency, first-charge date and payer
+     * it was made with still match. Anything else (a plan change, a different payer email, an
+     * invoice that has since come due) means the old link would authorize the wrong thing, so
+     * it's replaced as before.
+     *
+     * Shaped around what Mercado Pago really returns for a pending subscription (checked
+     * against the sandbox): {@code payer_email} comes back as an empty string, so it can't be
+     * compared and the payer is judged from what we saved instead; and {@code start_date} is
+     * always filled in -- with the creation time when we asked to charge on authorization.
+     */
+    private static boolean isStillTheRightCheckout(
+        Map<String, Object> live, BillingPlan plan, String resolvedPayerEmail, String givenPayerEmail, String savedPayerEmail, OffsetDateTime wantedStart
+    ) {
+        if (live.get("init_point") == null || !(live.get("auto_recurring") instanceof Map<?, ?> recurring)) {
+            return false;
+        }
+        if (!sameAmount(recurring.get("transaction_amount"), plan.getPrice()) || !plan.getCurrency().equals(recurring.get("currency_id"))) {
+            return false;
+        }
+        return samePayer(live.get("payer_email"), resolvedPayerEmail, givenPayerEmail, savedPayerEmail)
+            && sameFirstCharge(recurring.get("start_date"), wantedStart);
+    }
+
+    /**
+     * When MP echoes the payer email it must match. When it doesn't (the usual case while
+     * pending), a newly given email only counts as the same payer if it's the one already saved
+     * from the checkout it would be replacing.
+     */
+    private static boolean samePayer(Object livePayerEmail, String resolvedPayerEmail, String givenPayerEmail, String savedPayerEmail) {
+        if (livePayerEmail != null && !livePayerEmail.toString().isBlank()) {
+            return resolvedPayerEmail.equalsIgnoreCase(livePayerEmail.toString());
+        }
+        return givenPayerEmail == null || givenPayerEmail.equalsIgnoreCase(savedPayerEmail);
+    }
+
+    private static boolean sameAmount(Object liveAmount, BigDecimal planPrice) {
+        try {
+            return liveAmount != null && new BigDecimal(liveAmount.toString()).compareTo(planPrice) == 0;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /**
+     * MP always reports a start_date. For a subscription asked to charge on authorization that is
+     * just its creation time, so "no wanted date" matches any start that isn't in the future;
+     * otherwise the instants must agree.
+     */
+    private static boolean sameFirstCharge(Object liveStart, OffsetDateTime wantedStart) {
+        if (liveStart == null) {
+            return wantedStart == null;
+        }
+        try {
+            OffsetDateTime live = OffsetDateTime.parse(liveStart.toString());
+            if (wantedStart == null) {
+                return !live.isAfter(OffsetDateTime.now().plusMinutes(1));
+            }
+            return live.toInstant().truncatedTo(ChronoUnit.SECONDS)
+                .equals(wantedStart.toInstant().truncatedTo(ChronoUnit.SECONDS));
+        } catch (DateTimeParseException e) {
+            return false;
+        }
+    }
+
+    /**
+     * A checkout or cancel talks to MP over several HTTP round trips with no DB transaction around
+     * them (see the class comment), so nothing else stops two of them for one org from interleaving:
+     * both would read the same pending preapproval, both cancel it, and both create a replacement,
+     * leaving two live preapprovals that could each end up authorized and charging. So each one
+     * first takes the org's lease in subscription_operation_locks (shared by every backend
+     * instance, unlike the in-process set this replaced) and the loser gets a 409. A lease left
+     * behind by a crash expires after {@link #OPERATION_LEASE_SECONDS}.
+     */
     private <T> T withOrganizationGuard(UUID organizationId, Supplier<T> action) {
-        if (!inFlight.add(organizationId)) {
+        UUID holder = UUID.randomUUID();
+        if (operationLockRepository.tryAcquire(organizationId, holder, OPERATION_LEASE_SECONDS) == 0) {
             throw new ConflictException(
                 "Organization " + organizationId + " already has a Mercado Pago subscription operation in progress.",
                 "Ya hay una operación de suscripción en curso. Esperá unos segundos e intentá de nuevo."
@@ -217,7 +326,12 @@ public class MercadoPagoSubscriptionService {
         try {
             return action.get();
         } finally {
-            inFlight.remove(organizationId);
+            try {
+                operationLockRepository.release(organizationId, holder);
+            } catch (RuntimeException e) {
+                // The operation itself is done; a stuck lease just expires on its own.
+                log.warn("Could not release the subscription operation lease for organization {}; it will expire", organizationId, e);
+            }
         }
     }
 

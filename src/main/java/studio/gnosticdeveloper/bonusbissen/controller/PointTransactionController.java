@@ -57,12 +57,19 @@ public class PointTransactionController {
         return pointTransactionService.getResolved(principal.organizationId(), pageable);
     }
 
+    /**
+     * A customer (role USER) may only ever ask for their own id and sees every pending exchange
+     * of theirs, at any business. Staff (ADMIN/CASHIER) may ask for any customer's id, but the
+     * result is scoped to their own organization's exchanges only -- see
+     * PointTransactionRepository#findAllPendingByUserIdOrderByCreatedAtDescRaw.
+     */
     @GetMapping("/pending/{id}")
     public List<PendingExchangeResponse> getAllPendingExchangesByUserId(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        if ("USER".equals(principal.role()) && !principal.id().equals(id)) {
+        boolean isCustomer = "USER".equals(principal.role());
+        if (isCustomer && !principal.id().equals(id)) {
             throw new AccessDeniedException("No podés acceder a los canjes de otro cliente.");
         }
-        return pointTransactionService.getAllPendingExchangesById(id);
+        return pointTransactionService.getAllPendingExchangesById(id, isCustomer ? null : principal.organizationId());
     }
 
     @GetMapping("/pending")

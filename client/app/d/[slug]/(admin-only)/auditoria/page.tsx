@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Select } from "@base-ui/react/select";
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import {
   BadgeCheck,
   Check,
@@ -12,7 +11,6 @@ import {
   ListFilter,
   Loader2,
   LogOut,
-
   ShieldCheck,
   SlidersHorizontal,
   UserPlus,
@@ -27,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/input";
 import type { SearchOptions } from "@/lib/definitions";
+import { cn } from "@/lib/helpers/utils";
 import { auditDetailLines, sortAuditRecords } from "@/lib/helpers/traceability";
 import type { AuditRecord, AuditUser, OperationType } from "@/lib/types/traceability";
 import { getAuditRecords, searchAuditUsers } from "./actions";
@@ -104,6 +103,10 @@ const OPERATIONS: OperationOption[] = [
     color: "bg-orange-500/10 text-orange-800 dark:text-orange-300",
   },
 ];
+/** `null` represents «Todos los tipos» (no operation filter). */
+const OPERATION_CHOICES: (OperationOption | null)[] = [null, ...OPERATIONS];
+const ALL_OPERATIONS_LABEL = "Todos los tipos";
+const TYPEAHEAD_RESET_MS = 600;
 const PAGE_SIZE = 20;
 const dateFormatter = new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeStyle: "medium", timeZone: "America/Argentina/Buenos_Aires" });
 const normalize = (value: string) =>
@@ -123,56 +126,173 @@ function OperationBadge({ operation }: { operation: OperationOption }) {
   );
 }
 
-function OperationChoice({ operation, inList = false }: { operation: OperationOption | null; inList?: boolean }) {
+function OperationChoice({ operation }: { operation: OperationOption | null }) {
   const Icon = operation?.icon ?? ListFilter;
-  const label = operation?.label ?? "Todos los tipos";
   return (
     <span className="flex min-w-0 items-center gap-3">
       <span className={`grid size-8 shrink-0 place-items-center rounded-lg ${operation?.color ?? "bg-primary/10 text-foreground/80"}`}>
         <Icon className="size-4" aria-hidden="true" />
       </span>
       <span className="min-w-0 text-left">
-        {inList ? <Select.ItemText className="block text-sm font-medium">{label}</Select.ItemText> : <span className="block text-sm font-medium">{label}</span>}
+        <span className="block text-sm font-medium">{operation?.label ?? ALL_OPERATIONS_LABEL}</span>
         <span className="mt-0.5 block text-xs leading-4 text-foreground/80">{operation?.description ?? "Incluye todas las operaciones disponibles"}</span>
       </span>
     </span>
   );
 }
 
+/** Single-select listbox (WAI-ARIA "select-only combobox" style): the trigger opens a focused listbox driven by aria-activedescendant. */
 function OperationSelect({ selected, onChange }: { selected: OperationOption | null; onChange: (operation: OperationOption | null) => void }) {
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const typeahead = useRef({ query: "", timeout: undefined as ReturnType<typeof setTimeout> | undefined });
+  const listboxId = useId();
+  const optionId = (index: number) => `${listboxId}-option-${index}`;
+  const selectedIndex = Math.max(0, OPERATION_CHOICES.findIndex((operation) => (operation?.id ?? null) === (selected?.id ?? null)));
+  const lastIndex = OPERATION_CHOICES.length - 1;
+
+  useEffect(() => {
+    if (open) listRef.current?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    if (open) document.getElementById(`${listboxId}-option-${activeIndex}`)?.scrollIntoView({ block: "nearest" });
+  }, [open, activeIndex, listboxId]);
+
+  useEffect(() => {
+    const state = typeahead.current;
+    return () => clearTimeout(state.timeout);
+  }, []);
+
+  function openList(index = selectedIndex) {
+    setActiveIndex(index);
+    setOpen(true);
+  }
+
+  function closeList({ restoreFocus }: { restoreFocus: boolean }) {
+    setOpen(false);
+    if (restoreFocus) triggerRef.current?.focus();
+  }
+
+  function choose(index: number) {
+    closeList({ restoreFocus: true });
+    if (index !== selectedIndex) onChange(OPERATION_CHOICES[index] ?? null);
+  }
+
+  function findByTypeahead(key: string) {
+    const state = typeahead.current;
+    clearTimeout(state.timeout);
+    state.query += normalize(key);
+    state.timeout = setTimeout(() => (state.query = ""), TYPEAHEAD_RESET_MS);
+    // Repeating the same letter cycles through matches; otherwise search from the current option.
+    const cycling = state.query.length > 1 && [...state.query].every((char) => char === state.query[0]);
+    const query = cycling ? state.query[0] : state.query;
+    const start = cycling || state.query.length === 1 ? activeIndex + 1 : activeIndex;
+    for (let offset = 0; offset < OPERATION_CHOICES.length; offset++) {
+      const index = (start + offset) % OPERATION_CHOICES.length;
+      if (normalize(OPERATION_CHOICES[index]?.label ?? ALL_OPERATIONS_LABEL).startsWith(query)) return index;
+    }
+    return null;
+  }
+
+  function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (open) return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      openList();
+    }
+  }
+
+  function handleListKeyDown(event: KeyboardEvent<HTMLUListElement>) {
+    const moves: Record<string, () => number> = {
+      ArrowDown: () => Math.min(activeIndex + 1, lastIndex),
+      ArrowUp: () => Math.max(activeIndex - 1, 0),
+      Home: () => 0,
+      End: () => lastIndex,
+      PageDown: () => Math.min(activeIndex + 5, lastIndex),
+      PageUp: () => Math.max(activeIndex - 5, 0),
+    };
+    if (Object.hasOwn(moves, event.key)) {
+      event.preventDefault();
+      setActiveIndex(moves[event.key]());
+    } else if (event.key === "Enter" || (event.key === " " && !typeahead.current.query)) {
+      event.preventDefault();
+      choose(activeIndex);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeList({ restoreFocus: true });
+    } else if (event.key === "Tab") {
+      closeList({ restoreFocus: false });
+    } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault();
+      const match = findByTypeahead(event.key);
+      if (match !== null) setActiveIndex(match);
+    }
+  }
+
   return (
-    <Select.Root
-      value={selected?.id ?? ""}
-      onValueChange={(value) => onChange(OPERATIONS.find((operation) => operation.id === value) ?? null)}
-      items={[{ value: "", label: "Todos los tipos" }, ...OPERATIONS.map((operation) => ({ value: operation.id, label: operation.label }))]}
-    >
-      <Select.Trigger
+    <div ref={rootRef} className="relative">
+      <button
+        ref={triggerRef}
         id="audit-operation"
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listboxId : undefined}
+        // Keep focus in the open listbox so its blur handler does not close it before the toggle click.
+        onMouseDown={(event) => {
+          if (open) event.preventDefault();
+        }}
+        onClick={() => (open ? closeList({ restoreFocus: true }) : openList())}
+        onKeyDown={handleTriggerKeyDown}
         className="flex min-h-14 w-full items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2 text-foreground shadow-sm transition-colors hover:border-primary/50 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/70"
       >
-        <Select.Value className="min-w-0">{() => <OperationChoice operation={selected} />}</Select.Value>
-        <Select.Icon><ChevronDown className="size-4 shrink-0 text-foreground/80" aria-hidden="true" /></Select.Icon>
-      </Select.Trigger>
-      <Select.Portal>
-        <Select.Positioner sideOffset={6} align="start" alignItemWithTrigger={false} className="z-50">
-          <Select.Popup className="w-(--anchor-width) max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-border bg-card text-foreground shadow-lg">
-            <Select.List className="max-h-[min(24rem,var(--available-height))] overflow-y-auto p-1.5">
-              {[null, ...OPERATIONS].map((operation) => (
-                <Select.Item
-                  key={operation?.id ?? "all"}
-                  value={operation?.id ?? ""}
-                  label={operation?.label ?? "Todos los tipos"}
-                  className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2.5 outline-none data-highlighted:bg-primary/10 data-selected:bg-primary/5"
-                >
-                  <OperationChoice operation={operation} inList />
-                  <span className="size-4 shrink-0"><Select.ItemIndicator><Check className="size-4 text-foreground" aria-hidden="true" /></Select.ItemIndicator></span>
-                </Select.Item>
-              ))}
-            </Select.List>
-          </Select.Popup>
-        </Select.Positioner>
-      </Select.Portal>
-    </Select.Root>
+        <span className="min-w-0">
+          <OperationChoice operation={selected} />
+        </span>
+        <ChevronDown className={cn("size-4 shrink-0 text-foreground/80 transition-transform motion-reduce:transition-none", open && "rotate-180")} aria-hidden="true" />
+      </button>
+      {open && (
+        <ul
+          ref={listRef}
+          id={listboxId}
+          role="listbox"
+          tabIndex={-1}
+          aria-label="Tipo de operación"
+          aria-activedescendant={optionId(activeIndex)}
+          onKeyDown={handleListKeyDown}
+          onBlur={(event) => {
+            if (!rootRef.current?.contains(event.relatedTarget)) closeList({ restoreFocus: false });
+          }}
+          className="absolute inset-x-0 top-full z-50 mt-1.5 max-h-[min(24rem,60dvh)] overflow-y-auto rounded-2xl border border-border bg-card p-1.5 text-foreground shadow-lg outline-none"
+        >
+          {OPERATION_CHOICES.map((operation, index) => (
+            <li
+              key={operation?.id ?? "all"}
+              id={optionId(index)}
+              role="option"
+              aria-selected={index === selectedIndex}
+              onMouseDown={(event) => event.preventDefault()}
+              onMouseMove={() => {
+                if (index !== activeIndex) setActiveIndex(index);
+              }}
+              onClick={() => choose(index)}
+              className={cn(
+                "flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2.5",
+                index === selectedIndex && "bg-primary/5",
+                index === activeIndex && "bg-primary/10",
+              )}
+            >
+              <OperationChoice operation={operation} />
+              <span className="size-4 shrink-0">{index === selectedIndex && <Check className="size-4 text-foreground" aria-hidden="true" />}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -181,10 +301,6 @@ function UserIdentity({ user }: { user: AuditUser }) {
     <div className="min-w-0 space-y-0.5 wrap-break-word">
       <p className="font-medium">{user.name ?? user.username ?? "Usuario no disponible"}</p>
       {user.username && <p className="text-xs text-foreground/80">{user.username}</p>}
-      {/*<details className="text-xs text-foreground/70">
-        <summary className="cursor-pointer hover:text-foreground">Ver ID del usuario</summary>
-        <span className="mt-1 block break-all font-mono">{user.id}</span>
-      </details>*/}
     </div>
   );
 }
@@ -509,17 +625,6 @@ export default function AuditPage() {
                                   </li>
                                 ))}
                               </ul>
-                              {/*<details className="mt-3 text-xs text-foreground/80">
-                                <summary className="cursor-pointer font-medium hover:text-foreground">Ver identificadores</summary>
-                                <dl className="mt-2 space-y-2">
-                                  {auditReferences(record).map((reference) => (
-                                    <div key={reference.label}>
-                                      <dt>{reference.label}</dt>
-                                      <dd className="break-all font-mono text-[11px]">{reference.id}</dd>
-                                    </div>
-                                  ))}
-                                </dl>
-                              </details>*/}
                             </td>
                           </tr>
                         );

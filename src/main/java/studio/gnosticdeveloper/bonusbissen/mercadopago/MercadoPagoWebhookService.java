@@ -1,6 +1,7 @@
 package studio.gnosticdeveloper.bonusbissen.mercadopago;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -88,9 +89,17 @@ public class MercadoPagoWebhookService {
         Map<String, Object> preapproval = client.getPreapproval(preapprovalId);
         String status = stringOrNull(preapproval.get("status"));
 
-        organizationRepository.findByMercadoPagoPreapprovalId(preapprovalId).ifPresentOrElse(
+        // Locked: reactivating and cancelling move billing dates the invoice job also writes.
+        organizationRepository.findForUpdateByMercadoPagoPreapprovalId(preapprovalId).ifPresentOrElse(
             org -> {
+                String previousStatus = org.getMercadoPagoPreapprovalStatus();
                 org.setMercadoPagoPreapprovalStatus(status);
+                if ("cancelled".equals(status) && MercadoPagoSubscriptionService.isActiveStatus(previousStatus)) {
+                    // Cancelled on MP's side (the payer's own app/panel): same run-down as our endpoint.
+                    org.endSubscriptionAtPaidThrough();
+                } else if ("authorized".equals(status)) {
+                    org.reactivateSubscription(OffsetDateTime.now());
+                }
                 organizationRepository.save(org);
                 log.info("Organization {} preapproval {} is now {}", org.getId(), preapprovalId, status);
             },

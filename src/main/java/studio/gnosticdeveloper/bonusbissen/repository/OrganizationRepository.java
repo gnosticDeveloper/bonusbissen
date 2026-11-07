@@ -18,8 +18,11 @@ import java.util.UUID;
 
 public interface OrganizationRepository extends JpaRepository<Organization, UUID> {
 
-    /** Orgs on a plan whose current cycle has come due -- the driving query for InvoiceGenerationService. */
-    List<Organization> findAllByBillingPlanIsNotNullAndNextInvoiceDueAtLessThanEqual(OffsetDateTime now);
+    /**
+     * Orgs on a plan whose current cycle has come due -- the driving query for InvoiceGenerationService.
+     * A cancelled subscription (subscriptionEndsAt set) is never billed again.
+     */
+    List<Organization> findAllByBillingPlanIsNotNullAndSubscriptionEndsAtIsNullAndNextInvoiceDueAtLessThanEqual(OffsetDateTime now);
 
     /** Looks up the org a Mercado Pago webhook notification refers to, by the preapproval id stored at checkout time. */
     Optional<Organization> findByMercadoPagoPreapprovalId(String mercadoPagoPreapprovalId);
@@ -36,6 +39,23 @@ public interface OrganizationRepository extends JpaRepository<Organization, UUID
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Organization> findForUpdateByMercadoPagoPreapprovalId(String mercadoPagoPreapprovalId);
+
+    /**
+     * Cancel path. Keeps an existing end date, and does nothing without a plan. A targeted
+     * write rather than save(org), for the same reason as the two below.
+     */
+    @Modifying
+    @Transactional
+    @Query("update Organization o set o.subscriptionEndsAt = o.nextInvoiceDueAt where o.id = :id and o.subscriptionEndsAt is null and o.billingPlan is not null")
+    int endSubscriptionAtPaidThrough(@Param("id") UUID id);
+
+    /** Cancelled, and the period it had paid for has run out -- see LapseSql. */
+    @Query(value = "select exists (select 1 from organizations o where o.id = :id and " + LapseSql.ENDED + ")", nativeQuery = true)
+    boolean hasSubscriptionEnded(@Param("id") UUID id);
+
+    /** Either of the two lapse conditions -- see LapseSql. */
+    @Query(value = "select exists (select 1 from organizations o where o.id = :id and (" + LapseSql.ENDED + " or " + LapseSql.OVERDUE + "))", nativeQuery = true)
+    boolean isLapsed(@Param("id") UUID id);
 
     /**
      * Targeted write rather than save(org): MercadoPagoSubscriptionService holds no
