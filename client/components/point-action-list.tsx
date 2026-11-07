@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PointExpirationBadge } from "@/components/point-expiration-badge";
 import { ErrorState } from "@/components/error-state";
-import { formatDateTime, formatNumber, pointActionLabel } from "@/lib/helpers/format";
+import { formatDate, formatNumber, pointActionLabel } from "@/lib/helpers/format";
 import { Button } from "@/components/ui/button";
 import { History, Pencil } from "lucide-react";
 import { Customer } from "@/lib/types/customer";
@@ -153,7 +153,7 @@ export default function PointActionList({
                             open(
                               <div className="space-y-2 text-sm">
                                 <p>Movimiento original: {formatNumber(a.correctedTransaction!.amount)} puntos</p>
-                                <p>Fecha: {formatDateTime(a.correctedTransaction!.createdAt)}</p>
+                                <p>Fecha: {formatDate(a.correctedTransaction!.createdAt)}</p>
                                 <p>Nota: {a.correctedTransaction!.note || "Sin nota"}</p>
                                 <PointExpirationBadge
                                   expirationApplicable={a.correctedTransaction!.expirationApplicable}
@@ -170,7 +170,7 @@ export default function PointActionList({
                       )}
 
                       <p className="mt-2 text-[11px] leading-4 text-foreground/80">
-                        {formatDateTime(a.createdAt)}
+                        {formatDate(a.createdAt)}
                         <span className="mx-1">•</span>
                         por {a.byUserName}
                       </p>
