@@ -4,7 +4,7 @@ import { dashboardRequest } from "@/lib/api";
 import { Customer } from "@/lib/types/customer";
 import { PointAction } from "../../types";
 import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
-import { ActionResult } from "@/lib/action-result";
+import type { ActionResult } from "@/lib/api";
 
 interface UserPointsAwardResponse {
   userName: string;
@@ -49,13 +49,9 @@ export const getAllCustomers: PagedRequestFunction<Customer> = async ({ search, 
   return result.data;
 };
 
-export const getAllPointActions = async (id?: string): Promise<PointAction[]> => {
+export const getAllPointActions = async (id?: string): Promise<ActionResult<PointAction[]>> => {
   const params = new URLSearchParams();
   params.append("size", "10");
   if (id) params.append("of", id);
-  const res = await dashboardRequest<PointAction[]>(`/users/grant/history?${params.toString()}`);
-
-  if (!res.ok) throw new Error("Hubo un error buscando el historial de puntos.");
-
-  return res.data;
+  return await dashboardRequest<PointAction[]>(`/users/grant/history?${params.toString()}`);
 };
