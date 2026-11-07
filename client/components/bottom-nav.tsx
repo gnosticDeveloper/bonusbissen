@@ -48,14 +48,6 @@ export function BottomNav() {
           <ListPlus size={24} aria-hidden="true" />
           <span>Más</span>
         </button>
-
-        {/* Note: Afiliating to a pointProgram is performed with a basic confirmation flow through "/afiliarse". We are not planning to use QRs for now. */}
-        {/*<button
-          aria-label="Escanear QR"
-          className="-mt-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95"
-        >
-          <QrCode size={34} />
-        </button>*/}
       </div>
     </nav>
   );

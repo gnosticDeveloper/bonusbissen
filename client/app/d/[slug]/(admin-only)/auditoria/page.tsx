@@ -11,7 +11,6 @@ import {
   ListFilter,
   Loader2,
   LogOut,
-
   ShieldCheck,
   SlidersHorizontal,
   UserPlus,
@@ -302,10 +301,6 @@ function UserIdentity({ user }: { user: AuditUser }) {
     <div className="min-w-0 space-y-0.5 wrap-break-word">
       <p className="font-medium">{user.name ?? user.username ?? "Usuario no disponible"}</p>
       {user.username && <p className="text-xs text-foreground/80">{user.username}</p>}
-      {/*<details className="text-xs text-foreground/70">
-        <summary className="cursor-pointer hover:text-foreground">Ver ID del usuario</summary>
-        <span className="mt-1 block break-all font-mono">{user.id}</span>
-      </details>*/}
     </div>
   );
 }
@@ -630,17 +625,6 @@ export default function AuditPage() {
                                   </li>
                                 ))}
                               </ul>
-                              {/*<details className="mt-3 text-xs text-foreground/80">
-                                <summary className="cursor-pointer font-medium hover:text-foreground">Ver identificadores</summary>
-                                <dl className="mt-2 space-y-2">
-                                  {auditReferences(record).map((reference) => (
-                                    <div key={reference.label}>
-                                      <dt>{reference.label}</dt>
-                                      <dd className="break-all font-mono text-[11px]">{reference.id}</dd>
-                                    </div>
-                                  ))}
-                                </dl>
-                              </details>*/}
                             </td>
                           </tr>
                         );
