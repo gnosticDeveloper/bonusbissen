@@ -6,6 +6,7 @@ import { sessionTokenSchema } from "@/schemas/user";
 import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
 import { cookies } from "next/headers";
 import { checkSession, currentSession } from "@/lib/auth/session";
+import { parseOrError } from "@/lib/action-helpers";
 import {
   accessCookieOptions,
   DASHBOARD_ACCESS_COOKIE,
@@ -16,6 +17,7 @@ import {
 
 export type OrganizationOption = { id: string; name: string };
 
+/** Throws on failure, like every `PagedRequestFunction`; `Autocomplete` catches it. */
 export const getAllOrganizations: PagedRequestFunction<OrganizationOption> = async ({ search, page, size }) => {
   const params = new URLSearchParams();
   params.append("page", page.toString());
@@ -34,6 +36,14 @@ export type StorefrontSummary = {
   id: string;
   name: string;
 };
+
+const MISSING_CREDENTIALS = "Completá usuario y contraseña.";
+
+const signInInputSchema = z.object({
+  identifier: z.string().trim().min(1, MISSING_CREDENTIALS),
+  password: z.string().min(1, MISSING_CREDENTIALS),
+  organizationId: z.uuid("Elegí tu negocio antes de continuar."),
+});
 
 const dashboardSignInSchema = sessionTokenSchema.extend({
   storefronts: z.array(z.object({ id: z.string(), name: z.string() })),
@@ -62,12 +72,9 @@ function saveStorefronts(cookieStore: Awaited<ReturnType<typeof cookies>>, store
 }
 
 export async function signIn(formData: FormData): Promise<ActionResult<{ storefronts: StorefrontSummary[] }>> {
-  const identifier = formData.get("identifier")?.toString().trim();
-  const password = formData.get("password")?.toString();
-  const organizationId = formData.get("organizationId")?.toString();
-
-  if (!identifier || !password) return { ok: false, error: "Completá usuario y contraseña." };
-  if (!organizationId) return { ok: false, error: "Elegí tu negocio antes de continuar." };
+  const input = parseOrError(signInInputSchema, Object.fromEntries(formData));
+  if (!input.ok) return input;
+  const { identifier, password, organizationId } = input.data;
 
   const result = await backendFetchWithResponse(
     "/auth/dashboard/sign-in",
@@ -96,9 +103,11 @@ export async function signIn(formData: FormData): Promise<ActionResult<{ storefr
   return { ok: true, data: { storefronts } };
 }
 
-export async function selectStorefront(storefrontId: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function selectStorefront(storefrontId: string): Promise<ActionResult<null>> {
+  const input = parseOrError(z.uuid("No encontramos ese local. Volvé a elegirlo de la lista."), storefrontId);
+  if (!input.ok) return input;
   const session = await currentSession("dashboard");
-  if (session.status !== "valid") return { success: false, error: "Tu sesión terminó o no pudimos comprobar tu ingreso. Volvé a ingresar." };
+  if (session.status !== "valid") return { ok: false, error: "Tu sesión terminó o no pudimos comprobar tu ingreso. Volvé a ingresar." };
   const cookieStore = await cookies();
   const refresh = cookieStore.get(DASHBOARD_REFRESH_COOKIE)?.value;
   const res = await dashboardRequest<{ token: string; storefronts: StorefrontSummary[] }>("/auth/storefront", {
@@ -110,14 +119,14 @@ export async function selectStorefront(storefrontId: string): Promise<{ success:
     },
     cache: "no-store",
   });
-  if (!res.ok) return { success: false, error: "No pudimos seleccionar el local." };
+  if (!res.ok) return { ok: false, error: "No pudimos seleccionar el local." };
 
   const selected = await checkSession(res.data.token, "dashboard");
   if (selected.status !== "valid" || selected.payload.sub !== session.payload.sub ||
     selected.payload.role !== session.payload.role || selected.payload.sf !== storefrontId)
-    return { success: false, error: "No pudimos confirmar la sucursal de tu sesión. Probá de nuevo." };
+    return { ok: false, error: "No pudimos confirmar la sucursal de tu sesión. Probá de nuevo." };
 
   cookieStore.set(DASHBOARD_ACCESS_COOKIE, res.data.token, accessCookieOptions);
   saveStorefronts(cookieStore, res.data.storefronts);
-  return { success: true };
+  return { ok: true, data: null };
 }

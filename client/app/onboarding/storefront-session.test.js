@@ -54,7 +54,7 @@ afterAll(() => { globalThis.fetch = originalFetch; });
 
 describe("selección de sucursal: firma real y cookies", () => {
   test("persiste el JWT firmado por backend con sf y conserva refresh y otros locales", async () => {
-    expect(await selectStorefront(SF)).toEqual({ success: true });
+    expect(await selectStorefront(SF)).toEqual({ ok: true, data: null });
     expect(jar.get("d_token")).toBe(responseToken);
     expect((await checkSession(jar.get("d_token"), "dashboard")).payload.sf).toBe(SF);
     expect(jar.get("bb_dashboard_rt")).toBe("opaque-refresh");
@@ -69,7 +69,7 @@ describe("selección de sucursal: firma real y cookies", () => {
     currentToken = await issue({ sf: SF });
     jar.set("d_token", currentToken);
     jar.set("bb_dashboard_rt", "renewed-refresh");
-    expect(await selectStorefront(SF)).toEqual({ success: true });
+    expect(await selectStorefront(SF)).toEqual({ ok: true, data: null });
     const selections = calls.filter(c => c.path === "/auth/storefront");
     expect(selections).toHaveLength(1);
     expect(selections[0]).toMatchObject({
@@ -89,27 +89,27 @@ describe("selección de sucursal: firma real y cookies", () => {
     ["otro permiso", { sf: SF, role: "CASHIER" }],
   ])("rechaza token firmado con %s sin persistirlo", async (_name, claims) => {
     responseToken = await issue(claims);
-    expect((await selectStorefront(SF)).success).toBe(false);
+    expect((await selectStorefront(SF)).ok).toBe(false);
     expect(jar.get("d_token")).toBe(currentToken);
     expect(setCookie).not.toHaveBeenCalled();
   });
 
   test("rechaza firma de otra clave aunque el payload tenga sf correcto", async () => {
     responseToken = await issue({ sf: SF }, otherKeys.privateKey);
-    expect((await selectStorefront(SF)).success).toBe(false);
+    expect((await selectStorefront(SF)).ok).toBe(false);
     expect(jar.get("d_token")).toBe(currentToken);
     expect(setCookie).not.toHaveBeenCalled();
   });
 
   test("rechaza JWT vencido con sf correcto", async () => {
     responseToken = await issue({ sf: SF }, keys.privateKey, "-1s");
-    expect((await selectStorefront(SF)).success).toBe(false);
+    expect((await selectStorefront(SF)).ok).toBe(false);
     expect(setCookie).not.toHaveBeenCalled();
   });
 
   test("sin sesión no llama al endpoint ni cambia cookies", async () => {
     jar.delete("d_token");
-    expect((await selectStorefront(SF)).success).toBe(false);
+    expect((await selectStorefront(SF)).ok).toBe(false);
     expect(calls.some(c => c.path === "/auth/storefront")).toBe(false);
     expect(setCookie).not.toHaveBeenCalled();
   });

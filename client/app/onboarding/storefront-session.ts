@@ -39,7 +39,7 @@ export async function ensureOnboardingStorefront(storefrontId: string): Promise<
   }
 
   const selected = await selectStorefront(storefrontId);
-  if (!selected.success) return { ok: false, error: selected.error };
+  if (!selected.ok) return selected;
   const verified = await currentSession("dashboard");
   if (verified.status !== "valid" || verified.payload.sub !== session.payload.sub ||
     verified.payload.role !== "ADMIN" || verified.payload.sf !== storefrontId)

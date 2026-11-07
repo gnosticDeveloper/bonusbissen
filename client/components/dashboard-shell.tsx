@@ -67,7 +67,7 @@ function StorefrontSwitcher({ storefronts, activeStorefrontId, collapsed = false
     setError("");
     try {
       const result = await selectStorefront(storefrontId);
-      if (!result.success) {
+      if (!result.ok) {
         setError(result.error);
         return;
       }

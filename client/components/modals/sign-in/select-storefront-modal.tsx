@@ -25,7 +25,7 @@ export function SelectStorefrontModal({ storefronts }: SelectStorefrontModalProp
 
     try {
       const result = await selectStorefront(id);
-      if (!result.success) {
+      if (!result.ok) {
         setErrorMessage(result.error);
         return;
       }
