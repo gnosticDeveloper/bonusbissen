@@ -200,7 +200,7 @@ export async function createPointProgram(form: FormData): Promise<Result> {
   if (!result.ok) return result;
   return refreshOnboarding();
 }
-
+/** Sin UI todavía; cubierto por tests. */
 export async function leaveOnboarding(): Promise<void> {
   await clearAllSessions();
   await clearProgress();

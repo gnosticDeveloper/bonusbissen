@@ -1,6 +1,6 @@
 import type { OnboardingBackendStep } from "./types/onboarding";
 
-export type OnboardingProgress = {
+type OnboardingProgress = {
   version: 3;
   userId: string;
   organizationId: string | null;

@@ -5,7 +5,6 @@ import { BrandLockup } from "@/components/brand";
 import { LandingParticles } from "@/components/landing-particles";
 import { buttonVariants } from "@/components/ui/button";
 import styles from "./landing.module.css";
-import { getBillingPlans } from "./onboarding/pago/actions";
 
 export const metadata: Metadata = {
   title: "Bonus Bissen · Dale a tus clientes una razón para volver",
@@ -36,8 +35,6 @@ const primaryCta = buttonVariants({
 });
 
 export default async function HomePage() {
-
-  // const billingPlans = await getBillingPlans();
 
   return (
     <div className={styles.landing}>

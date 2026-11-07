@@ -31,9 +31,6 @@ export type PointAction = {
   } | null;
 };
 
-export type LoginState = {
-  error: string | null;
-};
 
 export interface TopClient {
   id: string;

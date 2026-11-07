@@ -44,5 +44,3 @@ export const CARD_PALETTES = {
     buttonText: "#ffffff",
   },
 } as const;
-
-export type CardPalette = (typeof CARD_PALETTES)[keyof typeof CARD_PALETTES];
