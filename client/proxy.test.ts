@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { afterEach, test } from "node:test";
+import { mock } from "bun:test";
 import { exportSPKI, generateKeyPair, jwtVerify, SignJWT } from "jose";
 import { NextRequest, NextResponse } from "next/server";
-import { proxy } from "./proxy";
-import { refreshSession } from "./lib/auth/refresh";
+
+// The real "server-only" throws outside a React Server context. Mock it before
+// loading anything that imports it; static imports would run first.
+mock.module("server-only", () => ({}));
+const { proxy } = await import("./proxy");
+const { refreshSession } = await import("./lib/auth/refresh");
 
 // Keep the key stable because session.ts caches it across test cases.
 const { privateKey, publicKey } = await generateKeyPair("ES256", { extractable: true });
@@ -161,7 +166,7 @@ function mockBackend(
   assert.equal(restoreFetch, undefined, "install one backend mock per test");
   const originalFetch = globalThis.fetch;
   restoreFetch = () => { globalThis.fetch = originalFetch; };
-  globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  const mockFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     fetchCallCount++;
     const url = new URL(input instanceof Request ? input.url : String(input));
     if (url.pathname === "/auth/public-key") {
@@ -171,6 +176,8 @@ function mockBackend(
     refreshCalls.push(init ?? {});
     return refresh(init);
   };
+  // Bun's `typeof fetch` also has `fetch.preconnect`; keep the real one.
+  globalThis.fetch = Object.assign(mockFetch, { preconnect: originalFetch.preconnect });
   return { refreshCalls, getFetchCallCount: () => fetchCallCount };
 }
 

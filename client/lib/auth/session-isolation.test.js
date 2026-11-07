@@ -15,6 +15,7 @@ const cookieStore = {
 const sessions = new Map();
 const logoutFromBackend = mock(async () => {});
 
+mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({ cookies: async () => cookieStore }));
 mock.module("@/lib/auth/session", () => ({
   checkSession: async token => sessions.get(token) ?? { status: "invalid" },
