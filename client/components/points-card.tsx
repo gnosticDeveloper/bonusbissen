@@ -1,11 +1,31 @@
 import { Sparkles } from "lucide-react";
 import { Spinner } from "@/components/spinner";
-import { formatPoints } from "@/lib/helpers/format";
+import { ErrorState } from "@/components/error-state";
 import type { PointsResponse } from "@/lib/definitions";
 import { Carousel, CarouselReveal } from "./carousel";
 import { CARD_PALETTES, pickCardVariant } from "@/lib/helpers/color";
+import { formatNumber } from "@/lib/helpers/format";
 
-export function PointsCard({ points }: { points: PointsResponse | null }) {
+type PointsCardProps = {
+  points: PointsResponse | null;
+  /** The last load failed; takes priority over the loading view. */
+  error?: boolean;
+  onRetry?: () => void;
+};
+
+export function PointsCard({ points, error = false, onRetry }: PointsCardProps) {
+  if (error)
+    return (
+      <section className="relative z-1 mb-8.75 px-5">
+        <ErrorState
+          icon={Sparkles}
+          title="No pudimos cargar tus puntos"
+          description="Revisá tu conexión y volvé a intentar."
+          onRetry={onRetry}
+        />
+      </section>
+    );
+
   if (!points)
     return (
       <section className="relative px-5 z-1 mb-8.75">
@@ -27,7 +47,7 @@ export function PointsCard({ points }: { points: PointsResponse | null }) {
       </CarouselReveal>
       <CarouselReveal className="shrink-0 text-right">
         <span className="block text-[9px] text-foreground/80">puntos totales</span>
-        <strong className="mt-0.5 block text-2xl font-bold tracking-[-1px]">{formatPoints(points.summary.totalPoints)}</strong>
+        <strong className="mt-0.5 block text-2xl font-bold tracking-[-1px]">{formatNumber(points.summary.totalPoints)}</strong>
         <div className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-border bg-primary/15 px-2 py-1 text-[8px] text-foreground">
           <Sparkles size={11} /> Acumulados
         </div>
@@ -57,7 +77,7 @@ export function PointsCard({ points }: { points: PointsResponse | null }) {
               </CarouselReveal>
               <CarouselReveal className="shrink-0 text-right">
                 <span className="block text-xs">{membership.pointLabel}</span>
-                <strong className="mt-0.5 block text-2xl font-bold tracking-[-1px]">{formatPoints(membership.points)}</strong>
+                <strong className="mt-0.5 block text-2xl font-bold tracking-[-1px]">{formatNumber(membership.points)}</strong>
                 <div className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-border bg-primary/15 px-2 py-1 text-[8px]">
                   <Sparkles size={11} /> {membership.totalRedemptions} canjes
                 </div>
