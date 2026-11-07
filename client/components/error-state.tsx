@@ -1,17 +1,20 @@
 import { AlertCircle, RotateCcw, type LucideIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 type ErrorStateProps = {
   title: string;
   description?: string;
   /** Defaults to the alert icon; pass the feature's own icon where it reads better. */
   icon?: LucideIcon;
+  /** Shows a "Volver a intentar" button. Only Client Components can pass it. */
+  onRetry?: () => void;
 };
 
 /**
  * A failed read, shown as a failure. Never render an empty state instead: the
  * difference between "no hay nada" and "no pudimos cargarlo" is the whole point.
  */
-export function ErrorState({ title, description = "Probá de nuevo en un rato.", icon: Icon = AlertCircle }: ErrorStateProps) {
+export function ErrorState({ title, description = "Probá de nuevo en un rato.", icon: Icon = AlertCircle, onRetry }: ErrorStateProps) {
   return (
     <div
       role="alert"
@@ -25,10 +28,17 @@ export function ErrorState({ title, description = "Probá de nuevo en un rato.",
 
       <p className="mx-auto mt-2 max-w-55 text-xs leading-5 text-foreground/80">{description}</p>
 
-      <div className="mx-auto mt-5 flex w-fit items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-[11px] font-medium text-foreground/80">
-        <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-        Reintentar más tarde
-      </div>
+      {onRetry ? (
+        <Button type="button" variant="outline" size="sm" onClick={onRetry} className="mx-auto mt-5 rounded-full px-3">
+          <RotateCcw aria-hidden="true" />
+          Volver a intentar
+        </Button>
+      ) : (
+        <div className="mx-auto mt-5 flex w-fit items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-[11px] font-medium text-foreground/80">
+          <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+          Reintentar más tarde
+        </div>
+      )}
     </div>
   );
 }
