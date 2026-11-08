@@ -9,7 +9,7 @@
  * account; see `enforceSingleIdentity` in `lib/auth/refresh.ts`.
  */
 export const CUSTOMER_ACCESS_COOKIE = "access_token";
-export const CUSTOMER_REFRESH_COOKIE = "bb_user_rt";
+const CUSTOMER_REFRESH_COOKIE = "bb_user_rt";
 export const DASHBOARD_ACCESS_COOKIE = "d_token";
 export const DASHBOARD_REFRESH_COOKIE = "bb_dashboard_rt";
 export const DASHBOARD_STOREFRONTS_COOKIE = "d_storefronts";
@@ -44,6 +44,20 @@ function sessionCookieNames(area: SessionArea): string[] {
 /** Works for the request/response jars of `proxy.ts` as well as `cookies()`. */
 export function deleteSessionCookies(jar: { delete: (name: string) => unknown }, area: SessionArea) {
   for (const name of sessionCookieNames(area)) jar.delete(name);
+}
+
+/** An area's two credentials, read from `cookies()` or a `proxy.ts` request jar. */
+export function readAreaCookies(jar: { get: (name: string) => { value: string } | undefined }, area: SessionArea) {
+  const names = sessionCookies[area];
+  return { access: jar.get(names.access)?.value, refresh: jar.get(names.refresh)?.value };
+}
+
+/**
+ * The header that hands a refresh token to the backend, which knows it as
+ * `bb_rt`. Without a token there is no header, so callers can always spread it.
+ */
+export function refreshCookieHeader(token?: string): Record<string, string> {
+  return token ? { Cookie: `bb_rt=${token}` } : {};
 }
 
 export const accessCookieOptions = {

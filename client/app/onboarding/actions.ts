@@ -2,7 +2,8 @@
 
 import { cookies } from "next/headers";
 import { logoutFromBackend } from "@/lib/auth/logout";
-import { clearAllSessions, deleteSessionCookies, sessionCookies, SESSION_AREAS } from "@/lib/auth/refresh";
+import { clearAllSessions } from "@/lib/auth/refresh";
+import { deleteSessionCookies, readAreaCookies, SESSION_AREAS } from "@/lib/auth/cookies";
 
 import { z } from "zod";
 import { request, dashboardRequest, type ActionResult } from "@/lib/api";
@@ -62,7 +63,7 @@ export async function resetOnboardingSession(): Promise<Result> {
   const areas = SESSION_AREAS.filter(area => deadSession(tokens[area]));
   // Revoke the backend session too, so a refresh token for a session we are
   // deleting from the browser cannot keep issuing access tokens.
-  await Promise.all(areas.map(area => logoutFromBackend(tokens[area].token, jar.get(sessionCookies[area].refresh)?.value)));
+  await Promise.all(areas.map(area => logoutFromBackend(tokens[area].token, readAreaCookies(jar, area).refresh)));
   for (const area of areas) deleteSessionCookies(jar, area);
   const data = await loadOnboarding();
   return { ok: true, data: { ...data, error: data.error ?? (areas.length ? SESSION_RESET_ERROR : undefined) } };

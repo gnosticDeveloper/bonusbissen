@@ -7,13 +7,14 @@ import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
 import { cookies } from "next/headers";
 import { checkSession, currentSession } from "@/lib/auth/session";
 import { parseOrError } from "@/lib/action-helpers";
+import { saveSession } from "@/lib/auth/refresh";
 import {
   accessCookieOptions,
   DASHBOARD_ACCESS_COOKIE,
   DASHBOARD_REFRESH_COOKIE,
   DASHBOARD_STOREFRONTS_COOKIE,
-  saveDashboardSession,
-} from "@/lib/auth/refresh";
+  refreshCookieHeader,
+} from "@/lib/auth/cookies";
 
 export type OrganizationOption = { id: string; name: string };
 
@@ -63,12 +64,7 @@ export async function getDashboardStorefronts(): Promise<StorefrontSummary[]> {
 }
 
 function saveStorefronts(cookieStore: Awaited<ReturnType<typeof cookies>>, storefronts: StorefrontSummary[]) {
-  cookieStore.set(DASHBOARD_STOREFRONTS_COOKIE, JSON.stringify(storefronts), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-  });
+  cookieStore.set(DASHBOARD_STOREFRONTS_COOKIE, JSON.stringify(storefronts), accessCookieOptions);
 }
 
 export async function signIn(formData: FormData): Promise<ActionResult<{ storefronts: StorefrontSummary[] }>> {
@@ -95,7 +91,7 @@ export async function signIn(formData: FormData): Promise<ActionResult<{ storefr
   if (!result.ok) return result;
 
   const { token, storefronts } = result.data;
-  if (!(await saveDashboardSession(result.response, token))) {
+  if (!(await saveSession("dashboard", result.response, token))) {
     return { ok: false, error: "No pudimos iniciar sesión. Probá de nuevo." };
   }
   saveStorefronts(await cookies(), storefronts);
@@ -115,7 +111,7 @@ export async function selectStorefront(storefrontId: string): Promise<ActionResu
     body: JSON.stringify({ storefrontId }),
     headers: {
       "Content-Type": "application/json",
-      ...(refresh ? { Cookie: `bb_rt=${refresh}` } : {}),
+      ...refreshCookieHeader(refresh),
     },
     cache: "no-store",
   });

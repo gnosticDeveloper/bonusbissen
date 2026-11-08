@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 import { dashboardRequest, request, type ActionResult } from "@/lib/api";
 import { checkSession, currentSession, getDashboardSessionToken, getSessionToken, type SessionCheck } from "@/lib/auth/session";
+import { accessCookieOptions } from "@/lib/auth/cookies";
 import type { Storefront } from "@/lib/types/storefront";
 import type { PointProgram } from "@/lib/types/point-program";
 import type { OnboardingBackendStep } from "@/lib/types/onboarding";
@@ -11,10 +12,8 @@ import { readOnboardingProgress, type SessionToken } from "./progress-state";
 
 export const PROGRESS_COOKIE = "onboarding_progress";
 
-export const cookieOptions = {
-  httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const,
-  path: "/onboarding", maxAge: 60 * 60 * 24 * 7,
-};
+// Same flags as the access cookie, but only sent to onboarding and kept a week.
+export const cookieOptions = { ...accessCookieOptions, path: "/onboarding", maxAge: 60 * 60 * 24 * 7 };
 const progressSchema = z.object({ organizationId: z.uuid(), owner: z.uuid() });
 export type Organization = { id: string; name: string; billingPlanName?: string | null; mercadoPagoSubscriptionStatus?: string | null };
 export type OnboardingState = {

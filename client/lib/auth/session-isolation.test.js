@@ -28,7 +28,7 @@ mock.module("./session", () => ({
 mock.module("./logout", () => ({ logoutFromBackend }));
 mock.module("@/lib/auth/logout", () => ({ logoutFromBackend }));
 
-const { clearAllSessions, saveCustomerSession, saveDashboardSession } = await import("./refresh");
+const { clearAllSessions, saveSession } = await import("./refresh");
 
 const refreshResponse = () =>
   new Response(null, { headers: { "set-cookie": "bb_rt=0123456789012345678901234567890123456789abc; Max-Age=600" } });
@@ -51,7 +51,7 @@ describe("one identity per browser", () => {
     sessions.set("foreign-dashboard", valid(OTHER, "ADMIN"));
     sessions.set("mine", valid(CUSTOMER));
 
-    expect(await saveCustomerSession(refreshResponse(), "mine")).toBe(true);
+    expect(await saveSession("customer", refreshResponse(), "mine")).toBe(true);
 
     expect(jar.get("access_token")).toBe("mine");
     expect(jar.has("d_token")).toBe(false);
@@ -67,7 +67,7 @@ describe("one identity per browser", () => {
     sessions.set("mine", valid(CUSTOMER));
     sessions.set("staff", valid(CUSTOMER, "ADMIN"));
 
-    expect(await saveDashboardSession(refreshResponse(), "staff")).toBe(true);
+    expect(await saveSession("dashboard", refreshResponse(), "staff")).toBe(true);
 
     expect(jar.get("access_token")).toBe("mine");
     expect(jar.get("bb_user_rt")).toBe("my-refresh");
@@ -80,7 +80,7 @@ describe("one identity per browser", () => {
     jar.set("bb_dashboard_rt", "unknown-refresh");
     sessions.set("mine", valid(CUSTOMER));
 
-    expect(await saveCustomerSession(refreshResponse(), "mine")).toBe(true);
+    expect(await saveSession("customer", refreshResponse(), "mine")).toBe(true);
 
     expect(jar.has("d_token")).toBe(false);
     expect(jar.has("bb_dashboard_rt")).toBe(false);
@@ -92,7 +92,7 @@ describe("one identity per browser", () => {
     sessions.set("foreign-dashboard", valid(OTHER, "ADMIN"));
 
     // No refresh cookie in the response: the login did not produce a session.
-    expect(await saveCustomerSession(new Response(null), "mine")).toBe(false);
+    expect(await saveSession("customer", new Response(null), "mine")).toBe(false);
 
     expect(jar.get("d_token")).toBe("foreign-dashboard");
     expect(jar.has("access_token")).toBe(false);

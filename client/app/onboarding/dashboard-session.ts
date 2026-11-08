@@ -2,7 +2,7 @@ import "server-only";
 
 import { backendFetchWithResponse } from "@/lib/api";
 import { currentSession, getSessionToken } from "@/lib/auth/session";
-import { saveDashboardSession } from "@/lib/auth/refresh";
+import { saveSession } from "@/lib/auth/refresh";
 import { sessionTokenSchema } from "@/schemas/user";
 
 /**
@@ -34,6 +34,6 @@ export async function exchangeDashboardSession(organizationId: string): Promise<
   );
   if (!result.ok) return false;
 
-  // saveDashboardSession verifies the signature, role and area before writing.
-  return saveDashboardSession(result.response, result.data.token).catch(() => false);
+  // saveSession verifies the signature, role and area before writing.
+  return saveSession("dashboard", result.response, result.data.token).catch(() => false);
 }

@@ -3,7 +3,7 @@
 import { ActionResult, backendFetch, backendFetchWithResponse, REQUEST_FAILED_MESSAGE } from "@/lib/api";
 import { SignInUser } from "@/lib/definitions";
 import { sessionTokenSchema, userLoginSchema } from "@/schemas/user";
-import { saveCustomerSession } from "@/lib/auth/refresh";
+import { saveSession } from "@/lib/auth/refresh";
 import { parseOrError } from "@/lib/action-helpers";
 import { z } from "zod";
 
@@ -28,7 +28,7 @@ export async function signIn(formData: FormData): Promise<ActionResult<SignInUse
   );
   if (!result.ok) return result;
 
-  if (!(await saveCustomerSession(result.response, result.data.token))) return { ok: false, error: "No pudimos iniciar sesión. Probá de nuevo." };
+  if (!(await saveSession("customer", result.response, result.data.token))) return { ok: false, error: "No pudimos iniciar sesión. Probá de nuevo." };
   return { ok: true, data: { name: identifier, avatarUrl: null } };
 }
 
@@ -57,6 +57,6 @@ export async function consumeLoginLink(token: string): Promise<ActionResult<null
   );
   if (!result.ok) return result;
 
-  if (!(await saveCustomerSession(result.response, result.data.token))) return { ok: false, error: "No pudimos iniciar sesión. Probá de nuevo." };
+  if (!(await saveSession("customer", result.response, result.data.token))) return { ok: false, error: "No pudimos iniciar sesión. Probá de nuevo." };
   return { ok: true, data: null };
 }

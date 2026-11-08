@@ -1,4 +1,5 @@
 import { backendFetch } from "@/lib/api";
+import { refreshCookieHeader } from "./cookies";
 
 /**
  * Revokes one backend session. Both credentials are sent when available: the
@@ -13,7 +14,7 @@ export async function logoutFromBackend(token?: string, refreshCookie?: string):
     {
       method: "POST",
       headers: {
-        ...(refreshCookie ? { Cookie: `bb_rt=${refreshCookie}` } : {}),
+        ...refreshCookieHeader(refreshCookie),
         "X-Requested-With": "XMLHttpRequest",
       },
       cache: "no-store",

@@ -3,7 +3,7 @@
 import { ActionResult, backendFetchWithResponse, REQUEST_FAILED_MESSAGE } from "@/lib/api";
 import { SignInUser } from "@/lib/definitions";
 import { sessionTokenSchema, userRegisterSchema } from "@/schemas/user";
-import { saveCustomerSession } from "@/lib/auth/refresh";
+import { saveSession } from "@/lib/auth/refresh";
 import { parseOrError } from "@/lib/action-helpers";
 
 export async function signUp(formData: FormData): Promise<ActionResult<SignInUser>> {
@@ -31,6 +31,6 @@ export async function signUp(formData: FormData): Promise<ActionResult<SignInUse
   );
   if (!result.ok) return result;
 
-  if (!(await saveCustomerSession(result.response, result.data.token))) return { ok: false, error: "No pudimos crear la sesión. Probá de nuevo." };
+  if (!(await saveSession("customer", result.response, result.data.token))) return { ok: false, error: "No pudimos crear la sesión. Probá de nuevo." };
   return { ok: true, data: { name, avatarUrl: null } };
 }

@@ -1,7 +1,8 @@
 "use server";
 
 import { ActionResult, request } from "@/lib/api";
-import { clearAllSessions, CUSTOMER_ACCESS_COOKIE, CUSTOMER_REFRESH_COOKIE, deleteSessionCookies } from "@/lib/auth/refresh";
+import { clearAllSessions } from "@/lib/auth/refresh";
+import { deleteSessionCookies, readAreaCookies, refreshCookieHeader } from "@/lib/auth/cookies";
 import { UserInfo } from "@/lib/types/customer";
 import { validateImageUpload } from "@/lib/image-upload";
 import { cookies } from "next/headers";
@@ -55,14 +56,12 @@ export async function resendVerificationEmail(): Promise<ActionResult<void>> {
 }
 
 export async function getDeviceSessions(): Promise<ActionResult<DeviceSession[]>> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(CUSTOMER_ACCESS_COOKIE)?.value;
-  if (!token) return { ok: false, error: "Necesitás iniciar sesión." };
+  const { access, refresh } = readAreaCookies(await cookies(), "customer");
+  if (!access) return { ok: false, error: "Necesitás iniciar sesión." };
 
-  const refreshToken = cookieStore.get(CUSTOMER_REFRESH_COOKIE)?.value;
   return request<DeviceSession[]>("/auth/sessions", {
     cache: "no-store",
-    headers: refreshToken ? { Cookie: `bb_rt=${refreshToken}` } : undefined,
+    headers: refreshCookieHeader(refresh),
   });
 }
 

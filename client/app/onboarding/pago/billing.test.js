@@ -23,11 +23,6 @@ mock.module("@/lib/auth/session", () => ({
   decodeJwt: () => ({ sub: "admin-id" }),
 }));
 mock.module("@/lib/auth/refresh", () => ({
-  DASHBOARD_ACCESS_COOKIE: "d_token",
-  DASHBOARD_REFRESH_COOKIE: "bb_dashboard_rt",
-  DASHBOARD_STOREFRONTS_COOKIE: "d_storefronts",
-  accessCookieOptions: {},
-  refreshCookieOptions: () => ({}),
   refreshSession: async () => refreshResult,
 }));
 mock.module("@/lib/auth/logout", () => ({ logoutFromBackend: async () => {} }));

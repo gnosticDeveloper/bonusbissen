@@ -28,10 +28,6 @@ mock.module("@/lib/auth/session", () => ({
   decodeJwt: () => ({ sub: "admin-id" }),
 }));
 mock.module("@/lib/auth/refresh", () => ({
-  DASHBOARD_ACCESS_COOKIE: "d_token",
-  DASHBOARD_REFRESH_COOKIE: "bb_dashboard_rt",
-  accessCookieOptions: {},
-  refreshCookieOptions: () => ({}),
   refreshSession: async () => refreshResult,
 }));
 

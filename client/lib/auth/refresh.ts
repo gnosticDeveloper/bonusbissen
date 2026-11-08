@@ -7,21 +7,8 @@ import {
   accessCookieOptions,
   deleteSessionCookies,
   otherArea,
-  refreshCookieOptions,
-  SESSION_AREAS,
-  sessionCookies,
-  type SessionArea,
-} from "./cookies";
-
-// Re-exported so `@/lib/auth/refresh` stays the entry point for session cookies.
-export {
-  accessCookieOptions,
-  CUSTOMER_ACCESS_COOKIE,
-  CUSTOMER_REFRESH_COOKIE,
-  DASHBOARD_ACCESS_COOKIE,
-  DASHBOARD_REFRESH_COOKIE,
-  DASHBOARD_STOREFRONTS_COOKIE,
-  deleteSessionCookies,
+  readAreaCookies,
+  refreshCookieHeader,
   refreshCookieOptions,
   SESSION_AREAS,
   sessionCookies,
@@ -54,10 +41,8 @@ function readBackendRefreshCookie(response: Response): RefreshCookie | null {
 async function enforceSingleIdentity(area: SessionArea, token: string) {
   const subject = subjectOf(token);
   const other = otherArea(area);
-  const names = sessionCookies[other];
   const jar = await cookies();
-  const existing = jar.get(names.access)?.value;
-  const refresh = jar.get(names.refresh)?.value;
+  const { access: existing, refresh } = readAreaCookies(jar, other);
   if (!existing && !refresh) return;
 
   const session = await checkSession(existing, other);
@@ -78,23 +63,20 @@ function subjectOf(token: string): string | null {
   }
 }
 
-export async function saveCustomerSession(response: Response, token: string): Promise<boolean> {
+/**
+ * Stores the session the backend just issued for `area`: its access token and
+ * the refresh cookie from `response`. Returns false, and stores nothing, when
+ * either is missing. A dashboard token is verified first, because its role and
+ * storefront decide what the panel shows.
+ */
+export async function saveSession(area: SessionArea, response: Response, token: string): Promise<boolean> {
   const refresh = readBackendRefreshCookie(response);
   if (!refresh || !token) return false;
-  await enforceSingleIdentity("customer", token);
+  if (area === "dashboard" && (await checkSession(token, "dashboard")).status !== "valid") return false;
+  await enforceSingleIdentity(area, token);
   const cookieStore = await cookies();
-  cookieStore.set(sessionCookies.customer.refresh, refresh.value, refreshCookieOptions(refresh.maxAge));
-  cookieStore.set(sessionCookies.customer.access, token, accessCookieOptions);
-  return true;
-}
-
-export async function saveDashboardSession(response: Response, token: string): Promise<boolean> {
-  const refresh = readBackendRefreshCookie(response);
-  if (!refresh || (await checkSession(token, "dashboard")).status !== "valid") return false;
-  await enforceSingleIdentity("dashboard", token);
-  const cookieStore = await cookies();
-  cookieStore.set(sessionCookies.dashboard.refresh, refresh.value, refreshCookieOptions(refresh.maxAge));
-  cookieStore.set(sessionCookies.dashboard.access, token, accessCookieOptions);
+  cookieStore.set(sessionCookies[area].refresh, refresh.value, refreshCookieOptions(refresh.maxAge));
+  cookieStore.set(sessionCookies[area].access, token, accessCookieOptions);
   return true;
 }
 
@@ -108,8 +90,8 @@ export async function clearAllSessions(): Promise<void> {
   const jar = await cookies();
   await Promise.all(
     SESSION_AREAS.map((area) => {
-      const names = sessionCookies[area];
-      return logoutFromBackend(jar.get(names.access)?.value, jar.get(names.refresh)?.value);
+      const { access, refresh } = readAreaCookies(jar, area);
+      return logoutFromBackend(access, refresh);
     }),
   );
   for (const area of SESSION_AREAS) deleteSessionCookies(jar, area);
@@ -121,10 +103,41 @@ type RefreshResult =
   | { status: "unavailable" }
   | { status: "retry" };
 
+/**
+ * How long a cookie that was sent to the backend can't be sent again. It covers
+ * the backend's replay-detection window: reusing a rotated cookie inside it
+ * revokes every session of the user.
+ */
+const REFRESH_WAIT_MS = 65_000;
+/** A refresh that takes longer than this counts as "unavailable". */
+const REFRESH_TIMEOUT_MS = 10_000;
+
 // Coalesce simultaneous calls in one server process; don't replay a just-rotated
 // cookie to Redis, where reuse would revoke every session for this user.
 const pending = new Map<string, Promise<RefreshResult>>();
 const recentlyRotated = new Map<string, number>();
+
+/** One POST to the backend's refresh endpoint. Never throws. */
+async function callRefreshEndpoint(rawCookie: string): Promise<RefreshResult> {
+  try {
+    const response = await fetch(backendUrl("/auth/refresh"), {
+      method: "POST",
+      headers: { ...refreshCookieHeader(rawCookie), "X-Requested-With": "XMLHttpRequest" },
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
+    });
+    if (response.status === 401) return { status: "expired" };
+    if (!response.ok) return { status: "unavailable" };
+
+    const { token } = (await response.json()) as { token?: string };
+    const cookie = readBackendRefreshCookie(response);
+    if (typeof token !== "string" || !token || !cookie) return { status: "unavailable" };
+    return { status: "ok", token, cookie };
+  } catch {
+    return { status: "unavailable" };
+  }
+}
 
 export async function refreshSession(rawCookie: string): Promise<RefreshResult> {
   // Only forward the backend's opaque base64url token, never arbitrary cookie/header input.
@@ -135,28 +148,9 @@ export async function refreshSession(rawCookie: string): Promise<RefreshResult> 
 
   // A network failure may happen *after* Redis rotated the cookie. Block another
   // attempt until its replay-detection window expires rather than revoke all devices.
-  recentlyRotated.set(rawCookie, Date.now() + 65_000);
-  setTimeout(() => recentlyRotated.delete(rawCookie), 65_000).unref?.();
-  const task = (async (): Promise<RefreshResult> => {
-    try {
-      const response = await fetch(backendUrl("/auth/refresh"), {
-        method: "POST",
-        headers: { Cookie: `bb_rt=${rawCookie}`, "X-Requested-With": "XMLHttpRequest" },
-        cache: "no-store",
-        redirect: "error",
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (response.status === 401) return { status: "expired" };
-      if (!response.ok) return { status: "unavailable" };
-
-      const { token } = (await response.json()) as { token?: string };
-      const cookie = readBackendRefreshCookie(response);
-      if (typeof token !== "string" || !token || !cookie) return { status: "unavailable" };
-      return { status: "ok", token, cookie };
-    } catch {
-      return { status: "unavailable" };
-    }
-  })();
+  recentlyRotated.set(rawCookie, Date.now() + REFRESH_WAIT_MS);
+  setTimeout(() => recentlyRotated.delete(rawCookie), REFRESH_WAIT_MS).unref?.();
+  const task = callRefreshEndpoint(rawCookie);
   pending.set(rawCookie, task);
   try {
     return await task;

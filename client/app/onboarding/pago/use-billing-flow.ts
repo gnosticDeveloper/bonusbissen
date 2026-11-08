@@ -48,8 +48,12 @@ export function useBillingFlow<T extends BillingData>(
     const current = new RequestGate();
     gate.current = current;
     organizationId.current = expectedOrganizationId;
-    setData(null);
-    void run(async signal => { await reload(signal); });
+    // A new business starts from an empty screen. Clearing it is part of the
+    // load, like the busy and error resets in `run`, not a separate step.
+    void run(async signal => {
+      setData(null);
+      await reload(signal);
+    });
     return () => current.abort();
   }, [expectedOrganizationId, reload, run]);
 
