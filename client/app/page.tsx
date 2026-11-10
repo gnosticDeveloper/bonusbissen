@@ -57,7 +57,7 @@ export default async function HomePage() {
           <a href="#como-funciona" className="hidden text-sm text-foreground/70 transition-colors hover:text-foreground sm:inline">
             Cómo funciona
           </a>
-          <Link href="/d/sign-in" className={buttonVariants({ variant: "outline", className: "h-10 rounded-full px-4" })}>
+          <Link href="/sign-in" className={buttonVariants({ variant: "outline", className: "h-10 rounded-full px-4" })}>
             Ingresar
           </Link>
         </nav>

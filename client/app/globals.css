@@ -76,10 +76,30 @@ button {
     transition: none !important;
 }
 
-::view-transition-old(root),
-::view-transition-new(root) {
+/* Theme switch cross-fade: class applied by <ViewTransition> in providers/theme-provider.tsx. */
+::view-transition-old(.theme-change),
+::view-transition-new(.theme-change) {
     animation-duration: 200ms;
     animation-timing-function: ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(*),
+    ::view-transition-new(*),
+    ::view-transition-group(*) {
+        animation-duration: 0s !important;
+        animation-delay: 0s !important;
+    }
+}
+
+/* app/dashboard/loading.css */
+.delayed-spinner {
+  opacity: 0;
+  animation: show-spinner 0s 1s forwards;
+}
+
+@keyframes show-spinner {
+  to { opacity: 1; }
 }
 
 /*custom scrollbar styles for dark mode */

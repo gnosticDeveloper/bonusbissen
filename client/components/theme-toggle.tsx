@@ -3,7 +3,8 @@
 import { Eclipse, Moon, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/helpers/utils";
-import { useTheme, type Theme } from "@/lib/preferences/theme";
+import type { Theme } from "@/lib/preferences/theme";
+import { useTheme } from "@/providers/theme-provider";
 
 const themes: { value: Theme; label: string; Icon: typeof Sun }[] = [
   { value: "light", label: "Claro", Icon: Sun },

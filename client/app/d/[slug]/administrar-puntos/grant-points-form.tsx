@@ -159,7 +159,7 @@ export function GrantPointsForm({ customer, onGranted }: { customer: Customer | 
               />
             </div>
             <p className="text-xs leading-5 text-foreground/80">
-              1 punto por cada ${POINTS_PER_CURRENCY}. Se sumarán{" "}
+              1 punto por cada ${POINTS_PER_CURRENCY} gastados. Se sumarán{" "}
               <span className="font-semibold text-foreground">{formatNumber(spendPoints)} puntos</span>.
             </p>
           </div>

@@ -3,6 +3,7 @@ import { Sofia_Sans } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/toast";
 import { ModalProvider } from "@/components/modal";
+import { ThemeProvider } from "@/providers/theme-provider";
 
 const instrumentSans = Sofia_Sans({
   subsets: ["latin"],
@@ -60,9 +61,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="font-sans antialiased">
-        <ModalProvider>
-          <ToastProvider>{children}</ToastProvider>
-        </ModalProvider>
+        <ThemeProvider>
+          <ModalProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </ModalProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
