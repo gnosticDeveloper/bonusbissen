@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, ImagePlus } from "lucide-react";
 import type { ActionResult } from "@/lib/api";
@@ -23,9 +23,12 @@ export function ImageUploadField({ label, initialUrl, shape = "square", hideLabe
   const [error, setError] = useState<string | null>(null);
   const [state, setState] = useState<"idle" | "uploading" | "saved">("idle");
 
-  useEffect(() => {
+  // A new `initialUrl` (e.g. after `router.refresh()`) replaces the saved image.
+  const [prevInitialUrl, setPrevInitialUrl] = useState(initialUrl);
+  if (initialUrl !== prevInitialUrl) {
+    setPrevInitialUrl(initialUrl);
     setSavedUrl(initialUrl ?? null);
-  }, [initialUrl]);
+  }
 
   async function chooseFile(selected?: File) {
     if (!selected || state === "uploading") return;

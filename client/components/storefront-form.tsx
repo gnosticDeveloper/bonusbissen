@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { MapPin, Globe, Save, X } from "lucide-react";
 import { Field, Input, Textarea } from "@/components/ui/input";
@@ -26,14 +26,14 @@ export function StorefrontForm({ storefront, onDone }: { storefront?: Storefront
   const notify = useToast();
   const isEdit = !!storefront;
   const action = isEdit ? updateStorefront.bind(null, storefront.id) : createStorefront;
-  const [state, formAction] = useActionState(action, initialState);
+  const [, formAction] = useActionState(async (prev: FormState, formData: FormData) => {
+    const next = await action(prev, formData);
+    if (next.status === "success") onDone();
+    if (next.status) notify(next.message!, next.status);
+    return next;
+  }, initialState);
   const [online, setOnline] = useState(storefront?.online ?? false);
   const [active, setActive] = useState(storefront?.active ?? true);
-
-  useEffect(() => {
-    if (state.status === "success") onDone();
-    if (state.status) notify(state.message!, state.status);
-  }, [state, notify, onDone]);
 
   return (
     <form action={formAction} className="flex flex-col gap-4 rounded-2xl border border-border bg-background p-4" noValidate>

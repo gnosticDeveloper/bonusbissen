@@ -32,10 +32,13 @@ export function SearchParamsPaginationControls({
     return params.size > 0 ? `${pathname}?${params}` : pathname;
   };
 
+  const previousHref = page > 0 ? getPageHref(page - 1) : null;
+  const nextHref = page < totalPages - 1 ? getPageHref(page + 1) : null;
+
   useEffect(() => {
-    if (page > 0) router.prefetch(getPageHref(page - 1));
-    if (page < totalPages - 1) router.prefetch(getPageHref(page + 1));
-  }, [page, pathname, router, searchParams, totalPages]);
+    if (previousHref) router.prefetch(previousHref);
+    if (nextHref) router.prefetch(nextHref);
+  }, [previousHref, nextHref, router]);
 
   const handlePageChange = (nextPage: number) => {
     startTransition(() => router.replace(getPageHref(nextPage)));

@@ -108,7 +108,7 @@ export function CreateRewardModal() {
         </span>
         <div>
           <p className="text-sm font-semibold text-foreground">Necesitás un programa de puntos primero</p>
-          <p className="mt-1 text-xs leading-5 text-foreground/80">Para crear una recompensa primero creá un programa de puntos en "Mi negocio".</p>
+          <p className="mt-1 text-xs leading-5 text-foreground/80">Para crear una recompensa primero creá un programa de puntos en &quot;Mi negocio&quot;.</p>
         </div>
         <Button
           type="button"

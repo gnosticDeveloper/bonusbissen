@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { setPreferenceCookie } from "./cookie";
 
 // The inline script in `app/layout.tsx` reads this same cookie before hydration.
@@ -24,22 +24,20 @@ function persistTheme(theme: Theme) {
   document.startViewTransition(() => applyThemeAttribute(theme));
 }
 
+// `data-theme` on <html> is the source of truth, so every toggle on the page stays in sync.
+function subscribe(onChange: () => void) {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  return () => observer.disconnect();
+}
+
+function readTheme(): Theme {
+  const current = document.documentElement.getAttribute("data-theme");
+  if (current === "light" || current === "dark" || current === "abismo") return current;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>("light");
-
-  useEffect(() => {
-    const current = document.documentElement.getAttribute("data-theme");
-    if (current === "light" || current === "dark" || current === "abismo") {
-      setTheme(current);
-    } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      setTheme("dark");
-    }
-  }, []);
-
-  const selectTheme = (next: Theme) => {
-    persistTheme(next);
-    setTheme(next);
-  };
-
-  return { theme, selectTheme };
+  const theme = useSyncExternalStore(subscribe, readTheme, () => "light" as const);
+  return { theme, selectTheme: persistTheme };
 }

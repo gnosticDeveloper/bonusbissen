@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { Download, LoaderCircle, ReceiptText, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -141,30 +141,31 @@ export default function FacturacionPage() {
   const { slug } = useParams<{ slug: string }>();
   const [result, setResult] = useState<DashboardBilling | null>(null);
   const [loading, setLoading] = useState(true);
-  const requestId = useRef(0);
-
-  const load = useCallback(async () => {
-    const id = ++requestId.current;
-    setLoading(true);
-    try {
-      const next = await getDashboardBilling();
-      if (id === requestId.current) setResult(next);
-    } catch {
-      if (id === requestId.current) {
-        setResult({
-          organization: { ok: false, error: "No pudimos cargar los datos de tu plan. Intentá de nuevo." },
-          invoices: { ok: false, error: "No pudimos cargar el historial de facturas. Intentá de nuevo." },
-        });
-      }
-    } finally {
-      if (id === requestId.current) setLoading(false);
-    }
-  }, []);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    void load();
-    return () => { requestId.current += 1; };
-  }, [load, slug]);
+    let ignore = false;
+
+    getDashboardBilling()
+      .catch((): DashboardBilling => ({
+        organization: { ok: false, error: "No pudimos cargar los datos de tu plan. Intentá de nuevo." },
+        invoices: { ok: false, error: "No pudimos cargar el historial de facturas. Intentá de nuevo." },
+      }))
+      .then((next) => {
+        if (ignore) return;
+        setResult(next);
+        setLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [slug, attempt]);
+
+  function refresh() {
+    setLoading(true);
+    setAttempt((current) => current + 1);
+  }
 
   const organization = result?.organization;
   const invoices = result?.invoices;
@@ -181,7 +182,7 @@ export default function FacturacionPage() {
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em]">Panel de administración</p>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-3xl font-semibold tracking-tighter sm:text-4xl">Facturación</h1>
-          <Button variant="outline" disabled={loading} onClick={() => void load()}>
+          <Button variant="outline" disabled={loading} onClick={refresh}>
             <RefreshCw className={`size-4 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} aria-hidden="true" />
             {loading ? "Actualizando…" : "Actualizar"}
           </Button>
@@ -220,7 +221,7 @@ export default function FacturacionPage() {
                   <p>El próximo vencimiento corresponde a una factura, no a la renovación ni a la expiración del plan. El sistema no expone una fecha de renovación o expiración.</p>
                 </div>
               </>
-            ) : <SectionError message={organization && !organization.ok ? organization.error : "No hay información del plan disponible."} retry={() => void load()} />}
+            ) : <SectionError message={organization && !organization.ok ? organization.error : "No hay información del plan disponible."} retry={refresh} />}
           </div>
         </section>
 
@@ -241,7 +242,7 @@ export default function FacturacionPage() {
                   <p className="mt-2 text-sm text-foreground/70">Cuando se emita una factura, vas a poder consultar sus datos y descargar el PDF acá.</p>
                 </div>
               )
-            ) : <SectionError message={invoices && !invoices.ok ? invoices.error : "No hay información de facturas disponible."} retry={() => void load()} />}
+            ) : <SectionError message={invoices && !invoices.ok ? invoices.error : "No hay información de facturas disponible."} retry={refresh} />}
           </div>
         </section>
       </div>

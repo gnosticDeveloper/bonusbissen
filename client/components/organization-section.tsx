@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Building2, Save, Type } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -26,12 +26,11 @@ function SubmitButton() {
 
 export function OrganizationSection({ org }: { org: ActionResult<Organization> }) {
   const notify = useToast();
-  const [state, formAction] = useActionState(updateOrganization, initialState);
-
-  useEffect(() => {
-    if (!state.status) return;
-    notify(state.message!, state.status);
-  }, [state, notify]);
+  const [, formAction] = useActionState(async (prev: FormState, formData: FormData) => {
+    const next = await updateOrganization(prev, formData);
+    if (next.status) notify(next.message!, next.status);
+    return next;
+  }, initialState);
 
   if (!org.ok) {
     return (
