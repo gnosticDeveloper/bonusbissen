@@ -143,4 +143,44 @@ class StorefrontUsersIntegrationTest extends AbstractIntegrationTest {
         assertThat(after.totalEarned()).isEqualTo(100);
         assertThat(after.balance()).isEqualTo(70);
     }
+
+    @Test
+    void sortsByRequestedFieldAndRejectsUnknownOnes() {
+        createEmployee("sfu6-admin", TEST_USER_PASSWORD, StaffRole.ADMIN);
+        createEmployee("sfu6-cashier", TEST_USER_PASSWORD, StaffRole.CASHIER);
+        String cashierToken = loginEmployee("sfu6-cashier", TEST_USER_PASSWORD);
+        String adminToken = loginEmployee("sfu6-admin", TEST_USER_PASSWORD);
+        int[] grants = {70, 30, 50};
+        for (int i = 0; i < grants.length; i++) {
+            User user = createUser("sfu6-user-" + i);
+            joinThroughStorefront("sfu6-user-" + i, defaultStorefront());
+            restTemplate.exchange(baseUrl() + "/users/grant", HttpMethod.POST, authed(cashierToken, new GrantPointsRequest(user.getId(), grants[i], null)), Void.class);
+        }
+        createUser("sfu6-user-idle");
+        joinThroughStorefront("sfu6-user-idle", defaultStorefront());
+
+        assertThat(usernames(list(adminToken, defaultStorefront(), "?search=sfu6-user&sort=balance&dir=desc")))
+            .containsExactly("sfu6-user-0", "sfu6-user-2", "sfu6-user-1", "sfu6-user-idle");
+        assertThat(usernames(list(adminToken, defaultStorefront(), "?search=sfu6-user&sort=balance&dir=asc")))
+            .containsExactly("sfu6-user-idle", "sfu6-user-1", "sfu6-user-2", "sfu6-user-0");
+        assertThat(usernames(list(adminToken, defaultStorefront(), "?search=sfu6-user&sort=name&dir=asc")))
+            .containsExactly("sfu6-user-0", "sfu6-user-1", "sfu6-user-2", "sfu6-user-idle");
+        // never-active users sort last by activity in both directions
+        assertThat(usernames(list(adminToken, defaultStorefront(), "?search=sfu6-user&sort=lastActivityAt&dir=desc")).get(3)).isEqualTo("sfu6-user-idle");
+        assertThat(usernames(list(adminToken, defaultStorefront(), "?search=sfu6-user&sort=lastActivityAt&dir=asc")).get(3)).isEqualTo("sfu6-user-idle");
+        // default: newest joined first
+        assertThat(usernames(list(adminToken, defaultStorefront(), "?search=sfu6-user")))
+            .containsExactly("sfu6-user-idle", "sfu6-user-2", "sfu6-user-1", "sfu6-user-0");
+
+        ResponseEntity<String> unknown = restTemplate.exchange(
+            baseUrl() + "/storefronts/" + defaultStorefront().getId() + "/users?sort=password", HttpMethod.GET, authed(adminToken), String.class);
+        assertThat(unknown.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        ResponseEntity<String> badDir = restTemplate.exchange(
+            baseUrl() + "/storefronts/" + defaultStorefront().getId() + "/users?dir=sideways", HttpMethod.GET, authed(adminToken), String.class);
+        assertThat(badDir.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    private List<String> usernames(ResponseEntity<PagedResponse<StorefrontUserResponse>> response) {
+        return response.getBody().items().stream().map(StorefrontUserResponse::username).toList();
+    }
 }

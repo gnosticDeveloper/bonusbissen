@@ -11,6 +11,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.StorefrontCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.StorefrontUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
+import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
@@ -41,10 +42,16 @@ public class StorefrontService {
 
     /** Users who joined the program through this storefront; the storefront must belong to the caller's organization. */
     @Transactional(readOnly = true)
-    public Page<StorefrontUserRow> listUsers(UUID id, UUID organizationId, String search, Pageable pageable) {
+    public Page<StorefrontUserRow> listUsers(UUID id, UUID organizationId, String search, String sort, String dir, Pageable pageable) {
+        if (!UserPointProgramRepository.STOREFRONT_USER_SORTS.contains(sort)) {
+            throw new BadRequestException("Unknown storefront user sort: " + sort + ".", "No se puede ordenar por ese campo.");
+        }
+        if (!"asc".equals(dir) && !"desc".equals(dir)) {
+            throw new BadRequestException("Unknown sort direction: " + dir + ".", "La dirección del orden debe ser asc o desc.");
+        }
         getOwned(id, organizationId);
         String term = search == null || search.isBlank() ? null : search.trim();
-        return userPointProgramRepository.findStorefrontUsers(id, term, PageRequest.of(pageable.getPageNumber(), pageable.getPageSize()));
+        return userPointProgramRepository.findStorefrontUsers(id, term, sort, "desc".equals(dir), PageRequest.of(pageable.getPageNumber(), pageable.getPageSize()));
     }
 
     @Transactional

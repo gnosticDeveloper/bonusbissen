@@ -32,16 +32,18 @@ public class StorefrontController {
         return storefrontService.listByOrganization(principal.organizationId()).stream().map(StorefrontResponse::from).toList();
     }
 
-    /** Users affiliated with the storefront (joined through it), with balance and activity there. */
+    /** Users affiliated with the storefront (joined through it), with balance and activity there. Sorted by {@code sort} (default newest joined first). */
     @GetMapping("/{id}/users")
     @PreAuthorize("hasRole('ADMIN')")
     public PagedResponse<StorefrontUserResponse> users(
         @PathVariable UUID id,
         @RequestParam(required = false) String search,
+        @RequestParam(defaultValue = "joinedAt") String sort,
+        @RequestParam(defaultValue = "desc") String dir,
         Pageable pageable,
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
-        return PagedResponse.from(storefrontService.listUsers(id, principal.organizationId(), search, pageable).map(StorefrontUserResponse::from));
+        return PagedResponse.from(storefrontService.listUsers(id, principal.organizationId(), search, sort, dir, pageable).map(StorefrontUserResponse::from));
     }
 
     @PostMapping
