@@ -35,7 +35,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
         value = """
         select * from users c
         where c.active = true
-          and not exists (select 1 from organization_staff os where os.user_id = c.id and os.active = true)
+          and not exists (
+                select 1 from organization_staff os
+                where os.user_id = c.id and os.active = true
+                  and os.organization_id = :organizationId and os.role = :staffRole)
           and (
                cast(:search as text) is null
                or lower(c.name) like lower(concat('%', cast(:search as text), '%'))
@@ -46,7 +49,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
         countQuery = """
         select count(*) from users c
         where c.active = true
-          and not exists (select 1 from organization_staff os where os.user_id = c.id and os.active = true)
+          and not exists (
+                select 1 from organization_staff os
+                where os.user_id = c.id and os.active = true
+                  and os.organization_id = :organizationId and os.role = :staffRole)
           and (
                cast(:search as text) is null
                or lower(c.name) like lower(concat('%', cast(:search as text), '%'))
@@ -56,7 +62,16 @@ public interface UserRepository extends JpaRepository<User, UUID> {
         """,
         nativeQuery = true
     )
-    Page<User> search(@Param("search") String search, Pageable pageable);
+    /**
+     * Staff are searchable (an admin can give points to a cashier), except those of the caller's own
+     * organization holding the caller's own role, i.e. peers at the same level. {@code staffRole} is the db value.
+     */
+    Page<User> search(
+        @Param("search") String search,
+        @Param("organizationId") UUID organizationId,
+        @Param("staffRole") String staffRole,
+        Pageable pageable
+    );
 
     @Query(
         value = """

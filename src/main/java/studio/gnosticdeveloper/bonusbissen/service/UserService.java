@@ -36,6 +36,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
 import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
+import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
@@ -484,7 +485,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public Page<UserPointsResponse> search(String search, UUID programId, UUID organizationId, UUID storefrontId, Pageable pageable) {
+    public Page<UserPointsResponse> search(String search, UUID programId, UUID organizationId, StaffRole callerRole, UUID storefrontId, Pageable pageable) {
         UUID balanceProgramId = programId;
         if (balanceProgramId != null) {
             if (!pointProgramRepository.existsByIdAndOrganizationId(balanceProgramId, organizationId)) {
@@ -502,7 +503,7 @@ public class UserService {
         UUID resolvedProgramId = balanceProgramId;
         String term = search == null || search.isBlank() ? null : search.trim();
         return userRepository
-            .search(term, pageable)
+            .search(term, organizationId, callerRole.dbValue(), pageable)
             .map(user -> UserPointsResponse.from(user, resolvedProgramId != null ? getBalance(user.getId(), resolvedProgramId) : null));
     }
 

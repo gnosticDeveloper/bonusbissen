@@ -31,6 +31,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsBalanceRespons
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserSelfResponse;
+import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
 import studio.gnosticdeveloper.bonusbissen.service.AccountMediaService;
 import studio.gnosticdeveloper.bonusbissen.service.PointProgramService;
@@ -61,7 +62,7 @@ public class UserController {
         Pageable pageable,
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
-        return PagedResponse.from(userService.search(search, programId, principal.organizationId(), principal.storefrontId(), pageable));
+        return PagedResponse.from(userService.search(search, programId, principal.organizationId(), StaffRole.valueOf(principal.role()), principal.storefrontId(), pageable));
     }
 
     @PatchMapping("/{id}")

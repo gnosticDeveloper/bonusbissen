@@ -24,6 +24,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
+import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
@@ -162,11 +163,11 @@ class UserServiceTest {
     @Test
     void searchBlankTermIsTreatedAsNoFilter() {
         Pageable pageable = PageRequest.of(0, 10);
-        when(userRepository.search(isNull(), eq(pageable))).thenReturn(Page.empty());
+        when(userRepository.search(isNull(), eq(ORGANIZATION_ID), eq("cashier"), eq(pageable))).thenReturn(Page.empty());
 
-        userService.search("   ", null, ORGANIZATION_ID, null, pageable);
+        userService.search("   ", null, ORGANIZATION_ID, StaffRole.CASHIER, null, pageable);
 
-        verify(userRepository).search(isNull(), eq(pageable));
+        verify(userRepository).search(isNull(), eq(ORGANIZATION_ID), eq("cashier"), eq(pageable));
     }
 
     @Test
@@ -178,11 +179,11 @@ class UserServiceTest {
         user.setUsername("someone");
         user.setCreatedAt(OffsetDateTime.now());
 
-        when(userRepository.search(eq("abc"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
+        when(userRepository.search(eq("abc"), eq(ORGANIZATION_ID), eq("cashier"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
         when(pointProgramRepository.existsByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(true);
         when(pointTransactionRepository.calculateBalance(user.getId(), PROGRAM_ID)).thenReturn(50);
 
-        Page<UserPointsResponse> result = userService.search("  abc  ", PROGRAM_ID, ORGANIZATION_ID, STOREFRONT_ID, pageable);
+        Page<UserPointsResponse> result = userService.search("  abc  ", PROGRAM_ID, ORGANIZATION_ID, StaffRole.CASHIER, STOREFRONT_ID, pageable);
 
         assertThat(result.getContent()).containsExactly(UserPointsResponse.from(user, 50));
         verify(storefrontRepository, never()).findById(any());
@@ -197,9 +198,9 @@ class UserServiceTest {
         user.setUsername("someone");
         user.setCreatedAt(OffsetDateTime.now());
 
-        when(userRepository.search(isNull(), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
+        when(userRepository.search(isNull(), eq(ORGANIZATION_ID), eq("cashier"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
 
-        Page<UserPointsResponse> result = userService.search(null, null, ORGANIZATION_ID, null, pageable);
+        Page<UserPointsResponse> result = userService.search(null, null, ORGANIZATION_ID, StaffRole.CASHIER, null, pageable);
 
         assertThat(result.getContent()).containsExactly(UserPointsResponse.from(user, null));
     }
@@ -221,10 +222,10 @@ class UserServiceTest {
         Storefront storefront = new Storefront();
         storefront.setPointProgram(program);
         when(storefrontRepository.findById(STOREFRONT_ID)).thenReturn(Optional.of(storefront));
-        when(userRepository.search(isNull(), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
+        when(userRepository.search(isNull(), eq(ORGANIZATION_ID), eq("cashier"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
         when(pointTransactionRepository.calculateBalance(user.getId(), PROGRAM_ID)).thenReturn(75);
 
-        Page<UserPointsResponse> result = userService.search(null, null, ORGANIZATION_ID, STOREFRONT_ID, pageable);
+        Page<UserPointsResponse> result = userService.search(null, null, ORGANIZATION_ID, StaffRole.CASHIER, STOREFRONT_ID, pageable);
 
         assertThat(result.getContent()).containsExactly(UserPointsResponse.from(user, 75));
     }
@@ -242,18 +243,18 @@ class UserServiceTest {
         Storefront storefront = new Storefront();
         storefront.setPointProgram(program);
         when(storefrontRepository.findById(STOREFRONT_ID)).thenReturn(Optional.of(storefront));
-        when(userRepository.search(isNull(), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
+        when(userRepository.search(isNull(), eq(ORGANIZATION_ID), eq("cashier"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
 
-        Page<UserPointsResponse> result = userService.search(null, null, ORGANIZATION_ID, STOREFRONT_ID, pageable);
+        Page<UserPointsResponse> result = userService.search(null, null, ORGANIZATION_ID, StaffRole.CASHIER, STOREFRONT_ID, pageable);
 
         assertThat(result.getContent()).containsExactly(UserPointsResponse.from(user, null));
     }
 
     @Test
     void searchRejectsProgramOutsideOrganization() {
-        assertThatThrownBy(() -> userService.search(null, PROGRAM_ID, ORGANIZATION_ID, STOREFRONT_ID, PageRequest.of(0, 10)))
+        assertThatThrownBy(() -> userService.search(null, PROGRAM_ID, ORGANIZATION_ID, StaffRole.CASHIER, STOREFRONT_ID, PageRequest.of(0, 10)))
             .isInstanceOf(NotFoundException.class);
-        verify(userRepository, never()).search(any(), any());
+        verify(userRepository, never()).search(any(), any(), any(), any());
     }
 
     @Test
