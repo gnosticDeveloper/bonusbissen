@@ -172,6 +172,7 @@ class PointProgramServiceTest {
         ArgumentCaptor<UserPointProgram> captor = ArgumentCaptor.forClass(UserPointProgram.class);
         verify(userPointProgramRepository).save(captor.capture());
         assertThat(captor.getValue().getPointProgram().getId()).isEqualTo(PROGRAM_ID);
+        assertThat(captor.getValue().getStorefront()).isNotNull();
     }
 
     @Test

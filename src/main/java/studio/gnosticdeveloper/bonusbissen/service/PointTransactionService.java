@@ -31,6 +31,7 @@ import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 import studio.gnosticdeveloper.bonusbissen.storage.DeliveryVariant;
 import studio.gnosticdeveloper.bonusbissen.storage.StorageService;
 
@@ -46,6 +47,7 @@ public class PointTransactionService {
     private final ExchangeCodeRepository exchangeCodeRepository;
     private final OrganizationStaffRepository organizationStaffRepository;
     private final PointProgramRepository pointProgramRepository;
+    private final StorefrontRepository storefrontRepository;
     private final TraceabilityService traceabilityService;
     private final StorageService storageService;
 
@@ -54,6 +56,7 @@ public class PointTransactionService {
         ExchangeCodeRepository exchangeCodeRepository,
         OrganizationStaffRepository organizationStaffRepository,
         PointProgramRepository pointProgramRepository,
+        StorefrontRepository storefrontRepository,
         TraceabilityService traceabilityService,
         StorageService storageService
     ) {
@@ -61,6 +64,7 @@ public class PointTransactionService {
         this.exchangeCodeRepository = exchangeCodeRepository;
         this.organizationStaffRepository = organizationStaffRepository;
         this.pointProgramRepository = pointProgramRepository;
+        this.storefrontRepository = storefrontRepository;
         this.traceabilityService = traceabilityService;
         this.storageService = storageService;
     }
@@ -190,7 +194,8 @@ public class PointTransactionService {
     }
 
     @Transactional
-    public void approveExchange(ApproveExchangeRequest request, UUID organizationId, UUID callerId) {
+    /** {@code storefrontId} is the approving staff's active storefront, where the reward is handed over; recorded on the redemption. */
+    public void approveExchange(ApproveExchangeRequest request, UUID organizationId, UUID callerId, UUID storefrontId) {
         PointTransaction pointTransaction = pointTransactionRepository
             .findByIdForUpdate(request.id())
             .orElseThrow(() ->
@@ -219,6 +224,9 @@ public class PointTransactionService {
 
         pointTransaction.setState(TransactionState.DELIVERED);
         pointTransaction.setEmployee(employee);
+        if (storefrontId != null) {
+            storefrontRepository.findByIdAndOrganizationId(storefrontId, organizationId).ifPresent(pointTransaction::setStorefront);
+        }
         pointTransactionRepository.save(pointTransaction);
 
         Map<String, Object> payload = new HashMap<>();

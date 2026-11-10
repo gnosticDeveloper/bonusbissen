@@ -3,13 +3,16 @@ package studio.gnosticdeveloper.bonusbissen.controller;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import studio.gnosticdeveloper.bonusbissen.dto.request.StorefrontCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.StorefrontUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.StorefrontResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.StorefrontUserResponse;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
 import studio.gnosticdeveloper.bonusbissen.service.StorefrontService;
 
@@ -27,6 +30,18 @@ public class StorefrontController {
     @GetMapping
     public List<StorefrontResponse> list(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
         return storefrontService.listByOrganization(principal.organizationId()).stream().map(StorefrontResponse::from).toList();
+    }
+
+    /** Users affiliated with the storefront (joined through it), with balance and activity there. */
+    @GetMapping("/{id}/users")
+    @PreAuthorize("hasRole('ADMIN')")
+    public PagedResponse<StorefrontUserResponse> users(
+        @PathVariable UUID id,
+        @RequestParam(required = false) String search,
+        Pageable pageable,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
+        return PagedResponse.from(storefrontService.listUsers(id, principal.organizationId(), search, pageable).map(StorefrontUserResponse::from));
     }
 
     @PostMapping

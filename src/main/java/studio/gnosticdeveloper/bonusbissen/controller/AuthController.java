@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -310,7 +311,7 @@ public class AuthController {
         }
         return Arrays.stream(req.getCookies())
             .filter(c -> REFRESH_COOKIE.equals(c.getName()))
-            .map(jakarta.servlet.http.Cookie::getValue)
+            .map(Cookie::getValue)
             .findFirst();
     }
 
