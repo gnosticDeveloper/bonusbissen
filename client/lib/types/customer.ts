@@ -9,6 +9,24 @@ export interface Customer {
   formattedCreatedAt: string;
 }
 
+/** Customer affiliated through a storefront, from `GET /storefronts/{id}/users`. */
+export interface StorefrontCustomer {
+  id: string;
+  name: string;
+  username: string;
+  email: string | null;
+  emailVerified: boolean;
+  /** ISO timestamp of the affiliation. */
+  joinedAt: string;
+  /** Balance in the storefront's whole point program. */
+  balance: number;
+  /** Earned / redeemed at this storefront only. */
+  totalEarned: number;
+  totalRedeemed: number;
+  /** ISO timestamp; `null` when the customer has no transactions at this storefront yet. */
+  lastActivityAt: string | null;
+}
+
 /** Signed-in customer from `GET /users/me`. */
 export type UserInfo = {
   id: string;
