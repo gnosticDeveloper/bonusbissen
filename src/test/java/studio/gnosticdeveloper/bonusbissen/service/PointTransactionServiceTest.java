@@ -10,6 +10,7 @@ import org.springframework.security.access.AccessDeniedException;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
+import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
@@ -23,6 +24,7 @@ import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.ExchangeCodeRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 
 import java.util.Optional;
@@ -46,6 +48,8 @@ class PointTransactionServiceTest {
     private OrganizationStaffRepository organizationStaffRepository;
     @Mock
     private PointProgramRepository pointProgramRepository;
+    @Mock
+    private StorefrontRepository storefrontRepository;
     @Mock
     private TraceabilityService traceabilityService;
 
@@ -98,13 +102,18 @@ class PointTransactionServiceTest {
         OrganizationStaff employee = new OrganizationStaff();
         employee.setId(UUID.randomUUID());
 
+        Storefront storefront = new Storefront();
+        storefront.setId(UUID.randomUUID());
+
         when(pointTransactionRepository.findByIdForUpdate(tx.getId())).thenReturn(Optional.of(tx));
         when(organizationStaffRepository.findByUserIdAndActiveTrue(employee.getId())).thenReturn(Optional.of(employee));
+        when(storefrontRepository.findByIdAndOrganizationId(storefront.getId(), organization.getId())).thenReturn(Optional.of(storefront));
 
-        pointTransactionService.approveExchange(new ApproveExchangeRequest(tx.getId()), organization.getId(), employee.getId());
+        pointTransactionService.approveExchange(new ApproveExchangeRequest(tx.getId()), organization.getId(), employee.getId(), storefront.getId());
 
         assertThat(tx.getState()).isEqualTo(TransactionState.DELIVERED);
         assertThat(tx.getEmployee()).isEqualTo(employee);
+        assertThat(tx.getStorefront()).isEqualTo(storefront);
         verify(pointTransactionRepository).save(tx);
     }
 
@@ -113,7 +122,7 @@ class PointTransactionServiceTest {
         UUID id = UUID.randomUUID();
         when(pointTransactionRepository.findByIdForUpdate(id)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> pointTransactionService.approveExchange(new ApproveExchangeRequest(id), UUID.randomUUID(), UUID.randomUUID()))
+        assertThatThrownBy(() -> pointTransactionService.approveExchange(new ApproveExchangeRequest(id), UUID.randomUUID(), UUID.randomUUID(), null))
             .isInstanceOf(NotFoundException.class);
     }
 
@@ -126,7 +135,7 @@ class PointTransactionServiceTest {
 
         when(pointTransactionRepository.findByIdForUpdate(tx.getId())).thenReturn(Optional.of(tx));
 
-        assertThatThrownBy(() -> pointTransactionService.approveExchange(new ApproveExchangeRequest(tx.getId()), organization.getId(), UUID.randomUUID()))
+        assertThatThrownBy(() -> pointTransactionService.approveExchange(new ApproveExchangeRequest(tx.getId()), organization.getId(), UUID.randomUUID(), null))
             .isInstanceOf(ConflictException.class);
 
         verify(pointTransactionRepository, times(0)).save(any());

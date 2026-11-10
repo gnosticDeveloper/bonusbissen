@@ -7,7 +7,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/helpers/utils";
 import { NavItem, NavSection } from "@/lib/navigation";
 import { UserRole } from "@/lib/types/user";
-import { Award, Building2, ChartColumn, Coins, Home, Images, QrCode, ReceiptText, ShieldAlert, UserRoundGroup } from "lucide-react";
+import { Award, Building2, ChartColumn, Coins, Home, Images, QrCode, ReceiptText, ShieldAlert, UserRoundGroup, UsersRound } from "lucide-react";
 
 /** Rutas resueltas contra el local seleccionado (claim `sf` del token verificado). */
 const STOREFRONT_NAV: NavItem[] = [
@@ -39,6 +39,7 @@ const STOREFRONT_NAV: NavItem[] = [
     available: true,
     show: true,
   } as const,
+  { id: "customers", label: "Clientes", icon: UsersRound, roles: [UserRole.ADMIN], url: "/clientes", available: true, show: true } as const,
   { id: "join-qr", label: "QR de afiliación", icon: QrCode, roles: [UserRole.ADMIN], url: "/codigo-qr", available: true, show: true } as const,
 ];
 

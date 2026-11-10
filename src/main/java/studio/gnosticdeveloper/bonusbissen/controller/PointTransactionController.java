@@ -101,7 +101,7 @@ public class PointTransactionController {
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     @ResponseStatus(code = HttpStatus.OK)
     public void approveExchange(@RequestBody ApproveExchangeRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        pointTransactionService.approveExchange(request, principal.organizationId(), principal.id());
+        pointTransactionService.approveExchange(request, principal.organizationId(), principal.id(), principal.storefrontId());
     }
 
     @PostMapping("/user-cancel")

@@ -2,26 +2,34 @@ package studio.gnosticdeveloper.bonusbissen.service;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import studio.gnosticdeveloper.bonusbissen.dto.request.StorefrontCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.StorefrontUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
+import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.StorefrontUserRow;
+import studio.gnosticdeveloper.bonusbissen.repository.UserPointProgramRepository;
 
 @Service
 public class StorefrontService {
 
     private final StorefrontRepository storefrontRepository;
+    private final UserPointProgramRepository userPointProgramRepository;
     private final OrganizationRepository organizationRepository;
     private final GeorefClient georefClient;
     private final OnboardingService onboardingService;
 
-    public StorefrontService(StorefrontRepository storefrontRepository, OrganizationRepository organizationRepository, GeorefClient georefClient, OnboardingService onboardingService) {
+    public StorefrontService(StorefrontRepository storefrontRepository, UserPointProgramRepository userPointProgramRepository, OrganizationRepository organizationRepository, GeorefClient georefClient, OnboardingService onboardingService) {
         this.storefrontRepository = storefrontRepository;
+        this.userPointProgramRepository = userPointProgramRepository;
         this.organizationRepository = organizationRepository;
         this.georefClient = georefClient;
         this.onboardingService = onboardingService;
@@ -30,6 +38,20 @@ public class StorefrontService {
     @Transactional(readOnly = true)
     public List<Storefront> listByOrganization(UUID organizationId) {
         return storefrontRepository.findByOrganizationIdOrderByCreatedAt(organizationId);
+    }
+
+    /** Users who joined the program through this storefront; the storefront must belong to the caller's organization. */
+    @Transactional(readOnly = true)
+    public Page<StorefrontUserRow> listUsers(UUID id, UUID organizationId, String search, String sort, String dir, Pageable pageable) {
+        if (!UserPointProgramRepository.STOREFRONT_USER_SORTS.contains(sort)) {
+            throw new BadRequestException("Unknown storefront user sort: " + sort + ".", "No se puede ordenar por ese campo.");
+        }
+        if (!"asc".equals(dir) && !"desc".equals(dir)) {
+            throw new BadRequestException("Unknown sort direction: " + dir + ".", "La dirección del orden debe ser asc o desc.");
+        }
+        getOwned(id, organizationId);
+        String term = search == null || search.isBlank() ? null : search.trim();
+        return userPointProgramRepository.findStorefrontUsers(id, term, sort, "desc".equals(dir), PageRequest.of(pageable.getPageNumber(), pageable.getPageSize()));
     }
 
     @Transactional

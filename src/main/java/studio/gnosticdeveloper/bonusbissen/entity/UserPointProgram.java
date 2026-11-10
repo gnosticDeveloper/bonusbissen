@@ -10,7 +10,7 @@ import java.util.UUID;
 
 /**
  * A user's membership in a point program -- required before points can be
- * earned there. Joined self-service or on the user's behalf by an employee.
+ * earned there. Joined self-service.
  */
 @Entity
 @Table(name = "user_point_programs")
@@ -30,6 +30,11 @@ public class UserPointProgram {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "point_program_id", nullable = false)
     private PointProgram pointProgram;
+
+    /** Storefront the user joined through; null when the join had none (joined by program id). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "storefront_id")
+    private Storefront storefront;
 
     @Column(name = "joined_at", nullable = false, updatable = false)
     private OffsetDateTime joinedAt;

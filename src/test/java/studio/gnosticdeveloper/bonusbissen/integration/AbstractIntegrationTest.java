@@ -25,11 +25,13 @@ import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
+import studio.gnosticdeveloper.bonusbissen.entity.UserPointProgram;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.UserPointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -72,6 +74,9 @@ public abstract class AbstractIntegrationTest {
 
     @Autowired
     protected UserRepository userRepository;
+
+    @Autowired
+    protected UserPointProgramRepository userPointProgramRepository;
 
     @Autowired
     protected RewardRepository rewardRepository;
@@ -173,6 +178,14 @@ public abstract class AbstractIntegrationTest {
      * and whose password is {@link #TEST_USER_PASSWORD}. Callers pass the same
      * key to {@link #loginUser(String)}.
      */
+    /** Test fixture: makes the user a member of the program, as the self-service join would. */
+    protected void joinProgram(UUID userId, PointProgram program) {
+        UserPointProgram membership = new UserPointProgram();
+        membership.setUser(userRepository.getReferenceById(userId));
+        membership.setPointProgram(program);
+        userPointProgramRepository.save(membership);
+    }
+
     protected User createUser(String usernameKey) {
         User user = new User();
         user.setUsername(usernameKey.toLowerCase());

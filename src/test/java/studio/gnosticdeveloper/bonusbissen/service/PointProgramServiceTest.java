@@ -162,26 +162,6 @@ class PointProgramServiceTest {
     }
 
     @Test
-    void joinOnBehalfRequiresTheProgramBelongToTheCallersOrganization() {
-        when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> pointProgramService.joinOnBehalf(USER_ID, PROGRAM_ID, ORGANIZATION_ID)).isInstanceOf(NotFoundException.class);
-
-        verify(userPointProgramRepository, never()).save(any());
-    }
-
-    @Test
-    void joinOnBehalfCreatesMembershipForAnOwnedProgram() {
-        when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.of(activeProgram()));
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user()));
-        when(userPointProgramRepository.existsByUser_IdAndPointProgram_Id(USER_ID, PROGRAM_ID)).thenReturn(false);
-
-        pointProgramService.joinOnBehalf(USER_ID, PROGRAM_ID, ORGANIZATION_ID);
-
-        verify(userPointProgramRepository).save(any(UserPointProgram.class));
-    }
-
-    @Test
     void joinByStorefrontJoinsUsingTheStorefrontsProgram() {
         when(storefrontRepository.findById(STOREFRONT_ID)).thenReturn(Optional.of(storefrontWithProgram(activeProgram())));
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user()));
@@ -192,6 +172,7 @@ class PointProgramServiceTest {
         ArgumentCaptor<UserPointProgram> captor = ArgumentCaptor.forClass(UserPointProgram.class);
         verify(userPointProgramRepository).save(captor.capture());
         assertThat(captor.getValue().getPointProgram().getId()).isEqualTo(PROGRAM_ID);
+        assertThat(captor.getValue().getStorefront()).isNotNull();
     }
 
     @Test

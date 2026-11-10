@@ -194,7 +194,7 @@ public class PointProgramService {
             .orElseThrow(() ->
                 new NotFoundException("No se pudo encontrar un cliente con el ID " + userId + ".", "Hubo un error al buscar al cliente")
             );
-        joinIfMissing(user, program);
+        joinIfMissing(user, program, null);
     }
 
     /** Self-service join by storefront: the front-end only ever knows the storefront it's showing. */
@@ -221,31 +221,17 @@ public class PointProgramService {
                     "Hubo un problema al intentar unirte a esta sucursal."
                 )
             );
-        joinIfMissing(user, program);
+        joinIfMissing(user, program, storefront);
     }
 
-    /** Staff joining a user to one of their own organization's programs on the user's behalf. */
-    @Transactional
-    public void joinOnBehalf(UUID userId, UUID programId, UUID organizationId) {
-        PointProgram program = getOwned(programId, organizationId);
-        User user = userRepository
-            .findById(userId)
-            .orElseThrow(() ->
-                new NotFoundException(
-                    "No se pudo encontrar un cliente con el ID " + userId + ".",
-                    "No encontramos al usuario que seleccionaste para afiliarlo a la sucursal."
-                )
-            );
-        joinIfMissing(user, program);
-    }
-
-    private void joinIfMissing(User user, PointProgram program) {
+    private void joinIfMissing(User user, PointProgram program, Storefront storefront) {
         if (userPointProgramRepository.existsByUser_IdAndPointProgram_Id(user.getId(), program.getId())) {
             return;
         }
         UserPointProgram membership = new UserPointProgram();
         membership.setUser(user);
         membership.setPointProgram(program);
+        membership.setStorefront(storefront);
         userPointProgramRepository.save(membership);
     }
 
