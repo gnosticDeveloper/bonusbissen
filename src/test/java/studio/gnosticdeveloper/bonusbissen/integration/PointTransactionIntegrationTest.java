@@ -16,7 +16,6 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointActionResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.MovementResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
-import studio.gnosticdeveloper.bonusbissen.dto.request.JoinPointProgramRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
@@ -48,12 +47,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
     }
 
     private UUID grant(String cashierToken, UUID userId, int points) {
-        restTemplate.exchange(
-            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
-            HttpMethod.POST,
-            authed(cashierToken, new JoinPointProgramRequest(userId)),
-            Void.class
-        );
+        joinProgram(userId, defaultProgram());
         ResponseEntity<UserPointsAwardResponse> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
@@ -626,12 +620,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         Reward popular = createRewardIn(program, "Popular Reward", 10);
         Reward rare = createRewardIn(program, "Rare Reward", 10);
 
-        restTemplate.exchange(
-            baseUrl() + "/point-programs/" + program.getId() + "/members",
-            HttpMethod.POST,
-            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
-            Void.class
-        );
+        joinProgram(user.getId(), program);
         restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
@@ -706,12 +695,7 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         rewardToSave.setCostPoints(100);
         final Reward reward = rewardRepository.save(rewardToSave);
 
-        restTemplate.exchange(
-            baseUrl() + "/point-programs/" + program.getId() + "/members",
-            HttpMethod.POST,
-            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
-            Void.class
-        );
+        joinProgram(user.getId(), program);
         restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,

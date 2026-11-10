@@ -10,7 +10,6 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.JoinPointProgramRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
@@ -40,12 +39,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     }
 
     private void grant(String cashierToken, UUID userId, int points) {
-        restTemplate.exchange(
-            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
-            HttpMethod.POST,
-            authed(cashierToken, new JoinPointProgramRequest(userId)),
-            Void.class
-        );
+        joinProgram(userId, defaultProgram());
         ResponseEntity<UserPointsAwardResponse> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
@@ -100,12 +94,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
 
         User user = createUser("+5493462003003");
         String userToken = loginUser("+5493462003003");
-        restTemplate.exchange(
-            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
-            HttpMethod.POST,
-            authed(loginEmployee("cashier-insufficient", "password123"), new JoinPointProgramRequest(user.getId())),
-            Void.class
-        );
+        joinProgram(user.getId(), defaultProgram());
 
         Reward reward = createReward("Expensive Reward", 1000);
 
@@ -333,12 +322,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         User cashier = createEmployee("cashier-view-any", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-view-any", "password123");
         User user = createUser("+5493462003015");
-        restTemplate.exchange(
-            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
-            HttpMethod.POST,
-            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
-            Void.class
-        );
+        joinProgram(user.getId(), defaultProgram());
 
         ResponseEntity<UserPointsResponse> response = restTemplate.exchange(
             baseUrl() + "/users/" + user.getId(),
@@ -368,12 +352,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         User cashierOther = createEmployee("cashier-other-org", "password123", StaffRole.CASHIER, otherOrg, null);
         String cashierOtherToken = loginEmployee("cashier-other-org", "password123", otherOrg.getId());
         User victim = createUser("+5493462003022");
-        restTemplate.exchange(
-            baseUrl() + "/point-programs/" + otherProgram.getId() + "/members",
-            HttpMethod.POST,
-            authed(cashierOtherToken, new JoinPointProgramRequest(victim.getId())),
-            Void.class
-        );
+        joinProgram(victim.getId(), otherProgram);
 
         User attackerCashier = createEmployee("cashier-attacker-org", "password123", StaffRole.CASHIER);
         String attackerToken = loginEmployee("cashier-attacker-org", "password123");
@@ -422,12 +401,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         User cashier = createEmployee("cashier-negative-grant", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-negative-grant", "password123");
         User user = createUser("+5493462003010");
-        restTemplate.exchange(
-            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
-            HttpMethod.POST,
-            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
-            Void.class
-        );
+        joinProgram(user.getId(), defaultProgram());
 
         ResponseEntity<String> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
@@ -517,12 +491,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         String cashierOtherToken = loginEmployee("cashier-other-org-pending", "password123", otherOrg.getId());
 
         User victim = createUser("+5493462003023");
-        restTemplate.exchange(
-            baseUrl() + "/point-programs/" + otherProgram.getId() + "/members",
-            HttpMethod.POST,
-            authed(cashierOtherToken, new JoinPointProgramRequest(victim.getId())),
-            Void.class
-        );
+        joinProgram(victim.getId(), otherProgram);
         restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,

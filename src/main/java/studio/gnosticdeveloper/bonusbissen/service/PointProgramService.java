@@ -224,21 +224,6 @@ public class PointProgramService {
         joinIfMissing(user, program);
     }
 
-    /** Staff joining a user to one of their own organization's programs on the user's behalf. */
-    @Transactional
-    public void joinOnBehalf(UUID userId, UUID programId, UUID organizationId) {
-        PointProgram program = getOwned(programId, organizationId);
-        User user = userRepository
-            .findById(userId)
-            .orElseThrow(() ->
-                new NotFoundException(
-                    "No se pudo encontrar un cliente con el ID " + userId + ".",
-                    "No encontramos al usuario que seleccionaste para afiliarlo a la sucursal."
-                )
-            );
-        joinIfMissing(user, program);
-    }
-
     private void joinIfMissing(User user, PointProgram program) {
         if (userPointProgramRepository.existsByUser_IdAndPointProgram_Id(user.getId(), program.getId())) {
             return;

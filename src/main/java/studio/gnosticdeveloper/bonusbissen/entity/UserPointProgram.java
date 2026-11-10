@@ -10,7 +10,7 @@ import java.util.UUID;
 
 /**
  * A user's membership in a point program -- required before points can be
- * earned there. Joined self-service or on the user's behalf by an employee.
+ * earned there. Joined self-service.
  */
 @Entity
 @Table(name = "user_point_programs")

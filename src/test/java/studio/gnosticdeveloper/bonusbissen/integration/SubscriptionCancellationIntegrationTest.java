@@ -29,7 +29,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.JoinPointProgramRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.BusinessResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.OrganizationResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
@@ -103,8 +102,7 @@ class SubscriptionCancellationIntegrationTest extends AbstractIntegrationTest {
         createEmployee("admin-" + slug, TEST_USER_PASSWORD, StaffRole.ADMIN, org, storefront);
         String token = loginEmployee("admin-" + slug, TEST_USER_PASSWORD, org.getId());
         User customer = createUser("cust-" + slug);
-        restTemplate.exchange(baseUrl() + "/point-programs/" + program.getId() + "/members", HttpMethod.POST,
-            authed(token, new JoinPointProgramRequest(customer.getId())), Void.class);
+        joinProgram(customer.getId(), program);
         return new Fixture(org, storefront, "Ciudad " + slug + ", Córdoba", token, customer, preapprovalId);
     }
 
