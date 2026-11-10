@@ -3,54 +3,13 @@
 import { Eclipse, Moon, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/helpers/utils";
+import { useTheme, type Theme } from "@/lib/preferences/theme";
 
-type Theme = "light" | "dark" | "abismo";
-
-const themes = [
+const themes: { value: Theme; label: string; Icon: typeof Sun }[] = [
   { value: "light", label: "Claro", Icon: Sun },
   { value: "dark", label: "Oscuro", Icon: Moon },
   { value: "abismo", label: "Abismo", Icon: Eclipse },
-] as const;
-
-function applyThemeAttribute(theme: Theme) {
-  const root = document.documentElement;
-  root.classList.add("theme-switching");
-  root.setAttribute("data-theme", theme);
-  void window.getComputedStyle(root).backgroundColor;
-  root.classList.remove("theme-switching");
-}
-
-function persistTheme(theme: Theme) {
-  document.cookie = `theme=${theme}; path=/; max-age=31536000; SameSite=Lax`;
-
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (reduceMotion || typeof document.startViewTransition !== "function") {
-    applyThemeAttribute(theme);
-    return;
-  }
-
-  document.startViewTransition(() => applyThemeAttribute(theme));
-}
-
-function useTheme() {
-  const [theme, setTheme] = useState<Theme>("light");
-
-  useEffect(() => {
-    const current = document.documentElement.getAttribute("data-theme");
-    if (current === "light" || current === "dark" || current === "abismo") {
-      setTheme(current);
-    } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      setTheme("dark");
-    }
-  }, []);
-
-  const selectTheme = (next: Theme) => {
-    persistTheme(next);
-    setTheme(next);
-  };
-
-  return { theme, selectTheme };
-}
+];
 
 export function ThemeToggle({ color }: { color?: string }) {
   const { theme, selectTheme } = useTheme();

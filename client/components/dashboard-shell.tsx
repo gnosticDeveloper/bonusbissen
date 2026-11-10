@@ -9,7 +9,7 @@ import type { StorefrontSummary } from "@/lib/types/point-program";
 import type { AdminUserInfo, UserRole } from "@/lib/types/user";
 import { cn } from "@/lib/helpers/utils";
 import { CARD_PALETTES, pickCardVariant } from "@/lib/helpers/color";
-import { persistSidebarCollapsed } from "@/lib/sidebar-preference";
+import { persistSidebarCollapsed } from "@/lib/preferences/sidebar";
 import Sidebar, { getNavSections } from "./sidebar";
 import { UserMenu } from "./user-menu";
 import { BrandLockup, BrandMark } from "./brand";

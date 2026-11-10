@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogOut, X, ChevronRight, UserRound, Home, Compass } from "lucide-react";
 import { signOut } from "@/app/b/actions";
-import { useUIStore } from "@/lib/ui-store";
+import { useUIStore } from "@/lib/preferences/ui-store";
 import { BrandLockup } from "@/components/brand";
 import { ThemeToggle } from "./theme-toggle";
 import { useUser } from "@/providers/user-provider";

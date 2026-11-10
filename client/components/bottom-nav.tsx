@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Gift, User2, RotateCcwClock, ListPlus } from "lucide-react";
-import { useUIStore } from "@/lib/ui-store";
+import { useUIStore } from "@/lib/preferences/ui-store";
 
 const HOME_ITEMS = [
   { href: "/b", label: "Inicio", icon: Home },

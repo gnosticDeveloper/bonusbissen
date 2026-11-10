@@ -8,7 +8,7 @@ import { PointsResponse } from "@/lib/types/customer";
 import { getPoints } from "@/app/b/actions";
 import { CitySelect } from "@/components/city-select";
 import { useBusinesses } from "@/hooks/use-businesses";
-import { useSelectedCity } from "@/lib/preference-store";
+import { useSelectedCity } from "@/lib/preferences/city-store";
 import { CustomerHeader } from "@/components/customer-header";
 
 export default function MainHomePage() {

@@ -5,7 +5,7 @@ import { BusinessList } from "@/components/business-list";
 import { PaginationControls } from "@/components/pagination-controls";
 import { useBusinesses } from "@/hooks/use-businesses";
 import { useRef, useState } from "react";
-import { useSelectedCity } from "@/lib/preference-store";
+import { useSelectedCity } from "@/lib/preferences/city-store";
 
 const PAGE_SIZE = 10;
 

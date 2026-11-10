@@ -1,3 +1,5 @@
+import { setPreferenceCookie } from "./cookie";
+
 /**
  * Preferencia visual de la barra lateral del panel (solo escritorio).
  *
@@ -21,5 +23,5 @@ export function isSidebarCollapsed(value: string | undefined): boolean {
 
 /** Persiste la preferencia desde el navegador. Debe correr solo en el cliente. */
 export function persistSidebarCollapsed(collapsed: boolean): void {
-  document.cookie = `${SIDEBAR_COOKIE_NAME}=${collapsed ? COLLAPSED : EXPANDED}; path=/; max-age=31536000; SameSite=Lax`;
+  setPreferenceCookie(SIDEBAR_COOKIE_NAME, collapsed ? COLLAPSED : EXPANDED);
 }

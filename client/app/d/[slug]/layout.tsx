@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { dashboardRequest } from "@/lib/api";
 import type { Storefront } from "@/lib/types/storefront";
 import { requireDashboardSession } from "@/lib/auth/session";
-import { isSidebarCollapsed, SIDEBAR_COOKIE_NAME } from "@/lib/sidebar-preference";
+import { isSidebarCollapsed, SIDEBAR_COOKIE_NAME } from "@/lib/preferences/sidebar";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { getCurrentUser } from "./actions";
 import { getDashboardStorefronts } from "@/app/d/sign-in/actions";

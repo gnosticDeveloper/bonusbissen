@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { CreateRewardButton } from "@/components/create-reward-button";
-import { RewardViewToggle, type RewardView } from "@/components/reward-view-toggle";
+import { RewardViewToggle } from "@/components/reward-view-toggle";
+import type { RewardView } from "@/lib/preferences/reward-view";
 import RewardsList from "@/components/rewards-list";
 import { SearchParamsPaginationControls } from "@/components/search-params-pagination-controls";
 import type { Reward } from "@/lib/types/reward";

@@ -1,12 +1,12 @@
 "use client";
 
 import { LayoutGrid, List } from "lucide-react";
-export type RewardView = "list" | "grid";
+import { persistRewardView, type RewardView } from "@/lib/preferences/reward-view";
 
 export function RewardViewToggle({ view, onChange }: { view: RewardView; onChange: (view: RewardView) => void }) {
   function changeView(nextView: RewardView) {
     if (nextView === view) return;
-    document.cookie = `reward-view=${nextView}; Path=/; Max-Age=31536000; SameSite=Lax`;
+    persistRewardView(nextView);
     onChange(nextView);
   }
 

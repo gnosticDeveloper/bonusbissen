@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { Spinner } from "./spinner";
 import { getLocations } from "@/app/b/actions";
-import { useSelectedCity, useUpdateSelectedCity } from "@/lib/preference-store";
+import { useSelectedCity, useUpdateSelectedCity } from "@/lib/preferences/city-store";
 
 export function CitySelect() {
   const updateSelectedCity = useUpdateSelectedCity();
