@@ -2,7 +2,7 @@
 
 import { clearAllSessions } from "@/lib/auth/refresh";
 import { ActionResult, dashboardRequest } from "@/lib/api";
-import { AdminUserInfo } from "@/lib/definitions";
+import { AdminUserInfo } from "@/lib/types/user";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 

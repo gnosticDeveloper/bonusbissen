@@ -1,7 +1,7 @@
 "use server";
 
 import { request } from "@/lib/api";
-import { Business } from "@/lib/definitions";
+import { Business } from "@/lib/types/business";
 
 // Nota: Lo implementé, y ya anda esto xd. 🐟
 export async function getBusinessByStorefrontId(storefrontId: string) {

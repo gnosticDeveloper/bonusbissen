@@ -7,7 +7,7 @@ import { Field, Input, Textarea } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast";
 import { Storefront } from "@/lib/types/storefront";
-import { FormState } from "@/app/d/types";
+import { FormState } from "@/lib/types/dashboard";
 import { createStorefront, updateStorefront } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
 import { AddressSelector } from "./address-selector";
 

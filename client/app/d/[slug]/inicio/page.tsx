@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { Gift, Clock, Users, Sparkles, Trophy, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getHomeStats, getPendingExchanges, getTopClients, getTopRewards } from "../../actions";
-import { HomeStats, PendingExchangeReview, TopClient, TopReward } from "../../types";
+import { HomeStats, PendingExchangeReview, TopClient, TopReward } from "@/lib/types/dashboard";
 import { formatNumber } from "@/lib/helpers/format";
 
 export default function HomePage() {

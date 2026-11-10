@@ -2,7 +2,7 @@
 
 import { request } from "@/lib/api";
 import { currentUserId } from "@/lib/auth/session";
-import { PagedResponse } from "@/lib/definitions";
+import { PagedResponse } from "@/lib/types/paging";
 import { Reward } from "@/lib/types/reward";
 
 // TODO: should implement pagination and also send page: number, size: number = 10

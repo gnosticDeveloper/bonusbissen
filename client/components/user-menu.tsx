@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { LogOut } from "lucide-react";
-import { AdminUserInfo, UserRole } from "@/lib/definitions";
+import { AdminUserInfo, UserRole } from "@/lib/types/user";
 import { signOut } from "@/app/d/[slug]/actions";
 import Link from "next/link";
 

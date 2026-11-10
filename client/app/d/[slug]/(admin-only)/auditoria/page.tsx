@@ -24,7 +24,7 @@ import { Tooltip } from "@/components/tooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/input";
-import type { SearchOptions } from "@/lib/definitions";
+import type { SearchOptions } from "@/lib/types/paging";
 import { cn } from "@/lib/helpers/utils";
 import { auditDetailLines, sortAuditRecords } from "@/lib/helpers/traceability";
 import type { AuditRecord, AuditUser, OperationType } from "@/lib/types/traceability";

@@ -1,7 +1,7 @@
 "use server";
 
 import { ActionResult, backendFetchWithResponse, REQUEST_FAILED_MESSAGE } from "@/lib/api";
-import { SignInUser } from "@/lib/definitions";
+import { SignInUser } from "@/lib/types/user";
 import { sessionTokenSchema, userRegisterSchema } from "@/schemas/user";
 import { saveSession } from "@/lib/auth/refresh";
 import { parseOrError } from "@/lib/action-helpers";

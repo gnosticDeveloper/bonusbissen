@@ -2,8 +2,8 @@
 
 import { dashboardRequest } from "@/lib/api";
 import { Customer } from "@/lib/types/customer";
-import { PointAction } from "../../types";
-import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
+import { PointAction } from "@/lib/types/dashboard";
+import { PagedRequestFunction, PagedResponse } from "@/lib/types/paging";
 import type { ActionResult } from "@/lib/api";
 
 interface UserPointsAwardResponse {

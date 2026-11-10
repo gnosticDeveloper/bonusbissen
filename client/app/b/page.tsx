@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { PointsCard } from "@/components/points-card";
 import { BusinessList } from "@/components/business-list";
 
-import { PointsResponse } from "@/lib/definitions";
+import { PointsResponse } from "@/lib/types/customer";
 import { getPoints } from "@/app/b/actions";
 import { CitySelect } from "@/components/city-select";
 import { useBusinesses } from "@/hooks/use-businesses";

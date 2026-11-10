@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { History, Pencil } from "lucide-react";
 import { Customer } from "@/lib/types/customer";
 import type { ActionResult } from "@/lib/api";
-import type { PointAction } from "@/app/d/types";
+import type { PointAction } from "@/lib/types/dashboard";
 import { getAllPointActions } from "@/app/d/[slug]/administrar-puntos/actions";
 import dynamic from "next/dynamic";
 import { ModalContentLoader } from "@/components/modals/action-status-modal";

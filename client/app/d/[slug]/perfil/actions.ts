@@ -1,7 +1,7 @@
 "use server";
 
 import { dashboardRequest } from "@/lib/api";
-import { AdminUserInfo } from "@/lib/definitions";
+import { AdminUserInfo } from "@/lib/types/user";
 
 export async function updateProfile(input: { name: string; email: string }) {
   return dashboardRequest<AdminUserInfo>("/users/me", {

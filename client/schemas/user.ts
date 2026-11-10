@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+/** 8–72 characters with a lowercase letter, an uppercase letter, a digit and a symbol. */
+export const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,72}$/;
+
 export const userRegisterSchema = z.object({
   username: z
     .string()
@@ -13,7 +16,7 @@ export const userRegisterSchema = z.object({
     .string()
     .min(1, "La contraseña es obligatoria")
     .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,72}$/,
+      PASSWORD_PATTERN,
       "La contraseña debe tener entre 8 y 72 caracteres e incluir, al menos, una mayúscula, una minúscula, un número y un carácter especial",
     ),
 

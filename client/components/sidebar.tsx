@@ -5,7 +5,8 @@ import { useId } from "react";
 import { usePathname } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/helpers/utils";
-import { NavItem, NavSection, UserRole } from "@/lib/definitions";
+import { NavItem, NavSection } from "@/lib/navigation";
+import { UserRole } from "@/lib/types/user";
 import { Award, Building2, ChartColumn, Coins, Home, Images, QrCode, ReceiptText, ShieldAlert, UserRoundGroup } from "lucide-react";
 
 /** Rutas resueltas contra el local seleccionado (claim `sf` del token verificado). */

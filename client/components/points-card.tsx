@@ -1,7 +1,7 @@
 import { Sparkles } from "lucide-react";
 import { Spinner } from "@/components/spinner";
 import { ErrorState } from "@/components/error-state";
-import type { PointsResponse } from "@/lib/definitions";
+import type { PointsResponse } from "@/lib/types/customer";
 import { Carousel, CarouselReveal } from "./carousel";
 import { CARD_PALETTES, pickCardVariant } from "@/lib/helpers/color";
 import { formatNumber } from "@/lib/helpers/format";

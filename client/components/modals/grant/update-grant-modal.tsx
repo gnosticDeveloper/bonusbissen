@@ -1,7 +1,7 @@
 "use client";
 
 import { updateGrant, UpdateGrantRequest } from "@/app/d/[slug]/administrar-puntos/actions";
-import { PointAction } from "@/app/d/types";
+import { PointAction } from "@/lib/types/dashboard";
 import { useModal } from "@/components/modal";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";

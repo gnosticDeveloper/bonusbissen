@@ -1,5 +1,5 @@
 import { requireDashboardSession } from "@/lib/auth/session";
-import { UserRole } from "@/lib/definitions";
+import { UserRole } from "@/lib/types/user";
 import { redirect } from "next/navigation";
 
 export default async function AdminOnlyLayout({ children, params }: { params: Promise<{ slug: string }>; children: React.ReactNode }) {

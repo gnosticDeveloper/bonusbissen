@@ -3,7 +3,8 @@
 import { z } from "zod";
 import { ActionResult, backendFetchWithResponse, dashboardRequest, publicRequest } from "@/lib/api";
 import { sessionTokenSchema } from "@/schemas/user";
-import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
+import { PagedRequestFunction, PagedResponse } from "@/lib/types/paging";
+import type { StorefrontSummary } from "@/lib/types/point-program";
 import { cookies } from "next/headers";
 import { checkSession, currentSession } from "@/lib/auth/session";
 import { parseOrError } from "@/lib/action-helpers";
@@ -31,11 +32,6 @@ export const getAllOrganizations: PagedRequestFunction<OrganizationOption> = asy
   if (!result.ok) throw new Error(result.error);
 
   return result.data;
-};
-
-export type StorefrontSummary = {
-  id: string;
-  name: string;
 };
 
 const MISSING_CREDENTIALS = "Completá usuario y contraseña.";

@@ -8,7 +8,7 @@ import { Field, Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast";
 import { Organization } from "@/lib/types/organization";
-import { FormState } from "@/app/d/types";
+import { FormState } from "@/lib/types/dashboard";
 import { updateOrganization, uploadOrganizationImage } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
 import { ImageUploadField } from "@/components/image-upload-field";
 import { ActionResult } from "@/lib/api";

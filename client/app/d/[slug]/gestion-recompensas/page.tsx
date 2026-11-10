@@ -1,6 +1,6 @@
 import { getRewards } from "./actions";
 import { getCurrentUser } from "../actions";
-import { UserRole } from "@/lib/definitions";
+import { UserRole } from "@/lib/types/user";
 import { cookies } from "next/headers";
 import { RewardsView } from "@/components/rewards-view";
 

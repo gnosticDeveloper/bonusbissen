@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 import { backendFetch } from "@/lib/api";
-import { UserRole } from "@/lib/definitions";
+import { UserRole } from "@/lib/types/user";
 import type { SessionCheck } from "@/lib/auth/session";
 import { ONBOARDING_STEPS, type OnboardingBackendStep } from "@/lib/types/onboarding";
 

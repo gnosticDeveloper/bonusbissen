@@ -1,5 +1,5 @@
 import { getBusinesses } from "@/app/b/actions";
-import { Business } from "@/lib/definitions";
+import { Business } from "@/lib/types/business";
 import { useEffect, useState } from "react";
 
 export function useBusinesses({ size, city, page = 0 }: { size: number; city?: string | null; page?: number }) {

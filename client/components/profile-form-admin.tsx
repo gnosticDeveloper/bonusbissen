@@ -1,7 +1,7 @@
 "use client";
 
 import { SubmitEvent, useState } from "react";
-import { AdminUserInfo } from "@/lib/definitions";
+import { AdminUserInfo } from "@/lib/types/user";
 import { updatePassword, updateProfile } from "@/app/d/[slug]/perfil/actions";
 import { AlertCircle } from "lucide-react";
 

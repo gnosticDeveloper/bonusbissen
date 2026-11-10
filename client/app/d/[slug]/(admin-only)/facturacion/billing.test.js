@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
-import { UserRole } from "@/lib/definitions";
+import { UserRole } from "@/lib/types/user";
 
 // Run this file in its own Bun process: module mocks must not affect session tests.
 const adminSession = {

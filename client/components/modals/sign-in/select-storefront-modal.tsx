@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/spinner";
-import { selectStorefront, StorefrontSummary } from "@/app/d/sign-in/actions";
+import { selectStorefront } from "@/app/d/sign-in/actions";
+import type { StorefrontSummary } from "@/lib/types/point-program";
 import { useRouter } from "next/navigation";
 import { useModal } from "@/components/modal";
 

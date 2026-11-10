@@ -1,6 +1,6 @@
 import "server-only"
 import { cookies } from "next/headers";
-import { UserRole } from "@/lib/definitions";
+import { UserRole } from "@/lib/types/user";
 import { checkSession, getDashboardSessionToken } from "@/lib/auth/session";
 import { accessCookieOptions, DASHBOARD_ACCESS_COOKIE, DASHBOARD_REFRESH_COOKIE, refreshCookieOptions } from "@/lib/auth/cookies";
 import { refreshSession } from "@/lib/auth/refresh";

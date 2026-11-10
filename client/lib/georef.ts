@@ -1,4 +1,4 @@
-import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
+import { PagedRequestFunction, PagedResponse } from "@/lib/types/paging";
 
 const GEOREF_BASE = "https://apis.datos.gob.ar/georef/api/v2.0";
 const PAGE_SIZE = 5;

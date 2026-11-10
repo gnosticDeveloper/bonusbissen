@@ -1,4 +1,4 @@
-import { PointActionType } from "@/app/d/types";
+import { PointActionType } from "@/lib/types/dashboard";
 import { ExchangeState } from "../types/exchange";
 
 /* ---------- formatters ---------- */

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 import { errors, importSPKI, jwtVerify, type JWTPayload } from "jose";
 import { backendUrl } from "@/lib/backend-url";
-import { UserRole } from "../definitions";
+import { UserRole } from "@/lib/types/user";
 import { CUSTOMER_ACCESS_COOKIE, DASHBOARD_ACCESS_COOKIE, type SessionArea } from "./cookies";
 
 export interface Payload extends JWTPayload {

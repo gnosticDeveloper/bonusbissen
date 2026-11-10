@@ -7,9 +7,9 @@ import { Field, Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast";
 import { PointProgram } from "@/lib/types/point-program";
-import { POINT_EXPIRATION_MONTHS } from "@/lib/helpers/point-program-settings";
+import { POINT_EXPIRATION_MONTHS } from "@/lib/types/point-program";
 import { Storefront } from "@/lib/types/storefront";
-import { FormState } from "@/app/d/types";
+import { FormState } from "@/lib/types/dashboard";
 import { createPointProgram, updatePointProgram } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
 
 const initialState: FormState = { message: null, status: null };

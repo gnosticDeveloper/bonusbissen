@@ -1,5 +1,5 @@
 import { Spinner } from "@/components/spinner";
-import { Business } from "@/lib/definitions";
+import { Business } from "@/lib/types/business";
 import { RewardCard } from "./reward-card";
 import { resolveAssetUrl } from "@/lib/helpers/assets";
 import { Carousel } from "./carousel";

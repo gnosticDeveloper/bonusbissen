@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import type { z } from "zod";
 import { backendUrl } from "./backend-url";
 import { getDashboardSessionToken, getSessionToken } from "./auth/session";
-import { ProblemDetail } from "./definitions";
+import { ProblemDetail } from "@/lib/types/problem-detail";
 
 export type ActionResult<T> =
   | { ok: true; data: T }

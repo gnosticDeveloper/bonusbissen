@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { dashboardRequest, ActionResult } from "@/lib/api";
-import { FormState } from "@/app/d/types";
+import { FormState } from "@/lib/types/dashboard";
 import { Organization } from "@/lib/types/organization";
 import { validateImageUpload } from "@/lib/image-upload";
 import { Storefront, StorefrontPayload } from "@/lib/types/storefront";

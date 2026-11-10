@@ -19,6 +19,7 @@ import { useUser } from "@/providers/user-provider";
 import { CitySelect } from "@/components/city-select";
 import { ImageUploadField } from "@/components/image-upload-field";
 import { formatDate } from "@/lib/helpers/format";
+import { PASSWORD_PATTERN } from "@/schemas/user";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 type VerifyState = "idle" | "sending" | "sent" | "error";
@@ -37,8 +38,6 @@ type ConfirmDialogProps = {
   destructive?: boolean;
   onConfirm: () => void;
 };
-
-const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,72}$/;
 
 function Spinner({ dark = false }: { dark?: boolean }) {
   return <span className={`size-3.5 animate-spin rounded-full border-2 ${dark ? "border-white" : "border-primary-foreground"} border-t-transparent`} />;

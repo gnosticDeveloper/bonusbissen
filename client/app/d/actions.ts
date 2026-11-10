@@ -1,7 +1,7 @@
 "use server";
 
 import { ActionResult, dashboardRequest } from "@/lib/api";
-import { HomeStats, PendingExchangeReview, TopClient, TopReward } from "./types";
+import { HomeStats, PendingExchangeReview, TopClient, TopReward } from "@/lib/types/dashboard";
 
 export async function getHomeStats(): Promise<ActionResult<HomeStats>> {
   return await dashboardRequest<HomeStats>("/users/home-stats");

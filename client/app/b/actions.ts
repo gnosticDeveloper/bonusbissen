@@ -2,7 +2,9 @@
 
 import { clearAllSessions } from "@/lib/auth/refresh";
 import { ActionResult, publicRequest, request } from "@/lib/api";
-import { Location, Business, PagedResponse, PointsResponse } from "@/lib/definitions";
+import { Location, Business } from "@/lib/types/business";
+import { PagedResponse } from "@/lib/types/paging";
+import { PointsResponse } from "@/lib/types/customer";
 import { UserInfo } from "@/lib/types/customer";
 import { redirect } from "next/navigation";
 import { cache } from "react";
