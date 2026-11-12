@@ -126,7 +126,7 @@ export default async function CustomersPage({ params, searchParams }: PageProps)
                     {sortableHead("balance", "Saldo", "px-4 py-3 text-right")}
                     {sortableHead("totalEarned", "Sumados", "px-4 py-3 text-right")}
                     {sortableHead("totalRedeemed", "Canjeados", "px-4 py-3 text-right")}
-                    {sortableHead("lastActivityAt", "Última actividad", "px-4 py-3")}
+                    {sortableHead("lastActivityAt", "Último movimiento", "px-4 py-3")}
                     {sortableHead("joinedAt", "Se unió el", "px-5 py-3")}
                   </tr>
                 </thead>
