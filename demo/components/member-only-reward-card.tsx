@@ -1,0 +1,60 @@
+"use client";
+
+import { Gift } from "lucide-react";
+import type { RewardView as Reward } from "@/lib/demo/actions";
+import { useModal } from "@/components/modal";
+import { RewardClaimModal } from "@/components/modals/rewards/claim-reward-modal";
+import { formatNumber } from "@/lib/helpers/format";
+
+export function MemberOnlyRewardCard({ reward, storefrontId }: { reward: Reward; storefrontId: string }) {
+  const { open } = useModal();
+
+  const handleOpen = () => {
+    open(<RewardClaimModal reward={reward} storefrontId={storefrontId} />, {
+      title: reward.title,
+      description: `${formatNumber(reward.costPoints)} pts para canjear`,
+    });
+  };
+
+  const imageUrl = reward.imageThumbnailUrl;
+
+  return (
+    <button
+      type="button"
+      onClick={handleOpen}
+      className="w-full overflow-hidden rounded-3xl border border-border bg-card text-left shadow-[0_12px_30px_rgba(20,16,25,0.05)] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
+    >
+      <div className="flex gap-3 p-3.5">
+        <div className="relative h-19 w-19 shrink-0 overflow-hidden rounded-[18px] bg-muted/20">
+          {imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={imageUrl} alt={reward.title} className="h-full w-full object-cover" />
+          ) : (
+            <div className="grid h-full w-full place-items-center text-foreground/80">
+              <Gift className="h-6 w-6" aria-hidden="true" />
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-foreground">{reward.title}</p>
+
+          {reward.description && <p className="mt-1 line-clamp-2 text-xs leading-5 text-foreground/80">{reward.description}</p>}
+
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <span className="text-[11px] text-foreground/80">{reward.createdAtFormatted}</span>
+
+            <div className="flex items-center gap-1.5">
+              {reward.discountValue > 0 && (
+                <span className="rounded-full bg-muted/20 px-2.5 py-1 text-[11px] font-semibold text-foreground">{reward.discountValue}% OFF</span>
+              )}
+              <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-foreground">
+                {formatNumber(reward.costPoints)} pts
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}

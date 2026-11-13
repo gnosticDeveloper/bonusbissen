@@ -1,0 +1,66 @@
+"use client";
+
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
+import { Building2, Save, Type } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Field, Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/toast";
+import { ImageUploadField } from "@/components/image-upload-field";
+import { updateOrganizationName, uploadOrganizationImage } from "@/lib/demo/actions";
+import type { Organization } from "@/lib/demo/types";
+
+type FormState = { message: string | null; status: "success" | "error" | null };
+const initialState: FormState = { message: null, status: null };
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button disabled={pending} type="submit" className="gap-1.5">
+      <Save className="size-4" /> Guardar cambios
+    </Button>
+  );
+}
+
+export function OrganizationSection({ org }: { org: Organization }) {
+  const notify = useToast();
+  const [, formAction] = useActionState(async (_prev: FormState, formData: FormData): Promise<FormState> => {
+    const result = await updateOrganizationName(String(formData.get("org-name") ?? ""));
+    const next: FormState = result.ok ? { status: "success", message: "Los datos del negocio se guardaron." } : { status: "error", message: result.error };
+    notify(next.message!, next.status!);
+    return next;
+  }, initialState);
+
+  return (
+    <Card className="overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]" data-tour="org-section">
+      <CardHeader className="border-b border-border px-5 py-5 sm:px-6">
+        <CardTitle className="flex items-center gap-3 text-base tracking-[-0.02em]">
+          <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-foreground">
+            <Building2 className="size-5" aria-hidden="true" />
+          </span>
+          <span>
+            <span className="block">Datos del negocio</span>
+            <span className="mt-1 block text-xs font-normal text-foreground/80">El nombre con el que te ven tus clientes en la app.</span>
+          </span>
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="px-5 py-5 sm:px-6 sm:py-6">
+        <form action={formAction} className="flex flex-col gap-5" noValidate>
+          <Field label="Nombre del negocio" htmlFor="org-name" required>
+            <Input defaultValue={org.name} id="org-name" name="org-name" placeholder="Café Aurora" icon={<Type className="size-4" />} />
+          </Field>
+          <div className="flex justify-end">
+            <SubmitButton />
+          </div>
+        </form>
+        <div className="mt-6 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4 border-t border-border pt-6 sm:gap-6" data-tour="org-images">
+          <ImageUploadField label="Logo" initialUrl={org.logoUrl} showHint={false} upload={(data) => uploadOrganizationImage("logo", data)} />
+          <ImageUploadField label="Banner" initialUrl={org.bannerUrl} shape="banner" showHint={false} upload={(data) => uploadOrganizationImage("banner", data)} />
+          <p className="col-span-2 text-xs text-foreground/75">WEBP, JPG, JPEG o PNG · máximo 2 MB. Hacé clic en la imagen para cambiarla.</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

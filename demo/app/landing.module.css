@@ -1,0 +1,12 @@
+.landing {
+    background: var(--background);
+    color: var(--foreground);
+}
+
+.lower {
+    background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / 0.055), transparent 65%), linear-gradient(160deg, #191b1d, #0b0d0f);
+}
+
+.closing {
+    background: radial-gradient(ellipse at 50% 100%, rgb(255 255 255 / 0.045), transparent 70%), linear-gradient(180deg, #111315, #090b0d);
+}

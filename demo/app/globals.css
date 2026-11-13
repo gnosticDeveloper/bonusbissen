@@ -1,106 +1,152 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
-@import 'shadcn/tailwind.css';
+@import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is([data-theme="dark"] *, [data-theme="abismo"] *));
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
-
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-card: var(--card);
+    --color-border: var(--border);
+    --color-muted: var(--muted);
+    --font-sans: var(--font-sofia-sans), sans-serif;
 }
 
 :root {
-  color-scheme: light;
-  /* Cream / bone background, warm dark-brown text, honey-gold accent */
-  --background: oklch(0.958 0.014 84);
-  --foreground: oklch(0.28 0.02 60);
-  --card: oklch(0.985 0.01 84);
-  --card-foreground: oklch(0.28 0.02 60);
-  --popover: oklch(0.985 0.01 84);
-  --popover-foreground: oklch(0.28 0.02 60);
-  --primary: oklch(0.68 0.14 62);
-  --primary-foreground: oklch(0.99 0.008 84);
-  --secondary: oklch(0.92 0.02 82);
-  --secondary-foreground: oklch(0.32 0.03 60);
-  --muted: oklch(0.93 0.016 82);
-  --muted-foreground: oklch(0.52 0.025 62);
-  --accent: oklch(0.9 0.045 78);
-  --accent-foreground: oklch(0.32 0.04 60);
-  --destructive: oklch(0.56 0.19 27);
-  --destructive-foreground: oklch(0.99 0.008 84);
-  --success: oklch(0.58 0.12 150);
-  --success-foreground: oklch(0.99 0.008 84);
-  --warning: oklch(0.72 0.14 78);
-  --warning-foreground: oklch(0.28 0.03 60);
-  --border: oklch(0.88 0.02 80);
-  --input: oklch(0.88 0.02 80);
-  --ring: oklch(0.68 0.14 62);
-  --radius: 0.75rem;
+    --background: #f0e5d9;
+    --foreground: #1a1a1a;
+    --primary: #d4822b;
+    --primary-foreground: #1a1a1a;
+    --card: #f8f1e9;
+    --border: #ded2c5;
+    --muted: #918980;
 }
 
-.dark {
-  color-scheme: dark;
-  /* Warm dark-brown surfaces, honey-gold accent */
-  --background: oklch(0.22 0.012 60);
-  --foreground: oklch(0.93 0.012 84);
-  --card: oklch(0.27 0.014 60);
-  --card-foreground: oklch(0.93 0.012 84);
-  --popover: oklch(0.27 0.014 60);
-  --popover-foreground: oklch(0.93 0.012 84);
-  --primary: oklch(0.74 0.14 68);
-  --primary-foreground: oklch(0.24 0.03 60);
-  --secondary: oklch(0.32 0.018 60);
-  --secondary-foreground: oklch(0.93 0.012 84);
-  --muted: oklch(0.32 0.018 60);
-  --muted-foreground: oklch(0.7 0.02 70);
-  --accent: oklch(0.36 0.03 66);
-  --accent-foreground: oklch(0.93 0.012 84);
-  --destructive: oklch(0.62 0.19 27);
-  --destructive-foreground: oklch(0.98 0.008 84);
-  --success: oklch(0.66 0.13 150);
-  --success-foreground: oklch(0.16 0.02 150);
-  --warning: oklch(0.76 0.14 78);
-  --warning-foreground: oklch(0.24 0.03 60);
-  --border: oklch(0.38 0.02 62);
-  --input: oklch(0.4 0.02 62);
-  --ring: oklch(0.74 0.14 68);
+[data-theme="dark"] {
+    --background: #1a1a1a;
+    --foreground: #f0e5d9;
+    --primary: #d4822b;
+    --primary-foreground: #1a1a1a;
+    --card: #252321;
+    --border: #3a3632;
+    --muted: #aaa198;
 }
 
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+[data-theme="abismo"] {
+    --background: #070809;
+    --foreground: #e4dbca;
+    --primary: #d4822b;
+    --primary-foreground: #1a1a1a;
+    --card: #111315;
+    --border: #292b2d;
+    --muted: #aaa198;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+        --background: #1a1a1a;
+        --foreground: #f0e5d9;
+        --primary: #d4822b;
+        --primary-foreground: #1a1a1a;
+        --card: #252321;
+        --border: #3a3632;
+        --muted: #aaa198;
+    }
+}
+
+html {
+    background: var(--background);
+}
+body {
+    margin: 0;
+    min-width: 320px;
+    background: var(--background);
+    color: var(--foreground);
+}
+button {
+    font: inherit;
+    cursor: pointer;
+}
+
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+    transition: none !important;
+}
+
+/* Theme switch cross-fade (document.startViewTransition in providers/theme-provider.tsx). */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: 200ms;
+    animation-timing-function: ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(*),
+    ::view-transition-new(*),
+    ::view-transition-group(*) {
+        animation-duration: 0s !important;
+        animation-delay: 0s !important;
+    }
+}
+
+/* app/dashboard/loading.css */
+.delayed-spinner {
+  opacity: 0;
+  animation: show-spinner 0s 1s forwards;
+}
+
+@keyframes show-spinner {
+  to { opacity: 1; }
+}
+
+/*custom scrollbar styles for dark mode */
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(120 113 108 / 0.4) transparent;
+}
+
+/* Chrome, Edge, Safari (WebKit) */
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background-color: rgb(120 113 108 / 0.4);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(120 113 108 / 0.6);
+}
+
+/* Modal styles for starting animation */
+.modal_content {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    transition:
+        transform 0.25s ease,
+        opacity 0.25s ease;
+
+    @starting-style {
+        transform: translateY(12px) scale(0.97);
+        opacity: 0;
+    }
+}
+
+/* ---------- Demo-only: guided tours ---------- */
+.tour-spotlight {
+    box-shadow:
+        0 0 0 9999px rgb(0 0 0 / 0.62),
+        0 0 0 2px var(--primary);
 }

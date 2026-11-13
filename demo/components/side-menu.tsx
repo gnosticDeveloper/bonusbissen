@@ -1,0 +1,120 @@
+"use client";
+
+import { useEffect } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { LogOut, X, ChevronRight, UserRound, Home, Compass } from "lucide-react";
+import { closeMenu, useMenuOpen } from "@/lib/preferences/ui-store";
+import { BrandLockup } from "@/components/brand";
+import { ThemeToggle } from "./theme-toggle";
+import { customerSignOut } from "@/lib/demo/actions";
+import { currentCustomer, useDemoState } from "@/lib/demo/store";
+
+export function SideMenu({ backHref, color }: { backHref?: string; color?: string }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const menuOpen = useMenuOpen();
+  const state = useDemoState();
+  const user = state ? currentCustomer(state) : null;
+
+  useEffect(() => {
+    closeMenu();
+  }, [pathname]);
+
+  const handleSignOut = async () => {
+    closeMenu();
+    await customerSignOut();
+    router.replace("/sign-in");
+  };
+
+  return (
+    <>
+      <div
+        aria-hidden={!menuOpen}
+        onClick={closeMenu}
+        className={`fixed inset-0 z-40 bg-black/70 transition-opacity motion-reduce:transition-none ${
+          menuOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      />
+
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menú"
+        aria-hidden={!menuOpen}
+        inert={!menuOpen}
+        className={`fixed right-0 top-0 z-50 flex h-full w-[85%] max-w-[320px] flex-col bg-card shadow-2xl transition-transform duration-300 ease-out motion-reduce:transition-none ${
+          menuOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+        style={
+          {
+            "--side-menu-accent": color || "var(--primary)",
+          } as React.CSSProperties
+        }
+      >
+        <div className="flex items-center justify-between px-5 pt-5">
+          <BrandLockup color={color} />
+          <button
+            aria-label="Cerrar menú"
+            onClick={closeMenu}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-foreground/80 transition-colors hover:bg-background hover:text-foreground"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-y-3 mt-8">
+          {backHref && (
+            <Link
+              onClick={closeMenu}
+              href="/b"
+              className="mx-4 bg-background transition-colors flex items-center gap-3 rounded-2xl hover:bg-foreground/10 p-4 text-sm font-bold text-foreground"
+            >
+              <Home size={18} />
+              Volver al inicio
+            </Link>
+          )}
+
+          <Link
+            href="/descubrir"
+            onClick={closeMenu}
+            className="mx-4 flex items-center gap-3 rounded-2xl bg-background p-4 transition-colors hover:bg-border/40"
+          >
+            <Compass size={18} aria-hidden="true" />
+            Explorar negocios
+          </Link>
+
+          <Link
+            href="/b/perfil"
+            onClick={closeMenu}
+            className="mx-4 flex items-center gap-3 rounded-2xl bg-background p-4 transition-colors hover:bg-border/40"
+          >
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-primary-foreground">
+              {user?.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={user.avatarUrl} alt="" className="size-full object-cover" />
+              ) : (
+                <UserRound size={20} />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium text-foreground">{user?.name ?? "Tu cuenta"}</p>
+              <p className="text-sm text-foreground/80">Ver mi perfil</p>
+            </div>
+            <ChevronRight size={16} className="shrink-0 text-foreground/80" />
+          </Link>
+
+          <ThemeToggle color={color} />
+        </div>
+
+        <button
+          onClick={handleSignOut}
+          className="mx-4 mb-[max(1.25rem,env(safe-area-inset-bottom))] mt-auto flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-red-500/15"
+        >
+          <LogOut size={16} />
+          Cerrar sesión
+        </button>
+      </aside>
+    </>
+  );
+}
