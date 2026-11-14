@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, Gift, LayoutDashboard, ScanLine, Smartphone, Sparkles } from "lucide-react";
+import { ArrowRight, Gift, LayoutDashboard, ScanLine, Smartphone, Sparkles } from "lucide-react";
 import { BrandLockup } from "@/components/brand";
 import { LandingParticles } from "@/components/landing-particles";
 import { buttonVariants } from "@/components/ui/button";
@@ -74,9 +74,10 @@ export default function HomePage() {
       <main id="contenido">
         <section
           aria-labelledby="hero-title"
-          className="relative isolate flex min-h-[min(760px,85dvh)] items-center overflow-hidden border-b border-white/10"
+          className="relative isolate z-10 flex min-h-[min(760px,85dvh)] items-center overflow-hidden"
         >
-          <LandingParticles />
+          {/* No built-in glow: it stops at the hero's edge. The primary band's blend rises into the hero instead. */}
+          <LandingParticles glow={false} />
           <div className="relative z-10 mx-auto w-full max-w-4xl px-6 py-24 text-center sm:px-10 sm:py-32">
             <p className="mb-7 text-xs font-semibold uppercase tracking-[0.22em] text-primary">Grandes vínculos. Pequeñas recompensas.</p>
             <h1 id="hero-title" className="text-5xl leading-[1.04] font-semibold tracking-[-0.055em] text-balance sm:text-7xl lg:text-8xl">
@@ -99,15 +100,16 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="que-es" aria-labelledby="about-title" className="scroll-mt-8 border-b border-white/10">
-          <div className="mx-auto grid max-w-6xl gap-10 px-6 py-20 sm:px-10 sm:py-28 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-16">
+        <section aria-labelledby="about-title" className={`${styles.primaryBand} text-background`}>
+          {/* The anchor sits on the content, not the section, so "Qué es" lands on the text instead of the fade. */}
+          <div id="que-es" className="mx-auto grid scroll-mt-12 max-w-6xl gap-10 px-6 pb-20 sm:px-10 sm:pb-28 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-16">
             <div className="max-w-xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/50">Qué es Bonus Bissen</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-background/70">Qué es Bonus Bissen</p>
               <h2 id="about-title" className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-balance sm:text-5xl">
                 Un programa de fidelización con tu marca.
               </h2>
             </div>
-            <div className="space-y-5 text-lg leading-relaxed text-foreground/70">
+            <div className="space-y-5 text-lg leading-relaxed text-background/85">
               <p>
                 Bonus Bissen es un sistema de puntos y recompensas para comercios locales: bares, cafeterías, panaderías, librerías y cualquier negocio que
                 quiera reconocer a quienes vuelven. Tus clientes se afilian desde el celular, suman puntos en cada compra y los canjean por los premios que
