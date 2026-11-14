@@ -168,7 +168,7 @@ export default function DashboardSignInPage() {
             title: "Entrá al panel de tu negocio",
             body: (
               <p>
-                Primero buscás tu negocio y después ingresás con tu usuario. En la demo hay uno solo: escribí «Tu negocio» o usá una cuenta de ejemplo.
+                Primero buscás tu negocio y después ingresás con tu usuario. En la demo hay uno solo: escribí <strong>Tu negocio</strong> o usá una cuenta de ejemplo.
               </p>
             ),
           },
@@ -182,7 +182,7 @@ export default function DashboardSignInPage() {
                   auditoría). Como trabaja en dos locales, elige uno al entrar.
                 </p>
                 <p>
-                  <strong>Cajero</strong>: solo opera su local (puntos, canjes y recompensas en modo lectura).
+                  <strong>Cajero</strong>: solo opera su local (puntos, canjes y solo consultar la lista de recompensas sin modificarlas o crear nuevas).
                 </p>
               </>
             ),

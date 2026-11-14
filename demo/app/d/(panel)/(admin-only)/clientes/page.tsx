@@ -133,7 +133,7 @@ export default function CustomersPage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-240 text-left text-sm">
                 <caption className="sr-only">
-                  Clientes afiliados en este local{query ? ` que coinciden con «${query}»` : ""}. Los encabezados con botón permiten ordenar la lista.
+                  Clientes afiliados en este local{query ? ` que coinciden con <strong>${query}</strong>` : ""}. Los encabezados con botón permiten ordenar la lista.
                 </caption>
                 <thead className="border-b border-border bg-background/60 text-xs text-foreground/80">
                   <tr>
@@ -206,7 +206,7 @@ export default function CustomersPage() {
             title: "Quiénes se sumaron a este local",
             body: (
               <>
-                <p>El saldo es el del programa completo; «Sumados» y «Canjeados» cuentan solo lo que pasó en este local.</p>
+                <p>La columna <strong>saldo</strong> es el del programa completo; <strong>Sumados</strong> y <strong>Canjeados</strong> cuentan solo lo que pasó en este local.</p>
                 <p>Tocá los encabezados para ordenar, por ejemplo por saldo o por último movimiento.</p>
               </>
             ),

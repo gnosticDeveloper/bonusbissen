@@ -148,7 +148,7 @@ export default function EmployeesPage() {
             body: (
               <>
                 <p>
-                  Buscá una cuenta existente de Bonus Bissen (por ejemplo, <strong>Tomás</strong>) y elegí su local. Se suma al equipo al instante.
+                  Buscá una cuenta existente de Bonus Bissen (por ejemplo, <strong>Tomás</strong>) y elegí el local que querés asignarle. Se suma al equipo al instante.
                 </p>
                 <p>Después podés cerrar sesión y entrar al panel con su usuario y contraseña (en la demo, <span className="font-mono">cliente123</span>).</p>
               </>

@@ -49,8 +49,8 @@ export default function HomePage() {
             title: "Bienvenido al panel de tu negocio",
             body: (
               <>
-                <p>Este es el panel que usan el dueño y el equipo. Todo lo que hagas acá se refleja en la app de los clientes.</p>
-                <p>Cada página tiene una guía como esta la primera vez que entrás. Podés volver a verla desde el botón «Demo».</p>
+                <p>Este es el panel que usan el dueño y tus empleados. Todo lo que hagas acá se refleja en la app de los clientes.</p>
+                <p>Cada página tiene una guía como esta la primera vez que entrás. Podés volver a verla desde el botón <strong>Demo</strong>.</p>
               </>
             ),
           },
@@ -59,7 +59,7 @@ export default function HomePage() {
             title: "Trabajás sobre un local",
             body: isAdmin ? (
               <p>
-                El panel muestra los datos del local elegido al entrar. Como administradora tenés dos: cambiá entre <strong>Centro</strong> y{" "}
+                El panel muestra los datos del local elegido al entrar. Como administradora en esta demo tenés dos: cambiá entre <strong>Centro</strong> y{" "}
                 <strong>Palermo</strong> y vas a ver otros clientes, otras recompensas y otro programa de puntos.
               </p>
             ) : (
@@ -68,8 +68,8 @@ export default function HomePage() {
           },
           {
             target: "home-stats",
-            title: `Un vistazo a ${storefrontName}`,
-            body: <p>Canjes del mes, canjes que esperan entrega, clientes afiliados y puntos otorgados en este local.</p>,
+            title: `Un vistazo a esta sucursal`,
+            body: <p>Acá podes ver los canjes del mes, canjes que esperan entrega, clientes afiliados y puntos otorgados en este local.</p>,
           },
           {
             target: "home-pending",
@@ -79,12 +79,12 @@ export default function HomePage() {
           {
             target: "nav-points",
             title: "Lo de todos los días",
-            body: <p>Sumá puntos por compra, validá canjes y consultá las recompensas desde la sección «Local».</p>,
+            body: <p>Acá sumás puntos por compra, validás canjes y consultás las recompensas desde la sección <strong>Local</strong> de la barra lateral.</p>,
           },
           {
             target: "nav-organization",
             title: "La configuración de tu negocio",
-            body: <p>En «Organización» cargás tu logo y tu portada, creás sucursales y programas de puntos, sumás cajeros y revisás la auditoría.</p>,
+            body: <p>En la sección <strong>Organización</strong> cargás tu logo y tu portada, creás sucursales y programas de puntos, sumás cajeros y revisás la auditoría.</p>,
           },
         ]}
       />

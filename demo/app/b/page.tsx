@@ -50,17 +50,17 @@ export default function MainHomePage() {
             title: "Tus puntos, negocio por negocio",
             body: (
               <>
-                <p>La primera tarjeta suma todo. Deslizá (o usá las flechas) para ver tu saldo en cada programa al que estás afiliado.</p>
+                <p>En este apartado tus clientes ven cuántos puntos tienen en cada negocio. Deslizá en el teléfono (o usá las flechas la computadora) para ver tu saldo en cada programa al que estás afiliado.</p>
                 <p>
-                  Fijate que <strong>Tu negocio</strong> aparece dos veces: cada sucursal tiene su propio programa (puntos en Centro, granos en Palermo), así
-                  que los saldos no se mezclan.
+                  Fijate que <strong>&apos;Tu negocio&apos;</strong> aparece dos veces: cada sucursal tiene su propio programa (puntos en Centro, granos en Palermo), así
+                  que los saldos no se mezclan. En el panel administrativo podes aprender qué son los programas de puntos.
                 </p>
               </>
             ),
           },
           {
             target: "rewards-carousel",
-            title: "Recompensas que se deslizan",
+            title: "Un vistazo a las recompensas",
             body: <p>Cada negocio muestra sus recompensas en un carrusel. En el celular las podés arrastrar con el dedo, como en la app real.</p>,
           },
           {
@@ -81,7 +81,7 @@ export default function MainHomePage() {
           {
             target: "bottom-nav",
             title: "Moverte por la app",
-            body: <p>Desde acá vas a tus canjes, a tu perfil y, en «Más», al explorador de negocios y al cambio de tema.</p>,
+            body: <p>Desde acá vas a tus canjes, tu perfil y, en <strong>Más</strong>, al explorador de negocios y otras configuraciones.</p>,
           },
         ]}
       />

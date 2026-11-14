@@ -104,7 +104,7 @@ const OPERATIONS: OperationOption[] = [
     color: "bg-orange-500/10 text-orange-800 dark:text-orange-300",
   },
 ];
-/** `null` represents «Todos los tipos» (no operation filter). */
+/** `null` represents <strong>Todos los tipos</strong> (no operation filter). */
 const OPERATION_CHOICES: (OperationOption | null)[] = [null, ...OPERATIONS];
 const ALL_OPERATIONS_LABEL = "Todos los tipos";
 const TYPEAHEAD_RESET_MS = 600;
@@ -316,26 +316,26 @@ function AuditHelp() {
           ambos buscadores incluyen clientes y personal, incluso personal inactivo. Para filtrar por operación, elegí un tipo en el selector.
         </p>
         <p>
-          Los filtros se combinan con «Y»: si elegís un usuario que realizó la operación y otro afectado, aparecen solo los registros que cumplen
-          ambas condiciones. Usá «Quitar» para sacar un usuario, «Todos los tipos» para quitar el filtro de operación o «Limpiar filtros» para empezar de nuevo.
+          Los filtros se combinan con <strong>Y</strong>: si elegís un usuario que realizó la operación y otro afectado, aparecen solo los registros que cumplen
+          ambas condiciones. Usá <strong>Quitar</strong> para sacar un usuario, <strong>Todos los tipos</strong> para quitar el filtro de operación o <strong>Limpiar filtros</strong> para empezar de nuevo.
         </p>
       </section>
       <section className="space-y-1">
         <h3 className="font-semibold text-foreground">Cómo leer la tabla</h3>
         <p>
-          Los registros aparecen del más reciente al más antiguo. La fecha y hora se muestran en horario de Argentina. «Realizó la operación» indica
-          quién inició la acción; «Usuarios afectados» muestra sobre quiénes se realizó. En acciones del cliente, puede ser la misma persona en ambas
+          Los registros aparecen del más reciente al más antiguo. La fecha y hora se muestran en horario de Argentina. <strong>Realizó la operación</strong> indica
+          quién inició la acción; <strong>Usuarios afectados</strong> muestra sobre quiénes se realizó. En acciones del cliente, puede ser la misma persona en ambas
           columnas.
         </p>
         <p>
-          Los colores, íconos y nombres identifican el tipo de operación. En «Detalle» podés leer el motivo, la recompensa o la sucursal cuando estén
+          Los colores, íconos y nombres identifican el tipo de operación. En <strong>Detalle</strong> podés leer el motivo, la recompensa o la sucursal cuando estén
           disponibles.
         </p>
       </section>
       <section className="space-y-1">
         <h3 className="font-semibold text-foreground">Puntos y canjes</h3>
         <p>
-          Un importe con «+» suma puntos y uno negativo los resta. Una corrección indica la diferencia aplicada al movimiento original, no el saldo
+          Un importe con <strong>+</strong> suma puntos y uno negativo los resta. Una corrección indica la diferencia aplicada al movimiento original, no el saldo
           final. Solicitar una recompensa descuenta su costo; verificar el código no confirma la entrega. Confirmar la entrega no suma puntos. En una
           cancelación del personal, revisá si hubo devolución; si cancela el cliente, los puntos se devuelven.
         </p>
@@ -354,8 +354,8 @@ function AuditHelp() {
       <section className="space-y-1">
         <h3 className="font-semibold text-foreground">Alcance de la auditoría</h3>
         <p>
-          Esta página es de solo lectura y muestra registros disponibles de tu negocio, no un historial completo de todas las acciones. «Creación
-          de cuenta» existe en el sistema, pero no se incluye en esta consulta por negocio.
+          Esta página es de solo lectura y muestra registros disponibles de tu negocio, no un historial completo de todas las acciones. <strong>Creación
+          de cuenta</strong> existe en el sistema, pero no se incluye en esta consulta por negocio.
         </p>
         <p>
           Los nombres corresponden a los datos actuales, no necesariamente a los del momento de la operación. Si un nombre ya no está disponible,
@@ -507,7 +507,7 @@ export default function AuditPage() {
                     Tipo de operación
                   </Label>
                   <OperationSelect selected={operation} onChange={(value) => changeFilters(originating, affected, value)} />
-                  <p className="text-xs leading-5 text-foreground/80">Elegí «Todos los tipos» para no filtrar por operación.</p>
+                  <p className="text-xs leading-5 text-foreground/80">Elegí <strong>Todos los tipos</strong> para no filtrar por operación.</p>
                 </div>
               </div>
               {operation?.id === "USER_CREATE" && (

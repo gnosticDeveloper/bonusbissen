@@ -200,22 +200,6 @@ export default function HomePage() {
             </div>
           </div>
         </section>
-
-        <section aria-labelledby="closing-title" className={styles.closing}>
-          <div className="mx-auto max-w-3xl px-6 py-20 text-center sm:py-28">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Estamos construyendo</p>
-            <h2 id="closing-title" className="mt-5 text-4xl font-semibold tracking-[-0.045em] text-balance sm:text-5xl">
-              Buscamos negocios piloto para darle forma a Bonus Bissen.
-            </h2>
-            <p className="mx-auto mt-5 max-w-lg text-lg leading-relaxed text-foreground/65">
-              La etapa piloto es una prueba gratuita junto a comercios reales: tus comentarios nos ayudan a mejorar el sistema antes de su primera versión
-              estable.
-            </p>
-            <a href={contactMailto} className={`${primaryCta} mt-8`}>
-              Quiero ser cliente piloto <ArrowUpRight aria-hidden="true" className="size-4" />
-            </a>
-          </div>
-        </section>
       </main>
 
       <footer className="border-t border-white/10">

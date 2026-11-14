@@ -63,7 +63,7 @@ export default function RewardsPage() {
         steps={[
           {
             target: "rewards-list",
-            title: `El catálogo de ${program?.name ?? "este local"}`,
+            title: `El catálogo de este local`,
             body: (
               <p>
                 Las recompensas pertenecen a un programa de puntos, no a una sucursal: acá ves las del programa del local en el que estás. Cambiá de local para

@@ -237,7 +237,7 @@ function SignInForm() {
             title: "Entrá con la cuenta de ejemplo",
             body: (
               <p>
-                Tocá <strong>Usar</strong> para completar los datos de {DEMO_CREDENTIALS.customer.name}, una clienta que ya suma puntos en varios
+                Tocá <strong>Usar</strong> para completar los datos de {DEMO_CREDENTIALS.customer.name}, una clienta ficticia que ya suma puntos en varios
                 negocios, y después <strong>Ingresar</strong>.
               </p>
             ),

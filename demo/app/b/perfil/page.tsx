@@ -679,7 +679,7 @@ export default function ProfilePage() {
           {
             target: "profile-data",
             title: "Tu perfil",
-            body: <p>Cambiá tu foto, tu nombre o tu email. La foto queda guardada solo en esta pestaña, así que podés probar con cualquier imagen.</p>,
+            body: <p>Cambiá tu foto, tu nombre o tu email. En esta demo, la foto queda guardada solo en esta pestaña, así que podés probar con cualquier imagen. Las imágenes no se suben a ningún lado.</p>,
           },
           {
             target: "profile-city",

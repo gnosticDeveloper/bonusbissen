@@ -44,12 +44,11 @@ export default function PointsManagerPage() {
             body: (
               <>
                 <p>
-                  Escribí al menos dos letras de su nombre, usuario o email. Probá con <strong>Sofía</strong>: al lado vas a ver su saldo en el programa de
-                  este local ({unit}).
+                  Para sumar puntos a un cliente tenés que buscarlo, seleccionarlo y alignar la cantidad de puntos correspondiente. Probá escribiendo <strong>Sofía</strong>: al lado vas a ver sus puntos en el programa de
+                  este local.
                 </p>
                 <p>
-                  Si aparece «Saldo no disponible», la persona no está afiliada a este local (probá con <strong>Tomás</strong>): el movimiento va a fallar
-                  hasta que se afilie.
+                  Si aparece <strong>Saldo no disponible</strong>, la persona no está afiliada a este local: el cliente debe primero estar afiliado para así sumarle puntos.
                 </p>
               </>
             ),
@@ -59,8 +58,8 @@ export default function PointsManagerPage() {
             title: "Por monto o manual",
             body: (
               <p>
-                «Por monto» convierte la compra en puntos: 1 punto por cada $1.000. «Manual» te deja sumar o restar una cantidad exacta, por ejemplo para
-                corregir un error. Si una resta supera el saldo, te pedimos confirmar la deuda.
+                <strong>Por monto</strong> convierte la compra en puntos: 1 punto por cada $1.000. <strong>Manual</strong> te deja sumar o restar una cantidad exacta, por ejemplo para
+                corregir un error. Si una resta excede la cantidad de puntos actual del cliente, te pedimos confirmar la deuda. En cuyo caso, el cliente quedará con puntos negativos.
               </p>
             ),
           },
@@ -69,14 +68,14 @@ export default function PointsManagerPage() {
             title: "Historial y correcciones",
             body: (
               <p>
-                Cada movimiento queda registrado con quién lo hizo. Con el lápiz registrás una corrección: no se borra el original, se agrega un ajuste que
+                Cada movimiento queda registrado junto con quién lo hizo. Con el lápiz registrás una corrección: no se borra el original, se agrega un ajuste que
                 después aparece en la auditoría y en el historial del cliente.
               </p>
             ),
           },
           {
             target: "help-button",
-            title: "¿Dudas? Tocá el «?»",
+            title: "¿Dudas? Tocá el ?",
             body: <p>En las páginas con más reglas vas a encontrar este botón con una explicación detallada, igual que en la versión real.</p>,
           },
         ]}
@@ -107,8 +106,8 @@ function PointsGuide() {
       <section className="space-y-1">
         <h3 className="font-semibold text-foreground">Para sumar puntos</h3>
         <p>
-          Buscá al cliente y elegí «Por monto» si hizo una compra: se suma 1 punto por cada $1.000 gastados. Si necesitás hacer un ajuste, elegí «Manual» y
-          después «Sumar». Podés dejar una nota para que quede claro el motivo.
+          Buscá al cliente y elegí <strong>Por monto</strong> si hizo una compra: se suma 1 punto por cada $1.000 gastados. Si necesitás hacer un ajuste, elegí <strong>Manual</strong> y
+          después <strong>Sumar</strong>. Podés dejar una nota para que quede claro el motivo.
         </p>
       </section>
       <section className="space-y-1">
@@ -121,7 +120,7 @@ function PointsGuide() {
       </section>
       <section className="space-y-1">
         <h3 className="font-semibold text-foreground">Para restar puntos</h3>
-        <p>Elegí «Manual» y después «Restar». Antes de confirmar, revisá el saldo y anotá el motivo del ajuste para que quede registrado.</p>
+        <p>Elegí <strong>Manual</strong> y después <strong>Restar</strong>. Antes de confirmar, revisá el saldo y anotá el motivo del ajuste para que quede registrado.</p>
       </section>
       <section className="space-y-1">
         <h3 className="font-semibold text-foreground">Si la resta supera el saldo</h3>

@@ -69,7 +69,6 @@ export default function MemberOnlyRewardsPage() {
             body: (
               <>
                 <p>Tocá una recompensa para ver el detalle y reclamarla. Si te alcanzan los puntos, se descuentan y recibís un código para mostrar en el local.</p>
-                <p>Si no te alcanzan, la app te avisa cuántos tenés.</p>
               </>
             ),
           },

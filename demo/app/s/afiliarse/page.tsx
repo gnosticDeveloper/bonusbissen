@@ -148,8 +148,7 @@ function AfiliarseView() {
             body: (
               <>
                 <p>
-                  Es la pantalla que abre el <strong>QR de afiliación</strong> de cada local. Con un toque, el cliente queda afiliado y empieza a sumar{" "}
-                  {storefront.pointLabel ?? "puntos"}.
+                  Esta es la pantalla que abre el <strong>QR de afiliación</strong> de cada local. Con un toque, el cliente queda afiliado y empieza a sumar puntos.
                 </p>
                 {!customer ? <p>Si todavía no tiene cuenta, primero inicia sesión o se registra, y vuelve acá automáticamente.</p> : null}
               </>

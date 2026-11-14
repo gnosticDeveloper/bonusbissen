@@ -29,7 +29,7 @@ export default function StorefrontQRCodePage() {
             title: "El QR para tu mostrador",
             body: (
               <>
-                <p>Imprimilo o mostralo en pantalla: al escanearlo, el cliente llega a la página para sumarse a este local y empezar a juntar puntos.</p>
+                <p>A este QR lo podes imprimir o mostrar en pantalla: al escanearlo, el cliente llega a la página para sumarse a este local y empezar a juntar puntos.</p>
                 <p>En la demo, el enlace abre la pantalla de afiliación de la app de clientes. Probalo desde el enlace debajo del código.</p>
               </>
             ),

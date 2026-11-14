@@ -30,18 +30,18 @@ export default function ValidationPage() {
                   <h3 className="font-semibold text-foreground">Buscá el código</h3>
                   <p>
                     Pedile al cliente su código de canje e ingresalo en el buscador. Tiene 6 caracteres: los primeros 4 son números, el quinto es una letra y el
-                    último es un número (por ejemplo, <strong className="text-primary">1234A5</strong>). Comprobá que el cliente y la recompensa coincidan antes
+                    último es un número (por ejemplo, <strong>1234A5</strong>). Comprobá que el cliente y la recompensa coincidan antes
                     de continuar.
                   </p>
                 </section>
                 <section className="space-y-1">
                   <h3 className="font-semibold text-foreground">Si vas a entregar la recompensa</h3>
-                  <p>Elegí «Confirmar entrega» cuando se la hayas dado al cliente. El canje queda resuelto como entregado.</p>
+                  <p>Elegí <strong>Confirmar entrega</strong> cuando se la hayas dado al cliente. El canje queda resuelto como entregado.</p>
                 </section>
                 <section className="space-y-1">
                   <h3 className="font-semibold text-foreground">Si necesitás anular el canje</h3>
                   <p>
-                    Elegí «Anular canje» y decidí si querés devolverle los puntos al cliente: la opción de devolución viene marcada, pero podés desmarcarla si
+                    Elegí <strong>Anular canje</strong> y decidí si querés devolverle los puntos al cliente: la opción de devolución viene marcada, pero podés desmarcarla si
                     corresponde. Después confirmá la anulación. Un canje ya entregado o anulado no se puede resolver de nuevo.
                   </p>
                 </section>
@@ -62,10 +62,10 @@ export default function ValidationPage() {
         steps={[
           {
             target: "code-search",
-            title: "Ingresá el código del cliente",
+            title: "Ingresá el código de canje",
             body: (
               <>
-                <p>El cliente te muestra el código desde «Mis canjes». Al buscarlo ves la recompensa, quién la pidió y cuántos puntos costó.</p>
+                <p>Acá es dónde validas el código que el cliente te muestra desde <strong>Mis canjes</strong>. Al buscarlo ves la recompensa, quién la pidió y cuántos puntos costó.</p>
                 {pendingCodes.length > 0 ? (
                   <p>
                     Para probar, usá {pendingCodes.length === 1 ? "este código pendiente" : "alguno de estos códigos pendientes"}:{" "}

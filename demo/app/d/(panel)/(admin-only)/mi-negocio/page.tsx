@@ -91,6 +91,7 @@ export default function MiNegocioPage() {
                   meses). Por eso un mismo cliente tiene dos saldos separados.
                 </p>
                 <p>Si asignás las dos sucursales a un mismo programa, los puntos se comparten entre ambas.</p>
+                <p><strong>Granos</strong> es un nombre especial de la sucursal de <strong>Palermo</strong>. Vos podes darle el nombre que quieras a los puntos de tus programas.</p>
               </>
             ),
           },

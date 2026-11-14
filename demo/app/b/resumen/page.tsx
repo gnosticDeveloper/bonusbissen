@@ -89,7 +89,7 @@ export default function MisCanjesPage() {
             title: "Probalo de punta a punta",
             body: (
               <p>
-                Copiá el código de un canje pendiente, abrí el menú <strong>Demo</strong> y andá al panel del negocio: en «Validación de canjes» podés
+                Copiá el código de un canje pendiente, abrí el menú <strong>Demo</strong> y andá al panel del negocio: en el apartado <strong>Validación de canjes</strong> podés
                 confirmarlo o anularlo y ver el resultado acá.
               </p>
             ),

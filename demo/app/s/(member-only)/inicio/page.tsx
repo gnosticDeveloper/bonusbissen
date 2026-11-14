@@ -74,14 +74,14 @@ export default function MemberOnlyHomePage() {
             title: `El espacio de ${business.orgName}`,
             body: (
               <p>
-                Cada negocio tiene su página con su logo, su portada y su color. Si sos el dueño, podés subir los tuyos desde «Mi negocio» en el panel y
+                Cada negocio tiene su página con su logo, su portada y su color. Si sos el dueño, podés subir los tuyos desde <strong>Mi negocio</strong> en el panel y
                 verlos acá al instante.
               </p>
             ),
           },
           {
             target: "member-points",
-            title: `Tus ${business.pointLabel ?? "puntos"} en este programa`,
+            title: `Tus puntos en este programa`,
             body: (
               <p>
                 Este saldo pertenece al programa de puntos del local. Si el negocio comparte el mismo programa entre varias sucursales, podés sumar en una y
@@ -92,7 +92,7 @@ export default function MemberOnlyHomePage() {
           {
             target: "member-nav",
             title: "Recompensas e historial",
-            body: <p>En «Recompensas» canjeás tus puntos y en «Historial» ves cada movimiento: lo que sumaste, lo que canjeaste y lo que venció.</p>,
+            body: <p>En <strong>Recompensas</strong> canjeás tus puntos y en <strong>Historial</strong> ves cada movimiento: lo que sumaste, lo que canjeaste y lo que venció.</p>,
           },
         ]}
       />
