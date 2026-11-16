@@ -58,6 +58,21 @@ http {
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
+        # Payment-source notifications crediting points (see WebhookController): one
+        # path segment per source, listed explicitly so unknown paths never reach the
+        # backend. Same treatment as the Mercado Pago route: small body cap, and each
+        # source authenticates its own sender -- nothing here is trusted. Add new
+        # sources (pix, modo, ...) to the alternation.
+        location ~ ^/webhooks/(merchant)$ {
+            client_max_body_size 16k;
+            proxy_pass http://backend:8080;
+            proxy_http_version 1.1;
+            proxy_set_header Host $http_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
         # Images are written to per-type folders in the shared uploads volume.
         # Resolved local URLs use ASSETS_URL + "<folder>/<uuid>.<extension>".
         location ~ ^/(?<folder>rewards|pfp|logos|banners)/(?<filename>[^/]+\.(?:jpg|jpeg|png|webp))$ {

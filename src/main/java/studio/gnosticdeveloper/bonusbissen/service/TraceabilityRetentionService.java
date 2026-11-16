@@ -25,7 +25,7 @@ public class TraceabilityRetentionService {
 
     private static final Logger log = LoggerFactory.getLogger(TraceabilityRetentionService.class);
 
-    private static final Set<OperationType> EXEMPT_FROM_PURGE = Set.of(OperationType.STAFF_CREATE, OperationType.POINTS_GRANT);
+    private static final Set<OperationType> EXEMPT_FROM_PURGE = Set.of(OperationType.STAFF_CREATE, OperationType.POINTS_GRANT, OperationType.ONLINE_PURCHASE_GRANT);
 
     private final TraceabilityLogRepository traceabilityLogRepository;
     private final int retentionMonths;

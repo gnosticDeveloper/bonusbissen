@@ -224,7 +224,8 @@ public class PointProgramService {
         joinIfMissing(user, program, storefront);
     }
 
-    private void joinIfMissing(User user, PointProgram program, Storefront storefront) {
+    /** Idempotent; callers that can race on the same (user, program) must hold the BalanceLockService lock. */
+    public void joinIfMissing(User user, PointProgram program, Storefront storefront) {
         if (userPointProgramRepository.existsByUser_IdAndPointProgram_Id(user.getId(), program.getId())) {
             return;
         }

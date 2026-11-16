@@ -162,7 +162,7 @@ public class TraceabilityService {
                 log.getOriginatingUser().getId(),
                 organizationId
             );
-            case POINTS_GRANT, REWARD_CLAIM -> {
+            case POINTS_GRANT, ONLINE_PURCHASE_GRANT, REWARD_CLAIM -> {
                 UUID programId = uuidFrom(payload.get("programId"));
                 yield programId != null && pointProgramRepository.existsByIdAndOrganizationId(programId, organizationId);
             }

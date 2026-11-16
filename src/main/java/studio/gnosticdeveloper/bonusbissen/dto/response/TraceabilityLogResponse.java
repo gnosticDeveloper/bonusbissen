@@ -37,6 +37,13 @@ public record TraceabilityLogResponse(
                 lookup.program(uuid(payload, "programId")),
                 string(payload, "note")
             );
+            case ONLINE_PURCHASE_GRANT -> new OnlinePurchaseGrantDetails(
+                intValue(payload, "points"),
+                lookup.program(uuid(payload, "programId")),
+                string(payload, "orderId"),
+                string(payload, "amount"),
+                string(payload, "currency")
+            );
             case POINTS_CORRECTION -> new PointsCorrectionDetails(
                 lookup.transaction(uuid(payload, "transactionId")),
                 lookup.transaction(uuid(payload, "correctedTransactionId")),
