@@ -6,6 +6,7 @@ import lombok.Getter;
 public enum OperationType {
     SESSION_REVOKE("session_revoke"),
     STAFF_CREATE("staff_create"),
+    STAFF_ROLE_UPDATE("staff_role_update"),
     USER_CREATE("user_create"),
     POINTS_GRANT("points_grant"),
     POINTS_CORRECTION("points_correction"),

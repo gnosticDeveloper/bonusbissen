@@ -10,9 +10,11 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import studio.gnosticdeveloper.bonusbissen.dto.request.StaffCreateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.StaffUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
+import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
@@ -121,10 +123,54 @@ public class StaffService {
         return organizationStaffRepository.save(staff);
     }
 
-    /** Soft-deletes: frees the staff member's username to be re-promoted elsewhere later. */
+    /**
+     * Changes a staff member's role and revokes their sessions, since the role is carried in the
+     * access token. Nobody can change their own role: that is how an organization ends up with no admin.
+     */
     @Transactional
-    public void deactivate(UUID staffId, UUID organizationId) {
+    public OrganizationStaff updateRole(UUID staffId, StaffUpdateRequest request, UUID organizationId, UUID actingUserId) {
         OrganizationStaff staff = getOwned(staffId, organizationId);
+        if (!staff.isActive()) {
+            throw new BadRequestException(
+                "Staff member " + staffId + " is not active.",
+                "El empleado ya no forma parte del equipo."
+            );
+        }
+        if (staff.getUser().getId().equals(actingUserId)) {
+            throw new BadRequestException(
+                "User " + actingUserId + " tried to change their own role.",
+                "No podés cambiar tu propio rol."
+            );
+        }
+        StaffRole previous = staff.getRole();
+        if (previous == request.role()) {
+            return staff;
+        }
+        staff.setRole(request.role());
+        staff = organizationStaffRepository.save(staff);
+        sessionService.revokeAllForUser(staff.getUser().getId());
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("organizationId", organizationId);
+        payload.put("previousRole", previous.name());
+        payload.put("newRole", request.role().name());
+        traceabilityService.record(OperationType.STAFF_ROLE_UPDATE, actingUserId, staff.getUser().getId(), payload);
+        return staff;
+    }
+
+    /**
+     * Soft-deletes: frees the staff member's username to be re-promoted elsewhere later.
+     * Nobody can remove themselves, so an organization always keeps the admin who is acting.
+     */
+    @Transactional
+    public void deactivate(UUID staffId, UUID organizationId, UUID actingUserId) {
+        OrganizationStaff staff = getOwned(staffId, organizationId);
+        if (staff.getUser().getId().equals(actingUserId)) {
+            throw new BadRequestException(
+                "User " + actingUserId + " tried to remove themselves from the staff.",
+                "No podés quitarte a vos mismo del equipo."
+            );
+        }
         staff.setActive(false);
         organizationStaffRepository.save(staff);
         sessionService.revokeAllForUser(staff.getUser().getId());

@@ -9,6 +9,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import studio.gnosticdeveloper.bonusbissen.dto.request.AttachStorefrontsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.StaffCreateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.StaffUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.StaffResponse;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
 import studio.gnosticdeveloper.bonusbissen.service.StaffService;
@@ -53,10 +54,20 @@ public class StaffController {
         return StaffResponse.from(staffService.detachStorefronts(id, request.storefrontIds(), principal.organizationId()));
     }
 
+    /** Changes a staff member's role. Their sessions are revoked so tokens carrying the old role stop working. */
+    @PatchMapping("/{id}")
+    public StaffResponse updateRole(
+        @PathVariable UUID id,
+        @Valid @RequestBody StaffUpdateRequest request,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
+        return StaffResponse.from(staffService.updateRole(id, request, principal.organizationId(), principal.id()));
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deactivate(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        staffService.deactivate(id, principal.organizationId());
+        staffService.deactivate(id, principal.organizationId(), principal.id());
     }
 
     /** Kills a staff member's sessions without deactivating them (e.g. suspected account compromise). */

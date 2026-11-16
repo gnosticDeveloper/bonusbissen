@@ -5,6 +5,7 @@ public sealed interface TraceabilityDetails
     permits
         SessionRevokeDetails,
         StaffCreateDetails,
+        StaffRoleUpdateDetails,
         UserCreateDetails,
         PointsGrantDetails,
         PointsCorrectionDetails,
