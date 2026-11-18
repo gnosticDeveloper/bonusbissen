@@ -30,6 +30,7 @@ public record TraceabilityLogResponse(
                 lookup.storefront(uuid(payload, "storefrontId")),
                 string(payload, "role")
             );
+            case STAFF_ROLE_UPDATE -> new StaffRoleUpdateDetails(string(payload, "previousRole"), string(payload, "newRole"));
             case USER_CREATE -> new UserCreateDetails(string(payload, "username"));
             case POINTS_GRANT -> new PointsGrantDetails(
                 intValue(payload, "points"),

@@ -157,7 +157,7 @@ public class TraceabilityService {
     private boolean belongsToOrganization(TraceabilityLog log, UUID organizationId) {
         Map<String, Object> payload = log.getPayload();
         return switch (log.getOperationType()) {
-            case STAFF_CREATE -> organizationId.equals(uuidFrom(payload.get("organizationId")));
+            case STAFF_CREATE, STAFF_ROLE_UPDATE -> organizationId.equals(uuidFrom(payload.get("organizationId")));
             case SESSION_REVOKE -> organizationStaffRepository.existsByUserIdAndOrganizationIdAndActiveTrue(
                 log.getOriginatingUser().getId(),
                 organizationId

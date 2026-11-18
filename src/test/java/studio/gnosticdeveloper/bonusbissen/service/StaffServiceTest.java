@@ -10,6 +10,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import studio.gnosticdeveloper.bonusbissen.dto.request.StaffCreateRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.StaffUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
@@ -26,6 +27,7 @@ import studio.gnosticdeveloper.bonusbissen.security.SessionService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -146,12 +148,56 @@ class StaffServiceTest {
         staff.setUser(activeUser());
         when(organizationStaffRepository.findByIdAndOrganizationId(STAFF_ID, ORGANIZATION_ID)).thenReturn(Optional.of(staff));
 
-        staffService.deactivate(STAFF_ID, ORGANIZATION_ID);
+        staffService.deactivate(STAFF_ID, ORGANIZATION_ID, ACTING_USER_ID);
 
         ArgumentCaptor<OrganizationStaff> captor = ArgumentCaptor.forClass(OrganizationStaff.class);
         verify(organizationStaffRepository).save(captor.capture());
         assertThat(captor.getValue().isActive()).isFalse();
         verify(sessionService).revokeAllForUser(USER_ID);
+    }
+
+    @Test
+    void deactivateRejectsRemovingYourself() {
+        OrganizationStaff staff = new OrganizationStaff();
+        staff.setId(STAFF_ID);
+        staff.setActive(true);
+        staff.setUser(activeUser());
+        when(organizationStaffRepository.findByIdAndOrganizationId(STAFF_ID, ORGANIZATION_ID)).thenReturn(Optional.of(staff));
+
+        assertThatThrownBy(() -> staffService.deactivate(STAFF_ID, ORGANIZATION_ID, USER_ID)).isInstanceOf(BadRequestException.class);
+
+        assertThat(staff.isActive()).isTrue();
+        verify(sessionService, never()).revokeAllForUser(any());
+    }
+
+    @Test
+    void updateRoleRejectsChangingYourOwnRole() {
+        OrganizationStaff staff = new OrganizationStaff();
+        staff.setId(STAFF_ID);
+        staff.setActive(true);
+        staff.setRole(StaffRole.ADMIN);
+        staff.setUser(activeUser());
+        when(organizationStaffRepository.findByIdAndOrganizationId(STAFF_ID, ORGANIZATION_ID)).thenReturn(Optional.of(staff));
+
+        assertThatThrownBy(() -> staffService.updateRole(STAFF_ID, new StaffUpdateRequest(StaffRole.CASHIER), ORGANIZATION_ID, USER_ID))
+            .isInstanceOf(BadRequestException.class);
+
+        assertThat(staff.getRole()).isEqualTo(StaffRole.ADMIN);
+    }
+
+    @Test
+    void updateRoleToTheSameRoleChangesNothing() {
+        OrganizationStaff staff = new OrganizationStaff();
+        staff.setId(STAFF_ID);
+        staff.setActive(true);
+        staff.setRole(StaffRole.CASHIER);
+        staff.setUser(activeUser());
+        when(organizationStaffRepository.findByIdAndOrganizationId(STAFF_ID, ORGANIZATION_ID)).thenReturn(Optional.of(staff));
+
+        staffService.updateRole(STAFF_ID, new StaffUpdateRequest(StaffRole.CASHIER), ORGANIZATION_ID, ACTING_USER_ID);
+
+        verify(sessionService, never()).revokeAllForUser(any());
+        verify(organizationStaffRepository, never()).save(any());
     }
 
     @Test
