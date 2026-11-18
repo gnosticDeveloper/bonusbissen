@@ -172,3 +172,39 @@ button {
         opacity: 0;
     }
 }
+
+/* Dashboard guides (components/guides/). The spotlight dims everything around the highlighted
+   element and rings it in the storefront color. */
+.guide-spotlight {
+    box-shadow:
+        0 0 0 9999px rgb(0 0 0 / 0.6),
+        0 0 0 2px var(--primary);
+}
+
+/* Glossary dialog: a native modal <dialog>, so the entrance is CSS (@starting-style). */
+.guide-term-dialog[open] {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition:
+        opacity 0.2s ease-out,
+        transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+
+    @starting-style {
+        opacity: 0;
+        transform: translateY(10px) scale(0.97);
+    }
+}
+.guide-term-dialog::backdrop {
+    transition: opacity 0.2s ease-out;
+
+    @starting-style {
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .guide-term-dialog[open],
+    .guide-term-dialog::backdrop {
+        transition: none;
+    }
+}

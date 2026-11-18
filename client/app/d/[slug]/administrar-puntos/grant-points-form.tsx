@@ -129,7 +129,7 @@ export function GrantPointsForm({ customer, onGranted }: { customer: Customer | 
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-1 rounded-2xl border border-border bg-background p-1.5">
+      <div className="grid grid-cols-2 gap-1 rounded-2xl border border-border bg-background p-1.5" data-guide="grant-mode">
         <ModeButton active={mode === "spend"} onClick={() => setMode("spend")}>
           <Wallet className="size-4" aria-hidden="true" />
           Por monto
@@ -184,7 +184,7 @@ export function GrantPointsForm({ customer, onGranted }: { customer: Customer | 
           </div>
         )}
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2" data-guide="grant-note">
           <Label htmlFor="note" className="text-sm font-medium">
             Nota <span className="font-normal text-foreground/80">(opcional)</span>
           </Label>

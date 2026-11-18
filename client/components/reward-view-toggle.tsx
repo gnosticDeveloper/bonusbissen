@@ -11,7 +11,7 @@ export function RewardViewToggle({ view, onChange }: { view: RewardView; onChang
   }
 
   return (
-    <div aria-label="Vista de recompensas" className="flex w-full rounded-xl border border-border bg-card p-1 sm:w-auto" role="group">
+    <div aria-label="Vista de recompensas" className="flex w-full rounded-xl border border-border bg-card p-1 sm:w-auto" role="group" data-guide="reward-view">
       <button
         type="button"
         onClick={() => changeView("grid")}

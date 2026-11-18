@@ -224,7 +224,7 @@ function StatsGrid({ stats }: { stats: HomeStats }) {
   };
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" data-guide="home-stats">
       {items.map((item) => {
         const Icon = item.icon;
         return (
@@ -253,7 +253,7 @@ function PendingExchangesCard({ queue, showAll, basePath, now }: { queue: Pendin
   const hidden = total - items.length;
 
   return (
-    <section aria-labelledby="pending-exchanges-heading" className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+    <section aria-labelledby="pending-exchanges-heading" data-guide="home-pending" className="rounded-2xl border border-border bg-card p-4 sm:p-6">
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Clock className="size-4 text-foreground" aria-hidden="true" />
         <h2 id="pending-exchanges-heading" className="font-serif text-lg font-semibold text-foreground">
@@ -296,7 +296,7 @@ function PendingExchangesCard({ queue, showAll, basePath, now }: { queue: Pendin
           </tr>
         </thead>
         <tbody>
-          {items.map((item) => {
+          {items.map((item, index) => {
             const overdue = isOverdue(item.createdAt, now);
             const cell = cn("px-3 py-2.5 align-middle", overdue ? "bg-amber-500/10" : "bg-background/60");
             return (
@@ -321,7 +321,7 @@ function PendingExchangesCard({ queue, showAll, basePath, now }: { queue: Pendin
                     </Badge>
                   )}
                 </td>
-                <td className={cn(cell, "rounded-r-xl text-right")}>
+                <td className={cn(cell, "rounded-r-xl text-right")} data-guide={index === 0 ? "home-validate" : undefined}>
                   <ValidateExchangeButton exchange={item} />
                 </td>
               </tr>

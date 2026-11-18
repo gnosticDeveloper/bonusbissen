@@ -13,7 +13,7 @@ import { persistSidebarCollapsed } from "@/lib/preferences/sidebar";
 import Sidebar, { getNavSections } from "./sidebar";
 import { UserMenu } from "./user-menu";
 import { BrandLockup, BrandMark } from "./brand";
-import { ThemeToggleButton } from "./theme-toggle";
+import { GuideLayer } from "./guides/guide-layer";
 
 /** Anchos del `aside` de escritorio. El riel contraído deja 2.5rem útiles (la caja del icono). */
 const SIDEBAR_WIDTH = 256;
@@ -90,6 +90,7 @@ function StorefrontSwitcher({ storefronts, activeStorefrontId, collapsed = false
         onClick={onExpand}
         title={active?.name ?? "Local no disponible"}
         aria-label={`Local actual: ${active?.name ?? "no disponible"}. Expandir menú`}
+        data-guide="storefront-switcher"
         className="flex size-10 shrink-0 items-center justify-center self-start rounded-xl border border-border bg-background text-foreground transition-colors hover:bg-foreground/10 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <Building2 className="size-4" aria-hidden="true" />
@@ -98,7 +99,7 @@ function StorefrontSwitcher({ storefronts, activeStorefrontId, collapsed = false
   }
 
   return (
-    <div className="rounded-xl border border-border bg-background p-3">
+    <div className="rounded-xl border border-border bg-background p-3" data-guide="storefront-switcher">
       <div className="flex items-center gap-2 text-xs font-medium text-foreground/80">
         <Building2 className="size-4 shrink-0" />
         Local actual
@@ -246,8 +247,7 @@ export function DashboardShell({
             <Sidebar orgId={orgId} sections={sections} badges={badges} onNavigate={() => {}} collapsed={collapsed} />
           </div>
 
-          <div className={cn("mt-auto flex gap-2", collapsed ? "flex-col items-center" : "flex-row-reverse items-center")}>
-            <ThemeToggleButton className={cn(collapsed && "[&>button]:size-10")} />
+          <div className={cn("mt-auto flex items-center", collapsed && "justify-center")}>
             <AnimatePresence initial={false} mode="wait">
               <motion.div
                 key={collapsed ? "user-rail" : "user-full"}
@@ -269,6 +269,7 @@ export function DashboardShell({
           aria-expanded={!collapsed}
           aria-label={collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
           title={collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
+          data-guide="sidebar-toggle"
           className="absolute -right-3 top-7 z-20 flex size-6 items-center justify-center rounded-full border border-border bg-card text-foreground/70 shadow-sm transition-colors hover:bg-foreground/10 hover:text-foreground motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <motion.span
@@ -338,6 +339,9 @@ export function DashboardShell({
 
       {/* Contenido */}
       <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+
+      {/* Guías y consejos del panel: dentro del shell para heredar el color del local. */}
+      <GuideLayer role={role} color={color} />
     </div>
   );
 }

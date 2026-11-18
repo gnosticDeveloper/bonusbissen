@@ -111,7 +111,7 @@ function FloatingTooltip({ content, label, position = "top" }: { content: ReactN
 function ModalTooltip({ content, label, title, description }: { content: ReactNode; label: string; title: string; description: string }) {
   const { open } = useModal();
   return (
-    <Button type="button" variant="outline" size="icon-xs" className="rounded-full font-bold" aria-label={label} aria-haspopup="dialog" onClick={() => open(content, { title, description })}>?</Button>
+    <Button type="button" variant="outline" size="icon-xs" className="rounded-full font-bold" aria-label={label} aria-haspopup="dialog" data-guide="help-button" onClick={() => open(content, { title, description })}>?</Button>
   );
 }
 

@@ -108,7 +108,7 @@ export default async function EmployeesPage({ params, searchParams }: PageProps)
       </div>
 
       {filterOptions.size > 1 ? (
-        <nav aria-label="Filtrar por local">
+        <nav aria-label="Filtrar por local" data-guide="staff-filter">
           <ul className="flex flex-wrap gap-2">
             {filterLink(null, "Todos los locales", members.length)}
             {[...filterOptions].map(([id, name]) =>
@@ -126,7 +126,7 @@ export default async function EmployeesPage({ params, searchParams }: PageProps)
         />
       ) : (
         <>
-          <div className="overflow-hidden rounded-3xl border border-border bg-card">
+          <div className="overflow-hidden rounded-3xl border border-border bg-card" data-guide="staff-table">
             <div className="overflow-x-auto">
               <table className="w-full min-w-200 text-left text-sm">
                 <caption className="sr-only">

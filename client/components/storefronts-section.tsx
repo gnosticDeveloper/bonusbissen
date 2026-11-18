@@ -38,7 +38,7 @@ export function StorefrontsSection({ storefronts, className }: { storefronts: Ac
   }
 
   return (
-    <Card className={cn(cardClass, "flex min-h-0 flex-col", className)}>
+    <Card className={cn(cardClass, "flex min-h-0 flex-col", className)} data-guide="storefronts-section">
       <CardHeader className="flex shrink-0 flex-row items-center justify-between border-b border-border px-5 py-5 sm:px-6">
         <CardTitle className="flex items-center gap-3 text-base tracking-[-0.02em]">
           <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-foreground">

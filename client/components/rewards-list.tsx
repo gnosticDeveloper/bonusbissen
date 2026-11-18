@@ -7,7 +7,7 @@ import { formatNumber } from "@/lib/helpers/format";
 
 export default function RewardsList({ rewards, isAdmin, view }: { rewards: Reward[]; isAdmin: boolean; view: "list" | "grid" }) {
   return (
-    <div className={view === "grid" ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3" : "flex flex-col gap-3"}>
+    <div className={view === "grid" ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3" : "flex flex-col gap-3"} data-guide="rewards-list">
       {rewards.map((reward) => (
         <Card
           key={reward.id}
@@ -62,7 +62,7 @@ export default function RewardsList({ rewards, isAdmin, view }: { rewards: Rewar
                 <p className="mt-1 text-sm font-bold text-foreground">{formatNumber(reward.costPoints)} pts</p>
               </div>
               {isAdmin ? (
-                <div className="flex items-center gap-1 rounded-xl border border-border bg-background p-1">
+                <div className="flex items-center gap-1 rounded-xl border border-border bg-background p-1" data-guide="reward-actions">
                   <EditRewardButton reward={reward} />
                   <DeleteRewardButton reward={reward} />
                 </div>

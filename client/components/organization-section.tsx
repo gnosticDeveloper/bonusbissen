@@ -74,7 +74,7 @@ export function OrganizationSection({
     );
 
   return (
-    <Card className={cn(cardClass, "flex flex-col xl:min-h-0", className)}>
+    <Card className={cn(cardClass, "flex flex-col xl:min-h-0", className)} data-guide="org-section">
       <CardHeader className="shrink-0 border-b border-border px-5 py-5 sm:px-6">
         <CardTitle className="flex items-center gap-3 text-base tracking-[-0.02em]">
           <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-foreground">
@@ -122,7 +122,7 @@ export function OrganizationSection({
               <p className="mt-0.5 text-xs leading-relaxed text-foreground/80">Revisá que el logo se lea bien y que el banner no recorte nada importante en el celular.</p>
             </div>
           </div>
-          <Button type="button" variant="outline" className="h-10 gap-1.5 px-3.5" aria-haspopup="dialog" onClick={openPreview}>
+          <Button type="button" variant="outline" className="h-10 gap-1.5 px-3.5" aria-haspopup="dialog" onClick={openPreview} data-guide="org-preview">
             <Smartphone className="size-4" aria-hidden="true" /> Ver en el celular
           </Button>
         </div>

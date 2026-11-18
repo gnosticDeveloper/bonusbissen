@@ -39,7 +39,7 @@ export function PointsWorkspace({ header }: { header: ReactNode }) {
         {header}
 
         <CardContent className="flex flex-col gap-5 px-5 py-5 sm:px-6 sm:py-6">
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2" data-guide="customer-search">
             <Label htmlFor="customer-search" className="text-xs font-semibold uppercase tracking-[0.12em] text-foreground/80">
               Cliente
             </Label>
