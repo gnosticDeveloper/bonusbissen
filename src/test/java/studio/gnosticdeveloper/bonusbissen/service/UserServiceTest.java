@@ -135,13 +135,49 @@ class UserServiceTest {
     }
 
     @Test
-    void getHomeStatsCountsMembersScopedToTheOrganization() {
+    void getHomeStatsReadsTheLast30DaysAndThe30BeforeThemForTheSelectedStorefrontsProgram() {
         UUID organizationId = UUID.randomUUID();
-        when(userPointProgramRepository.countDistinctUsersByOrganizationId(organizationId)).thenReturn(7);
+        UUID storefrontId = UUID.randomUUID();
+        UUID programId = UUID.randomUUID();
+        when(storefrontRepository.findSelectedProgram(storefrontId, organizationId)).thenReturn(Optional.of(programScope(programId, "Puntos Centro")));
+        PointTransactionRepository.HomeStatsRow row = Mockito.mock(PointTransactionRepository.HomeStatsRow.class);
+        when(row.getActiveCustomers()).thenReturn(7L);
+        when(row.getPendingExchanges()).thenReturn(2L);
+        ArgumentCaptor<OffsetDateTime> since = ArgumentCaptor.forClass(OffsetDateTime.class);
+        ArgumentCaptor<OffsetDateTime> previousSince = ArgumentCaptor.forClass(OffsetDateTime.class);
+        when(pointTransactionRepository.findHomeStats(eq(programId), since.capture(), previousSince.capture())).thenReturn(row);
 
-        HomeStatsResponse stats = userService.getHomeStats(organizationId);
+        OffsetDateTime before = OffsetDateTime.now();
+        HomeStatsResponse stats = userService.getHomeStats(organizationId, storefrontId);
+        OffsetDateTime after = OffsetDateTime.now();
 
-        assertThat(stats.totalUsers()).isEqualTo(7);
+        assertThat(stats.programId()).isEqualTo(programId);
+        assertThat(stats.programName()).isEqualTo("Puntos Centro");
+        assertThat(stats.periodDays()).isEqualTo(30);
+        assertThat(stats.activeCustomers()).isEqualTo(7);
+        assertThat(stats.pendingExchanges()).isEqualTo(2);
+        assertThat(since.getValue()).isBetween(before.minusDays(30), after.minusDays(30));
+        assertThat(previousSince.getValue()).isBetween(before.minusDays(60), after.minusDays(60));
+    }
+
+    @Test
+    void getHomeStatsWithoutAProgramReturnsZerosWithoutQueryingTransactions() {
+        UUID organizationId = UUID.randomUUID();
+        UUID storefrontId = UUID.randomUUID();
+        when(storefrontRepository.findSelectedProgram(storefrontId, organizationId)).thenReturn(Optional.empty());
+
+        HomeStatsResponse stats = userService.getHomeStats(organizationId, storefrontId);
+
+        assertThat(stats).isEqualTo(HomeStatsResponse.withoutProgram(30));
+        Mockito.verifyNoInteractions(pointTransactionRepository);
+    }
+
+    /** A storefront-to-program lookup result, as the repository projection returns it. */
+    private static StorefrontRepository.ProgramScope programScope(UUID programId, String name) {
+        return new StorefrontRepository.ProgramScope() {
+            @Override public UUID getId() { return programId; }
+            @Override public String getName() { return name; }
+        };
     }
 
     @Test

@@ -81,7 +81,7 @@ public class UserController {
     @GetMapping("/home-stats")
     @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
     public HomeStatsResponse getHomeStats(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return userService.getHomeStats(principal.organizationId());
+        return userService.getHomeStats(principal.organizationId(), principal.storefrontId());
     }
 
     @GetMapping("/me/admin")
@@ -254,7 +254,7 @@ public class UserController {
     @GetMapping("/top")
     @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
     public List<TopClientResponse> getTopClients(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return userService.getTopClients(principal.organizationId());
+        return userService.getTopClients(principal.organizationId(), principal.storefrontId());
     }
 
     /**

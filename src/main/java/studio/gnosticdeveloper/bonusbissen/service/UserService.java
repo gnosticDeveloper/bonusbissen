@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
@@ -169,14 +170,32 @@ public class UserService {
         sessionService.revokeAllForUser(userId);
     }
 
-    @Transactional
-    public HomeStatsResponse getHomeStats(UUID organizationId) {
-        int totalExchanges = pointTransactionRepository.countByTransactionType(TransactionType.REDEEM, organizationId);
-        int pendingExchanges = pointTransactionRepository.countByTransactionTypeStatePending(TransactionType.REDEEM, organizationId);
-        int totalUsers = userPointProgramRepository.countDistinctUsersByOrganizationId(organizationId);
-        int totalPointsAwarded = pointTransactionRepository.calculatePointsAwarded(TransactionType.EARN, organizationId);
-
-        return new HomeStatsResponse(totalExchanges, pendingExchanges, totalUsers, totalPointsAwarded);
+    /**
+     * Last-{@value DashboardWindow#DAYS}-day figures of the selected storefront's program, against
+     * the window before -- see {@link PointTransactionRepository#findHomeStats}.
+     */
+    @Transactional(readOnly = true)
+    public HomeStatsResponse getHomeStats(UUID organizationId, UUID storefrontId) {
+        Optional<StorefrontRepository.ProgramScope> program = storefrontRepository.findSelectedProgram(storefrontId, organizationId);
+        if (program.isEmpty()) {
+            return HomeStatsResponse.withoutProgram(DashboardWindow.DAYS);
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        PointTransactionRepository.HomeStatsRow row = pointTransactionRepository.findHomeStats(
+            program.get().getId(), DashboardWindow.start(now), DashboardWindow.previousStart(now)
+        );
+        return new HomeStatsResponse(
+            program.get().getId(),
+            program.get().getName(),
+            DashboardWindow.DAYS,
+            row.getExchanges(),
+            row.getPreviousExchanges(),
+            row.getActiveCustomers(),
+            row.getPreviousActiveCustomers(),
+            row.getPointsGranted(),
+            row.getPreviousPointsGranted(),
+            row.getPendingExchanges()
+        );
     }
 
     @Transactional(readOnly = true)
@@ -507,10 +526,14 @@ public class UserService {
             .map(user -> UserPointsResponse.from(user, resolvedProgramId != null ? getBalance(user.getId(), resolvedProgramId) : null));
     }
 
+    /** Top 10 customers of the selected storefront's program in the dashboard window; empty without a program. */
     @Transactional(readOnly = true)
-    public List<TopClientResponse> getTopClients(UUID organizationId) {
+    public List<TopClientResponse> getTopClients(UUID organizationId, UUID storefrontId) {
         Pageable topTen = PageRequest.of(0, 10);
-        return userRepository.getTopClients(organizationId, topTen);
+        return storefrontRepository
+            .findSelectedProgram(storefrontId, organizationId)
+            .map(program -> userRepository.getTopClients(program.getId(), DashboardWindow.start(OffsetDateTime.now()), topTen))
+            .orElse(List.of());
     }
 
     @Transactional(readOnly = true)

@@ -1,5 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -73,25 +74,39 @@ public interface UserRepository extends JpaRepository<User, UUID> {
         Pageable pageable
     );
 
+    /**
+     * Customers ranked by net points granted to them in one program since {@code since} (refunds
+     * excluded, corrections applied -- see {@link PointTransactionRepository#GRANTED_POINTS_MATCH}).
+     * A grant is dated by its original lot, as on the home stats. Deactivated accounts and the
+     * staff of the program's organization are left out; staff of another business are ordinary
+     * customers here.
+     */
     @Query(
         value = """
         SELECT c.id AS id, c.name AS name, CAST(SUM(t.points) AS integer) AS total_points
         FROM point_transactions t
         JOIN users c ON c.id = t.user_id
         JOIN point_programs pp ON pp.id = t.point_program_id
-        WHERE t.transaction_type = 'earn'
-          AND t.state = 'delivered'
-          AND pp.organization_id = :organizationId
-          AND NOT EXISTS (SELECT 1 FROM organization_staff os WHERE os.user_id = c.id AND os.active = true)
+        """ + PointTransactionRepository.CORRECTED_LOT_JOIN + """
+        WHERE t.point_program_id = :programId
+          AND t.created_at >= :since
+          AND coalesce(o.created_at, t.created_at) >= :since
+          AND c.active = true
+          AND NOT EXISTS (
+                SELECT 1 FROM organization_staff os
+                WHERE os.user_id = c.id AND os.active = true AND os.organization_id = pp.organization_id)
+          AND
+        """ + PointTransactionRepository.GRANTED_POINTS_MATCH + """
         GROUP BY c.id, c.name
-        ORDER BY SUM(t.points) DESC
+        HAVING SUM(t.points) > 0
+        ORDER BY SUM(t.points) DESC, c.id
         """,
         nativeQuery = true
     )
-    List<Object[]> findTopClientsRaw(@Param("organizationId") UUID organizationId, Pageable pageable);
+    List<Object[]> findTopClientsRaw(@Param("programId") UUID programId, @Param("since") OffsetDateTime since, Pageable pageable);
 
-    default List<TopClientResponse> getTopClients(UUID organizationId, Pageable pageable) {
-        return findTopClientsRaw(organizationId, pageable)
+    default List<TopClientResponse> getTopClients(UUID programId, OffsetDateTime since, Pageable pageable) {
+        return findTopClientsRaw(programId, since, pageable)
             .stream()
             .map(row -> new TopClientResponse((UUID) row[0], (String) row[1], ((Number) row[2]).intValue()))
             .toList();
