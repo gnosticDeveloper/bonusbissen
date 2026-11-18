@@ -10,6 +10,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
@@ -365,6 +366,133 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    /** A second business with its own program, for the B1 cross-organization user-management tests. */
+    private PointProgram otherOrganizationProgram(String name) {
+        Organization otherOrg = new Organization();
+        otherOrg.setName(name);
+        otherOrg = organizationRepository.save(otherOrg);
+        PointProgram program = new PointProgram();
+        program.setOrganization(otherOrg);
+        program.setName(name + " Points");
+        return pointProgramRepository.save(program);
+    }
+
+    /**
+     * B1 regression: PATCH /users/{id} had no organization check, so any admin could point any
+     * customer's email at an inbox they control, verify it and sign in as them with a login link.
+     */
+    @Test
+    void adminCannotEditACustomerWithNoRelationshipToTheirOrganization() {
+        PointProgram otherProgram = otherOrganizationProgram("Other Org B1 Edit");
+        User victim = createUser("+5493462003201");
+        joinProgram(victim.getId(), otherProgram);
+
+        createEmployee("admin-b1-edit", "password123", StaffRole.ADMIN);
+        String attackerToken = loginEmployee("admin-b1-edit", "password123");
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/users/" + victim.getId(),
+            HttpMethod.PATCH,
+            authed(attackerToken, new UserUpdateRequest("Hijacked", "attacker-b1@example.com")),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        User reloaded = userRepository.findById(victim.getId()).orElseThrow();
+        assertThat(reloaded.getEmail()).isNull();
+        assertThat(reloaded.getName()).isEqualTo(victim.getName());
+    }
+
+    /** B1: a user who never joined any program has no relationship to anyone's organization. */
+    @Test
+    void adminCannotEditAUserWhoNeverJoinedTheirOrganization() {
+        User stranger = createUser("+5493462003202");
+
+        createEmployee("admin-b1-stranger", "password123", StaffRole.ADMIN);
+        String token = loginEmployee("admin-b1-stranger", "password123");
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/users/" + stranger.getId(),
+            HttpMethod.PATCH,
+            authed(token, new UserUpdateRequest("Renamed", null)),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    /** B1: DELETE /users/{id} deactivated any user on the platform, including other businesses' admins. */
+    @Test
+    void adminCannotDeactivateAnotherOrganizationsCustomerOrStaff() {
+        PointProgram otherProgram = otherOrganizationProgram("Other Org B1 Delete");
+        User customer = createUser("+5493462003203");
+        joinProgram(customer.getId(), otherProgram);
+        User otherAdmin = createEmployee("admin-b1-other-org", "password123", StaffRole.ADMIN, otherProgram.getOrganization(), null);
+
+        createEmployee("admin-b1-delete", "password123", StaffRole.ADMIN);
+        String attackerToken = loginEmployee("admin-b1-delete", "password123");
+
+        for (User target : List.of(customer, otherAdmin)) {
+            ResponseEntity<String> response = restTemplate.exchange(
+                baseUrl() + "/users/" + target.getId(),
+                HttpMethod.DELETE,
+                authed(attackerToken),
+                String.class
+            );
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+            assertThat(userRepository.findById(target.getId()).orElseThrow().isActive()).isTrue();
+        }
+    }
+
+    /** B1: PATCH /users/{id}/reactivate is open to cashiers too, and was not scoped at all. */
+    @Test
+    void cashierCannotReactivateAnotherOrganizationsCustomer() {
+        PointProgram otherProgram = otherOrganizationProgram("Other Org B1 Reactivate");
+        User customer = createInactiveUser("+5493462003204");
+        joinProgram(customer.getId(), otherProgram);
+
+        createEmployee("cashier-b1-reactivate", "password123", StaffRole.CASHIER);
+        String attackerToken = loginEmployee("cashier-b1-reactivate", "password123");
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/users/" + customer.getId() + "/reactivate",
+            HttpMethod.PATCH,
+            authed(attackerToken),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(userRepository.findById(customer.getId()).orElseThrow().isActive()).isFalse();
+    }
+
+    /** The B1 guard must still let staff manage their own organization's customers. */
+    @Test
+    void adminCanStillEditAndDeactivateTheirOwnOrganizationsCustomer() {
+        User customer = createUser("+5493462003205");
+        joinProgram(customer.getId(), defaultProgram());
+
+        createEmployee("admin-b1-own", "password123", StaffRole.ADMIN);
+        String token = loginEmployee("admin-b1-own", "password123");
+
+        ResponseEntity<String> edit = restTemplate.exchange(
+            baseUrl() + "/users/" + customer.getId(),
+            HttpMethod.PATCH,
+            authed(token, new UserUpdateRequest("Renamed By Own Admin", null)),
+            String.class
+        );
+        assertThat(edit.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(userRepository.findById(customer.getId()).orElseThrow().getName()).isEqualTo("Renamed By Own Admin");
+
+        ResponseEntity<String> delete = restTemplate.exchange(
+            baseUrl() + "/users/" + customer.getId(),
+            HttpMethod.DELETE,
+            authed(token),
+            String.class
+        );
+        assertThat(delete.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(userRepository.findById(customer.getId()).orElseThrow().isActive()).isFalse();
     }
 
     // --- Baseline: an unauthenticated request to a protected endpoint must
