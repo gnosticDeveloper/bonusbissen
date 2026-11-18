@@ -120,39 +120,6 @@ public class UserService {
         this.subscriptionGuard = subscriptionGuard;
     }
 
-    /** Resets the password of a currently-active staff account -- scoped to the calling admin's own organization. */
-    @Transactional
-    public void resetPassword(UUID userId, String newPassword, UUID callerOrganizationId) {
-        OrganizationStaff staff = organizationStaffRepository
-            .findByUserIdAndActiveTrue(userId)
-            .orElseThrow(() ->
-                new NotFoundException(
-                    "Active staff membership not found for user ID " + userId + ".",
-                    "No pudimos encontrar al empleado seleccionado."
-                )
-            );
-
-        if (!staff.getOrganization().getId().equals(callerOrganizationId)) {
-            throw new NotFoundException(
-                "Staff member with user ID " + userId + " does not belong to organization " + callerOrganizationId + ".",
-                "No pudimos encontrar al empleado seleccionado."
-            );
-        }
-
-        User user = userRepository
-            .findById(userId)
-            .orElseThrow(() ->
-                new NotFoundException(
-                    "User with ID " + userId + " was not found while resetting staff password.",
-                    "No pudimos encontrar al empleado seleccionado."
-                )
-            );
-
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
-        sessionService.revokeAllForUser(userId);
-    }
-
     /** Self-service password change: any authenticated account, own password only, current password required. */
     @Transactional
     public void changeOwnPassword(UUID userId, String currentPassword, String newPassword) {
@@ -223,12 +190,15 @@ public class UserService {
     }
 
     /**
-     * A user edits their own profile: display name plus an optional email.
-     * Changing the email (or clearing it) drops the verified flag; when a new
-     * address is set, a fresh verification message goes out.
+     * A user edits their own profile: display name plus an optional email. {@code
+     * callerOrganizationId} is null for self-service; non-null means staff, who may only
+     * touch users (customers or fellow staff) with a relationship to their own organization --
+     * without this check, any admin could edit any user anywhere on the platform.
      */
     @Transactional
-    public User update(UUID id, UserUpdateRequest request) {
+    public User update(UUID id, UserUpdateRequest request, UUID callerOrganizationId) {
+        requireOrganizationRelationship(id, callerOrganizationId);
+
         User user = userRepository
             .findById(id)
             .orElseThrow(() ->
@@ -291,8 +261,11 @@ public class UserService {
         emailVerificationService.sendVerification(user);
     }
 
+    /** {@code callerOrganizationId} null means self-service; non-null means staff, scoped to their own organization -- see {@link #update}. */
     @Transactional
-    public User reactivate(UUID id) {
+    public User reactivate(UUID id, UUID callerOrganizationId) {
+        requireOrganizationRelationship(id, callerOrganizationId);
+
         User user = userRepository
             .findById(id)
             .orElseThrow(() ->
@@ -306,8 +279,11 @@ public class UserService {
         return userRepository.save(user);
     }
 
+    /** {@code callerOrganizationId} null means self-service; non-null means staff, scoped to their own organization -- see {@link #update}. */
     @Transactional
-    public void deleteById(UUID id) {
+    public void deleteById(UUID id, UUID callerOrganizationId) {
+        requireOrganizationRelationship(id, callerOrganizationId);
+
         User user = userRepository
             .findById(id)
             .orElseThrow(() ->
@@ -320,6 +296,27 @@ public class UserService {
         user.setActive(false);
         userRepository.save(user);
         sessionService.revokeAllForUser(id);
+    }
+
+    /**
+     * Staff may only act on users (customers or fellow staff) with a relationship to their own
+     * organization. A no-op for self-service calls (null {@code callerOrganizationId}).
+     */
+    private void requireOrganizationRelationship(UUID userId, UUID callerOrganizationId) {
+        if (callerOrganizationId == null) {
+            return;
+        }
+        boolean isCustomerOfCallerOrg = userPointProgramRepository.existsByUserIdAndOrganizationId(userId, callerOrganizationId);
+        boolean isStaffOfCallerOrg = organizationStaffRepository
+            .findByUserIdAndActiveTrue(userId)
+            .map(staff -> staff.getOrganization().getId().equals(callerOrganizationId))
+            .orElse(false);
+        if (!isCustomerOfCallerOrg && !isStaffOfCallerOrg) {
+            throw new NotFoundException(
+                "User " + userId + " has no relationship to organization " + callerOrganizationId + ".",
+                "No pudimos encontrar al cliente seleccionado."
+            );
+        }
     }
 
     @Transactional(readOnly = true)

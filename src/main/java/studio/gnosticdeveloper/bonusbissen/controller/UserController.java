@@ -14,7 +14,6 @@ import org.springframework.web.multipart.MultipartFile;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsUpdateRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.PasswordUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.SelfPasswordUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.AdminUserInfoResponse;
@@ -67,15 +66,8 @@ public class UserController {
 
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public UserResponse update(@PathVariable UUID id, @Valid @RequestBody UserUpdateRequest request) {
-        return UserResponse.from(userService.update(id, request), storageService);
-    }
-
-    @PatchMapping("/{id}/password")
-    @PreAuthorize("hasRole('ADMIN')")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void resetPassword(@PathVariable UUID id, @Valid @RequestBody PasswordUpdateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        userService.resetPassword(id, request.newPassword(), principal.organizationId());
+    public UserResponse update(@PathVariable UUID id, @Valid @RequestBody UserUpdateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return UserResponse.from(userService.update(id, request, principal.organizationId()), storageService);
     }
 
     @GetMapping("/home-stats")
@@ -99,7 +91,7 @@ public class UserController {
     @PatchMapping("/me")
     @PreAuthorize("isAuthenticated()")
     public UserResponse updateSelf(@Valid @RequestBody UserUpdateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return UserResponse.from(userService.update(principal.id(), request), storageService);
+        return UserResponse.from(userService.update(principal.id(), request, null), storageService);
     }
 
     @PostMapping(path = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -166,8 +158,8 @@ public class UserController {
 
     @PatchMapping("/{id}/reactivate")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
-    public UserResponse reactivate(@PathVariable UUID id) {
-        return UserResponse.from(userService.reactivate(id), storageService);
+    public UserResponse reactivate(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return UserResponse.from(userService.reactivate(id, principal.organizationId()), storageService);
     }
 
     @DeleteMapping("/{id}")
@@ -175,14 +167,14 @@ public class UserController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteById(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         requireSelfIfUser(id, principal);
-        userService.deleteById(id);
+        userService.deleteById(id, principal.organizationId());
     }
 
     @DeleteMapping("/me")
     @PreAuthorize("hasRole('USER')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteSelf(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        userService.deleteById(principal.id());
+        userService.deleteById(principal.id(), null);
     }
 
     @GetMapping("/{id}")

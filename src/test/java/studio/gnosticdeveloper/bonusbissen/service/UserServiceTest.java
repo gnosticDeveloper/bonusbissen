@@ -190,7 +190,7 @@ class UserServiceTest {
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
         when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        userService.deleteById(id);
+        userService.deleteById(id, null);
 
         assertThat(user.isActive()).isFalse();
         verify(sessionService).revokeAllForUser(id);
@@ -298,7 +298,7 @@ class UserServiceTest {
         UUID id = UUID.randomUUID();
         when(userRepository.findById(id)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.deleteById(id)).isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> userService.deleteById(id, null)).isInstanceOf(NotFoundException.class);
     }
 
     @Test
@@ -817,7 +817,7 @@ class UserServiceTest {
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
         when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        User updated = userService.update(id, new UserUpdateRequest("Someone Else", "someone@example.com"));
+        User updated = userService.update(id, new UserUpdateRequest("Someone Else", "someone@example.com"), null);
 
         assertThat(updated.getName()).isEqualTo("Someone Else");
         assertThat(updated.isEmailVerified()).isTrue();
@@ -829,7 +829,7 @@ class UserServiceTest {
         UUID id = UUID.randomUUID();
         when(userRepository.findById(id)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.update(id, new UserUpdateRequest("Someone", "someone@example.com")))
+        assertThatThrownBy(() -> userService.update(id, new UserUpdateRequest("Someone", "someone@example.com"), null))
             .isInstanceOf(NotFoundException.class);
     }
 
@@ -846,7 +846,7 @@ class UserServiceTest {
         when(userRepository.findByEmail("new@example.com")).thenReturn(Optional.empty());
         when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        User updated = userService.update(id, new UserUpdateRequest("Someone", "NEW@example.com"));
+        User updated = userService.update(id, new UserUpdateRequest("Someone", "NEW@example.com"), null);
 
         assertThat(updated.getEmail()).isEqualTo("new@example.com");
         assertThat(updated.isEmailVerified()).isFalse();
@@ -867,7 +867,7 @@ class UserServiceTest {
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
         when(userRepository.findByEmail("taken@example.com")).thenReturn(Optional.of(other));
 
-        assertThatThrownBy(() -> userService.update(id, new UserUpdateRequest("Someone", "taken@example.com")))
+        assertThatThrownBy(() -> userService.update(id, new UserUpdateRequest("Someone", "taken@example.com"), null))
             .isInstanceOf(ConflictException.class);
 
         verify(userRepository, never()).save(any());
@@ -884,53 +884,9 @@ class UserServiceTest {
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
         when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        userService.update(id, new UserUpdateRequest("Someone New", "same@example.com"));
+        userService.update(id, new UserUpdateRequest("Someone New", "same@example.com"), null);
 
         verify(userRepository, never()).findByEmail(any());
-    }
-
-    @Test
-    void resetPasswordUpdatesTheHashWhenTargetBelongsToCallersOrganization() {
-        UUID organizationId = UUID.randomUUID();
-        UUID targetUserId = UUID.randomUUID();
-
-        Organization organization = new Organization();
-        organization.setId(organizationId);
-        OrganizationStaff staff = new OrganizationStaff();
-        staff.setOrganization(organization);
-
-        User user = new User();
-        user.setId(targetUserId);
-        user.setPasswordHash("old-hash");
-
-        when(organizationStaffRepository.findByUserIdAndActiveTrue(targetUserId)).thenReturn(Optional.of(staff));
-        when(userRepository.findById(targetUserId)).thenReturn(Optional.of(user));
-        when(passwordEncoder.encode("newpassword123")).thenReturn("new-hash");
-        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-
-        userService.resetPassword(targetUserId, "newpassword123", organizationId);
-
-        assertThat(user.getPasswordHash()).isEqualTo("new-hash");
-        verify(sessionService).revokeAllForUser(targetUserId);
-    }
-
-    @Test
-    void resetPasswordRejectsATargetInADifferentOrganization() {
-        UUID callerOrganizationId = UUID.randomUUID();
-        UUID targetUserId = UUID.randomUUID();
-
-        Organization otherOrganization = new Organization();
-        otherOrganization.setId(UUID.randomUUID());
-        OrganizationStaff staff = new OrganizationStaff();
-        staff.setOrganization(otherOrganization);
-
-        when(organizationStaffRepository.findByUserIdAndActiveTrue(targetUserId)).thenReturn(Optional.of(staff));
-
-        assertThatThrownBy(() -> userService.resetPassword(targetUserId, "newpassword123", callerOrganizationId))
-            .isInstanceOf(NotFoundException.class);
-
-        verify(userRepository, never()).save(any());
-        verify(sessionService, never()).revokeAllForUser(any());
     }
 
     @Test
