@@ -1,7 +1,7 @@
 "use client";
 
 import { Eclipse, Moon, Sun } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "@/lib/helpers/utils";
 import type { Theme } from "@/lib/preferences/theme";
 import { useTheme } from "@/providers/theme-provider";
@@ -12,33 +12,37 @@ const themes: { value: Theme; label: string; Icon: typeof Sun }[] = [
   { value: "abismo", label: "Abismo", Icon: Eclipse },
 ];
 
-export function ThemeToggle({ color }: { color?: string }) {
+/** Segmented theme picker. Native radios give it arrow-key navigation and a single tab stop. */
+export function ThemeToggle({ className }: { className?: string }) {
   const { theme, selectTheme } = useTheme();
+  const name = useId();
 
   return (
-    <div
-      className="mx-4 rounded-2xl bg-background p-4"
-      style={{ "--theme-toggle-accent": color || "var(--primary)" } as React.CSSProperties}
-    >
-      <p className="mb-3 text-sm font-medium text-foreground">Tema</p>
-      <div role="group" aria-label="Elegir tema" className="grid grid-cols-3 gap-1 rounded-xl bg-card p-1">
+    <fieldset className={cn("min-w-0", className)}>
+      <legend className="px-3 pb-2.5 text-xs font-bold uppercase tracking-[0.06em] text-foreground/75">Apariencia</legend>
+      <div className="grid grid-cols-3 gap-1 rounded-2xl border border-border bg-background p-1">
         {themes.map(({ value, label, Icon }) => (
-          <button
+          <label
             key={value}
-            type="button"
-            aria-pressed={theme === value}
-            onClick={() => selectTheme(value)}
             className={cn(
-              "flex min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-2 text-xs text-foreground transition-colors motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-(--theme-toggle-accent)",
-              theme === value ? "bg-(--theme-toggle-accent) text-primary-foreground" : "hover:bg-foreground/10",
+              "flex min-h-16 min-w-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border text-[13px] font-semibold transition-colors motion-reduce:transition-none has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-foreground/70",
+              theme === value ? "border-border bg-card text-foreground shadow-sm" : "border-transparent text-foreground/75 hover:bg-foreground/5 hover:text-foreground",
             )}
           >
+            <input
+              type="radio"
+              name={name}
+              value={value}
+              checked={theme === value}
+              onChange={() => selectTheme(value)}
+              className="sr-only"
+            />
             <Icon size={18} aria-hidden="true" />
             {label}
-          </button>
+          </label>
         ))}
       </div>
-    </div>
+    </fieldset>
   );
 }
 

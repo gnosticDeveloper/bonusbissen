@@ -11,8 +11,9 @@ export default async function MiNegocioPage() {
     getPointPrograms(),
   ]);
   return (
-    <main className="mx-auto w-full max-w-2xl text-foreground min-h-full">
-      <header className="mb-7">
+    // From xl up the section fills the viewport instead of scrolling: two columns, and the lists scroll inside their cards.
+    <main className="mx-auto flex min-h-full w-full max-w-2xl flex-col text-foreground xl:h-full xl:max-w-none">
+      <header className="mb-7 shrink-0 xl:mb-5">
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground">Panel de administración</p>
         <div className="flex items-center gap-2">
           <h1 className="text-3xl font-semibold tracking-tighter sm:text-4xl">Mi negocio</h1>
@@ -38,10 +39,12 @@ export default async function MiNegocioPage() {
         <p className="mt-2 text-sm leading-6 text-foreground/80">Gestioná los datos de tu negocio, tus sucursales y tus programas de puntos.</p>
       </header>
 
-      <div className="flex flex-col gap-6">
-        <OrganizationSection org={org} />
-        <StorefrontsSection storefronts={storefronts} />
-        <PointProgramsSection pointPrograms={pointPrograms} storefronts={storefronts} />
+      <div className="flex flex-col gap-6 xl:grid xl:min-h-140 xl:flex-1 xl:grid-cols-2 xl:grid-rows-1 xl:gap-5">
+        <OrganizationSection org={org} storefronts={storefronts} pointPrograms={pointPrograms} />
+        <div className="flex flex-col gap-6 xl:grid xl:min-h-0 xl:grid-rows-5 xl:gap-5">
+          <StorefrontsSection storefronts={storefronts} className="xl:row-span-3" />
+          <PointProgramsSection pointPrograms={pointPrograms} storefronts={storefronts} className="xl:row-span-2" />
+        </div>
       </div>
     </main>
   );

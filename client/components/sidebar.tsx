@@ -75,9 +75,16 @@ type SidebarProps = {
   orgId: string;
   /** Solo escritorio: contrae las etiquetas dejando la barra como riel de iconos. */
   collapsed?: boolean;
+  /** Contador por `NavItem.id` (p. ej. canjes pendientes); se omite cuando es 0. */
+  badges?: Partial<Record<string, number>>;
 };
 
-export default function Sidebar({ sections, onNavigate, orgId, collapsed = false }: SidebarProps) {
+/** "99+" a partir de 100, para que el contador entre en el riel contraído. */
+function badgeText(count: number): string {
+  return count > 99 ? "99+" : String(count);
+}
+
+export default function Sidebar({ sections, onNavigate, orgId, collapsed = false, badges }: SidebarProps) {
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
   const headingId = useId();
@@ -112,12 +119,14 @@ export default function Sidebar({ sections, onNavigate, orgId, collapsed = false
               const Icon = item.icon;
               const href = `/d/${orgId}${item.url}`;
               const isActive = pathname === href;
+              const badge = badges?.[item.id] ?? 0;
+              const badgeLabel = badge > 0 ? `${badge} ${badge === 1 ? "pendiente" : "pendientes"}` : null;
               return (
                 <li key={item.id}>
                   <Link
                     href={href}
                     onClick={onNavigate}
-                    title={collapsed ? item.label : undefined}
+                    title={collapsed ? (badgeLabel ? `${item.label} (${badgeLabel})` : item.label) : undefined}
                     className={cn(
                       "flex h-10 w-full items-center overflow-hidden rounded-lg text-sm font-medium transition-colors motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
                       isActive ? "bg-primary text-primary-foreground" : "text-foreground/80 hover:bg-foreground/10 hover:text-foreground",
@@ -126,8 +135,17 @@ export default function Sidebar({ sections, onNavigate, orgId, collapsed = false
                     aria-current={isActive ? "page" : undefined}
                   >
                     {/* Caja fija del icono: queda centrada en el riel contraído y alineada al expandir. */}
-                    <span className="flex size-10 shrink-0 items-center justify-center">
+                    <span className="relative flex size-10 shrink-0 items-center justify-center">
                       <Icon className="size-4" aria-hidden="true" />
+                      {/* Contraído, el contador pasa a la esquina del icono. */}
+                      {badge > 0 && collapsed && (
+                        <span
+                          aria-hidden="true"
+                          className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold leading-none text-amber-950"
+                        >
+                          {badgeText(badge)}
+                        </span>
+                      )}
                     </span>
                     <motion.span
                       initial={false}
@@ -137,6 +155,15 @@ export default function Sidebar({ sections, onNavigate, orgId, collapsed = false
                     >
                       {item.label}
                     </motion.span>
+                    {badgeLabel && <span className="sr-only">, {badgeLabel}</span>}
+                    {badge > 0 && !collapsed && (
+                      <span
+                        aria-hidden="true"
+                        className="ml-auto mr-2 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-semibold leading-none text-amber-950"
+                      >
+                        {badgeText(badge)}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );

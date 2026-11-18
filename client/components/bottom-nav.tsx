@@ -2,8 +2,38 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Gift, User2, RotateCcwClock, ListPlus } from "lucide-react";
+import { Home, Gift, User2, History, ListPlus, type LucideIcon } from "lucide-react";
 import { useUIStore } from "@/lib/preferences/ui-store";
+
+// Shared by both navs so their items look the same. The accent is the `brand` token: the app
+// primary everywhere, the storefront's color inside /s/[slug] (its layout sets --brand).
+const itemClass = "flex w-17 flex-col items-center gap-1 whitespace-nowrap px-2 py-1 text-[12px] transition-colors";
+const navClass = "fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 backdrop-blur-sm";
+const rowClass = "mx-auto flex max-w-107.5 items-center justify-between px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2";
+
+function NavItem({ href, label, icon: Icon, active }: { href: string; label: string; icon: LucideIcon; active: boolean }) {
+  return (
+    <Link href={href} aria-current={active ? "page" : undefined} className={`${itemClass} ${active ? "text-brand" : "text-foreground"}`}>
+      <span
+        className={`relative grid place-items-center rounded-full before:absolute before:inset-0 before:rounded-full before:bg-brand before:blur-sm before:content-[''] ${active ? "before:opacity-30" : "before:opacity-0"}`}
+      >
+        <Icon size={24} aria-hidden="true" />
+      </span>
+      <span>{label}</span>
+    </Link>
+  );
+}
+
+function MoreButton() {
+  const openMenu = useUIStore((state) => state.openMenu);
+
+  return (
+    <button type="button" onClick={openMenu} aria-haspopup="dialog" aria-label="Abrir más opciones" className={`${itemClass} text-foreground`}>
+      <ListPlus size={24} aria-hidden="true" />
+      <span>Más</span>
+    </button>
+  );
+}
 
 const HOME_ITEMS = [
   { href: "/b", label: "Inicio", icon: Home },
@@ -14,40 +44,15 @@ const HOME_ITEMS = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  const openMenu = useUIStore((state) => state.openMenu);
   const isActive = (href: string) => (href === "/b" ? pathname === "/b" : pathname.startsWith(href));
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-107.5 items-center justify-between px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
-        {HOME_ITEMS.map(({ href, label, icon: Icon }) => {
-          const active = isActive(href);
-
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`flex w-17 flex-col items-center gap-1 whitespace-nowrap px-2 py-1 text-[12px] transition-colors ${active ? "text-primary" : "text-foreground"}`}
-            >
-              <span
-                className={`grid place-items-center rounded-full before:content-[''] relative before:rounded-full before:blur-sm before:absolute before:inset-0 before:bg-primary  ${active ? "before:opacity-30" : "before:opacity-0"}`}
-              >
-                <Icon size={24} />
-              </span>
-              <span>{label}</span>
-            </Link>
-          );
-        })}
-
-        <button
-          type="button"
-          onClick={openMenu}
-          aria-label="Abrir más opciones"
-          className="flex w-17 flex-col items-center gap-1 whitespace-nowrap px-2 py-1 text-[12px] text-foreground transition-colors hover:text-foreground"
-        >
-          <ListPlus size={24} aria-hidden="true" />
-          <span>Más</span>
-        </button>
+    <nav aria-label="Navegación principal" className={navClass}>
+      <div className={rowClass}>
+        {HOME_ITEMS.map((item) => (
+          <NavItem key={item.href} {...item} active={isActive(item.href)} />
+        ))}
+        <MoreButton />
       </div>
     </nav>
   );
@@ -56,54 +61,20 @@ export function BottomNav() {
 const MEMBER_ONLY_ITEMS = [
   { path: "/inicio", label: "Inicio", icon: Home },
   { path: "/recompensas", label: "Recompensas", icon: Gift },
-  { path: "/historial", label: "Historial", icon: RotateCcwClock },
+  { path: "/historial", label: "Historial", icon: History },
 ] as const;
 
-export function MemberOnlyBottomNav({ slug, color }: { slug: string; color?: string }) {
+export function MemberOnlyBottomNav({ slug }: { slug: string }) {
   const pathname = usePathname();
-  const openMenu = useUIStore((state) => state.openMenu);
-  const isActive = (path: string) => pathname === `/s/${slug}${path}`;
 
   return (
-    <nav
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 backdrop-blur-sm"
-      style={
-        {
-          "--nav-active-color": color || "var(--primary)",
-          "--nav-active-soft": color ? `${color}33` : "color-mix(in srgb, var(--primary) 20%, transparent)",
-        } as React.CSSProperties
-      }
-    >
-      <div className="mx-auto flex max-w-107.5 items-center justify-around px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
-        {MEMBER_ONLY_ITEMS.map(({ path, label, icon: Icon }) => {
-          const active = isActive(path);
-
-          return (
-            <Link
-              key={path}
-              href={`/s/${slug}${path}`}
-              className={`flex w-17 flex-col items-center gap-1 whitespace-nowrap px-2 py-1 text-[12px] transition-colors ${active ? "text-(--nav-active-color)" : "text-foreground"}`}
-            >
-              <span
-                className="grid place-items-center rounded-full transition-shadow"
-                style={active ? { boxShadow: "0 4px 14px var(--nav-active-soft)" } : undefined}
-              >
-                <Icon size={22} />
-              </span>
-              <span>{label}</span>
-            </Link>
-          );
+    <nav aria-label="Navegación de la tienda" className={navClass}>
+      <div className={rowClass}>
+        {MEMBER_ONLY_ITEMS.map(({ path, label, icon }) => {
+          const href = `/s/${slug}${path}`;
+          return <NavItem key={path} href={href} label={label} icon={icon} active={pathname === href} />;
         })}
-
-        <button
-          type="button"
-          onClick={openMenu}
-          aria-label="Abrir más opciones"
-          className="flex w-17 flex-col items-center gap-1 whitespace-nowrap px-2 py-1 text-[12px] text-foreground transition-colors hover:text-(--nav-active-color)"
-        >
-          <ListPlus size={22} aria-hidden="true" />
-          <span>Más</span>
-        </button>
+        <MoreButton />
       </div>
     </nav>
   );

@@ -22,6 +22,7 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
+/** Create or edit a storefront. Rendered inside a modal (see StorefrontsSection), which supplies the surface. */
 export function StorefrontForm({ storefront, onDone }: { storefront?: Storefront; onDone: () => void }) {
   const notify = useToast();
   const isEdit = !!storefront;
@@ -36,7 +37,7 @@ export function StorefrontForm({ storefront, onDone }: { storefront?: Storefront
   const [active, setActive] = useState(storefront?.active ?? true);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 rounded-2xl border border-border bg-background p-4" noValidate>
+    <form action={formAction} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="online" value={online ? "true" : "false"} />
       <input type="hidden" name="active" value={active ? "true" : "false"} />
 

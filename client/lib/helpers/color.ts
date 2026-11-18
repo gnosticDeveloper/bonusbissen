@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 function relativeLuminance(hex: string): number {
   const clean = hex.replace("#", "").slice(0, 6); // ignora alpha si viene un hex de 8 dígitos (VARCHAR(9) en el schema admite #RRGGBBAA)
   const bigint = parseInt(clean, 16);
@@ -22,6 +24,18 @@ export function pickCardVariant(backgroundHex: string | null | undefined): "ligh
   if (!backgroundHex) return "dark-bg";
   const bgLum = relativeLuminance(backgroundHex);
   return contrastRatio(bgLum, 1) >= contrastRatio(bgLum, 0) ? "dark-bg" : "light-bg";
+}
+
+// #RRGGBB or #RRGGBBAA: the shapes `storefronts.color` (VARCHAR(9)) holds and relativeLuminance reads.
+const BRAND_HEX = /^#(?:[0-9a-f]{6}|[0-9a-f]{8})$/i;
+
+/**
+ * Custom properties behind the `brand` theme tokens (`bg-brand`, `text-brand-contrast`, `text-brand-ink`;
+ * see app/globals.css). A missing or malformed color sets nothing, so the tokens fall back to primary.
+ */
+export function brandColorVars(color: string | null | undefined): CSSProperties {
+  if (!color || !BRAND_HEX.test(color)) return {};
+  return { "--brand": color, "--brand-contrast": CARD_PALETTES[pickCardVariant(color)].text } as CSSProperties;
 }
 
 export const CARD_PALETTES = {

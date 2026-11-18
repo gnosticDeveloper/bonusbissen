@@ -28,6 +28,8 @@ type DashboardShellProps = {
   activeColor?: string | null;
   /** Preferencia leída de la cookie en el servidor: evita el parpadeo al recargar. */
   defaultCollapsed?: boolean;
+  /** Open redemptions of the organization, shown on the "Validación de canjes" item; `null` when it couldn't be read. */
+  pendingExchangesCount?: number | null;
   children: React.ReactNode;
 };
 
@@ -158,6 +160,7 @@ export function DashboardShell({
   activeStorefrontId,
   activeColor,
   defaultCollapsed = false,
+  pendingExchangesCount = null,
 }: DashboardShellProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   // El valor inicial viene del servidor, así que el primer render del cliente ya
@@ -170,6 +173,7 @@ export function DashboardShell({
     : undefined;
 
   const sections = getNavSections(role);
+  const badges = pendingExchangesCount ? { redemptions: pendingExchangesCount } : undefined;
 
   const toggleCollapsed = useCallback(() => {
     const next = !collapsed;
@@ -239,7 +243,7 @@ export function DashboardShell({
           </AnimatePresence>
 
           <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-            <Sidebar orgId={orgId} sections={sections} onNavigate={() => {}} collapsed={collapsed} />
+            <Sidebar orgId={orgId} sections={sections} badges={badges} onNavigate={() => {}} collapsed={collapsed} />
           </div>
 
           <div className={cn("mt-auto flex gap-2", collapsed ? "flex-col items-center" : "flex-row-reverse items-center")}>
@@ -325,7 +329,7 @@ export function DashboardShell({
         </div>
         <StorefrontSwitcher storefronts={storefronts} activeStorefrontId={activeStorefrontId} />
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <Sidebar orgId={orgId} sections={sections} onNavigate={() => setIsDrawerOpen(false)} />
+          <Sidebar orgId={orgId} sections={sections} badges={badges} onNavigate={() => setIsDrawerOpen(false)} />
         </div>
         <div className="mt-auto">
           <UserMenu slug={orgId} user={currentUser} />

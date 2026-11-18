@@ -31,7 +31,7 @@ export default function RewardsList({ rewards, isAdmin, view }: { rewards: Rewar
                   : "h-full min-h-36 w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
               }
             />
-            <div className="absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-foreground/50 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/50 to-transparent" />
             <div className="absolute bottom-3 left-3 rounded-full bg-card/90 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur-sm">
               {formatNumber(reward.costPoints)} pts
             </div>
