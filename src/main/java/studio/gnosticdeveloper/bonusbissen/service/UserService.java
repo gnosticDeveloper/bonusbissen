@@ -774,9 +774,11 @@ public class UserService {
         Reward reward = rewardRepository
             .findById(request.rewardId())
             .filter(Reward::isActive)
+            .filter(r -> r.getPointProgram().isActive())
+            .filter(r -> r.getPointProgram().getOrganization().isActive())
             .orElseThrow(() ->
                 new NotFoundException(
-                    "Active reward with ID " + request.rewardId() + " was not found while processing claim.",
+                    "Active reward with ID " + request.rewardId() + " (with an active program and organization) was not found while processing claim.",
                     "No pudimos encontrar la recompensa seleccionada."
                 )
             );

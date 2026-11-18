@@ -450,6 +450,40 @@ class UserServiceTest {
     }
 
     @Test
+    void claimRewardFromAnInactiveProgramIsRejectedBeforeAnythingIsWritten() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        UUID rewardId = UUID.randomUUID();
+        Reward reward = rewardWithProgram(rewardId, 30);
+        reward.getPointProgram().setActive(false);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(rewardRepository.findById(rewardId)).thenReturn(Optional.of(reward));
+
+        assertThatThrownBy(() -> userService.claimReward(new ClaimRewardRequest(userId, rewardId)))
+            .isInstanceOf(NotFoundException.class);
+
+        verify(pointTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void claimRewardFromAnInactiveOrganizationIsRejectedBeforeAnythingIsWritten() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        UUID rewardId = UUID.randomUUID();
+        Reward reward = rewardWithProgram(rewardId, 30);
+        reward.getPointProgram().getOrganization().setActive(false);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(rewardRepository.findById(rewardId)).thenReturn(Optional.of(reward));
+
+        assertThatThrownBy(() -> userService.claimReward(new ClaimRewardRequest(userId, rewardId)))
+            .isInstanceOf(NotFoundException.class);
+
+        verify(pointTransactionRepository, never()).save(any());
+    }
+
+    @Test
     void claimRewardCreatesPendingRedeemTransactionWithNegativePoints() {
         UUID userId = UUID.randomUUID();
         User user = new User();
