@@ -58,10 +58,12 @@ import studio.gnosticdeveloper.bonusbissen.security.SessionService;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -508,6 +510,43 @@ class UserServiceTest {
         assertThat(captor.getValue().getPoints()).isEqualTo(-30);
 
         verify(exchangeCodeRepository).save(any(ExchangeCode.class));
+    }
+
+    @Test
+    void claimRewardDrawsAnotherCodeWhenTheFirstIsActiveInTheOrganization() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        UUID rewardId = UUID.randomUUID();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(rewardRepository.findById(rewardId)).thenReturn(Optional.of(rewardWithProgram(rewardId, 30)));
+        when(pointTransactionRepository.calculateBalance(userId, PROGRAM_ID)).thenReturn(30);
+        when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(exchangeCodeRepository.existsByOrganizationIdAndCodeAndActiveTrue(eq(ORGANIZATION_ID), anyString())).thenReturn(true, false);
+
+        ClaimRewardResponse response = userService.claimReward(new ClaimRewardRequest(userId, rewardId));
+
+        assertThat(response.code()).matches("[0-9]{4}[a-z][0-9]");
+        verify(exchangeCodeRepository, times(2)).existsByOrganizationIdAndCodeAndActiveTrue(eq(ORGANIZATION_ID), anyString());
+        verify(exchangeCodeRepository).save(any(ExchangeCode.class));
+    }
+
+    @Test
+    void claimRewardFailsCleanlyWhenNoFreeCodeIsFound() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        UUID rewardId = UUID.randomUUID();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(rewardRepository.findById(rewardId)).thenReturn(Optional.of(rewardWithProgram(rewardId, 30)));
+        when(pointTransactionRepository.calculateBalance(userId, PROGRAM_ID)).thenReturn(30);
+        when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(exchangeCodeRepository.existsByOrganizationIdAndCodeAndActiveTrue(eq(ORGANIZATION_ID), anyString())).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.claimReward(new ClaimRewardRequest(userId, rewardId)))
+            .isInstanceOf(ConflictException.class);
+
+        verify(exchangeCodeRepository, never()).save(any(ExchangeCode.class));
     }
 
     @Test

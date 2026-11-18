@@ -10,6 +10,7 @@ import org.springframework.security.access.AccessDeniedException;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
+import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
@@ -27,6 +28,7 @@ import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -98,6 +100,9 @@ class PointTransactionServiceTest {
         User user = new User();
         user.setId(UUID.randomUUID());
         tx.setUser(user);
+        ExchangeCode code = new ExchangeCode();
+        code.setActive(true);
+        tx.setExchangeCode(code);
 
         OrganizationStaff employee = new OrganizationStaff();
         employee.setId(UUID.randomUUID());
@@ -114,6 +119,7 @@ class PointTransactionServiceTest {
         assertThat(tx.getState()).isEqualTo(TransactionState.DELIVERED);
         assertThat(tx.getEmployee()).isEqualTo(employee);
         assertThat(tx.getStorefront()).isEqualTo(storefront);
+        assertThat(code.isActive()).isFalse();
         verify(pointTransactionRepository).save(tx);
     }
 
@@ -281,7 +287,7 @@ class PointTransactionServiceTest {
     @Test
     void verifyExchangeWithUnknownCodeThrowsNotFound() {
         UUID organizationId = UUID.randomUUID();
-        when(exchangeCodeRepository.findActiveByCodeAndOrganizationId("000000", organizationId)).thenReturn(Optional.empty());
+        when(exchangeCodeRepository.findLatestByCodeAndOrganizationId("000000", organizationId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> pointTransactionService.verifyExchange("000000", organizationId, UUID.randomUUID(), UUID.randomUUID()))
             .isInstanceOf(NotFoundException.class);
@@ -294,10 +300,10 @@ class PointTransactionServiceTest {
         UUID storefrontId = UUID.randomUUID();
 
         PointTransaction tx = pendingRedeem(organization);
-        studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode code = new studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode();
+        ExchangeCode code = new ExchangeCode();
         code.setPointTransaction(tx);
 
-        when(exchangeCodeRepository.findActiveByCodeAndOrganizationId("1234a5", organizationId)).thenReturn(Optional.of(code));
+        when(exchangeCodeRepository.findLatestByCodeAndOrganizationId("1234a5", organizationId)).thenReturn(Optional.of(code));
         when(pointProgramRepository.existsByIdAndStorefronts_Id(tx.getPointProgram().getId(), storefrontId)).thenReturn(false);
 
         assertThatThrownBy(() -> pointTransactionService.verifyExchange("1234a5", organizationId, storefrontId, UUID.randomUUID()))
@@ -312,17 +318,41 @@ class PointTransactionServiceTest {
 
         PointTransaction tx = pendingRedeem(organization);
         tx.setPoints(-10);
-        tx.setCreatedAt(java.time.OffsetDateTime.now());
+        tx.setCreatedAt(OffsetDateTime.now());
         User user = new User();
         user.setId(UUID.randomUUID());
         user.setName("Someone");
         tx.setUser(user);
-        studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode code = new studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode();
+        ExchangeCode code = new ExchangeCode();
         code.setPointTransaction(tx);
 
-        when(exchangeCodeRepository.findActiveByCodeAndOrganizationId("1234a5", organizationId)).thenReturn(Optional.of(code));
+        when(exchangeCodeRepository.findLatestByCodeAndOrganizationId("1234a5", organizationId)).thenReturn(Optional.of(code));
         when(pointProgramRepository.existsByIdAndStorefronts_Id(tx.getPointProgram().getId(), storefrontId)).thenReturn(true);
 
         assertThat(pointTransactionService.verifyExchange("1234a5", organizationId, storefrontId, UUID.randomUUID())).isNotNull();
+    }
+
+    @Test
+    void verifyExchangeOfADeliveredCodeReturnsTheExchangeWithItsState() {
+        Organization organization = organization();
+        UUID organizationId = organization.getId();
+        UUID storefrontId = UUID.randomUUID();
+
+        PointTransaction tx = pendingRedeem(organization);
+        tx.setState(TransactionState.DELIVERED);
+        tx.setPoints(-10);
+        tx.setCreatedAt(OffsetDateTime.now());
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setName("Someone");
+        tx.setUser(user);
+        ExchangeCode code = new ExchangeCode();
+        code.setActive(false);
+        code.setPointTransaction(tx);
+
+        when(exchangeCodeRepository.findLatestByCodeAndOrganizationId("1234a5", organizationId)).thenReturn(Optional.of(code));
+        when(pointProgramRepository.existsByIdAndStorefronts_Id(tx.getPointProgram().getId(), storefrontId)).thenReturn(true);
+
+        assertThat(pointTransactionService.verifyExchange("1234a5", organizationId, storefrontId, UUID.randomUUID()).state()).isEqualTo("delivered");
     }
 }

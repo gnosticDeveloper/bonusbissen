@@ -1,5 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -11,7 +12,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -814,7 +814,7 @@ public class UserService {
         exchangeCode.setOrganization(reward.getPointProgram().getOrganization());
         exchangeCode.setPointTransaction(tx);
         exchangeCode.setUser(user);
-        exchangeCode.setCode(generateExchangeCode());
+        exchangeCode.setCode(generateExchangeCode(reward.getPointProgram().getOrganization().getId()));
         exchangeCodeRepository.save(exchangeCode);
 
         Map<String, Object> payload = new HashMap<>();
@@ -826,22 +826,37 @@ public class UserService {
         return new ClaimRewardResponse(exchangeCode.getCode());
     }
 
-    private String generateExchangeCode() {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
+    private static final SecureRandom EXCHANGE_CODE_RANDOM = new SecureRandom();
+    private static final int EXCHANGE_CODE_ATTEMPTS = 10;
 
-        StringBuilder code = new StringBuilder(6);
-
-        // First 4 characters: digits
-        for (int i = 0; i < 4; i++) {
-            code.append(random.nextInt(10));
+    /**
+     * A code no other active redemption of the organization holds. Only active codes must be
+     * unique (migration 18), so the pool is ~2.6M per organization minus its open redemptions and
+     * a clash is rare; checking first keeps it off the unique index, whose violation would abort
+     * the whole claim transaction. The format (4 digits, a letter, a digit) is what customers and
+     * the dashboard already know, so it is kept. SecureRandom because a code is what proves a
+     * redemption belongs to whoever shows it.
+     */
+    private String generateExchangeCode(UUID organizationId) {
+        for (int attempt = 0; attempt < EXCHANGE_CODE_ATTEMPTS; attempt++) {
+            String code = randomExchangeCode();
+            if (!exchangeCodeRepository.existsByOrganizationIdAndCodeAndActiveTrue(organizationId, code)) {
+                return code;
+            }
         }
+        throw new ConflictException(
+            "Could not find a free exchange code for organization " + organizationId + " after " + EXCHANGE_CODE_ATTEMPTS + " attempts.",
+            "No pudimos generar el código del canje. Probá de nuevo."
+        );
+    }
 
-        // Fifth character: lowercase letter
-        code.append((char) ('a' + random.nextInt(26)));
-
-        // Sixth character: digit
-        code.append(random.nextInt(10));
-
-        return code.toString().toLowerCase();
+    private static String randomExchangeCode() {
+        StringBuilder code = new StringBuilder(6);
+        for (int i = 0; i < 4; i++) {
+            code.append(EXCHANGE_CODE_RANDOM.nextInt(10));
+        }
+        code.append((char) ('a' + EXCHANGE_CODE_RANDOM.nextInt(26)));
+        code.append(EXCHANGE_CODE_RANDOM.nextInt(10));
+        return code.toString();
     }
 }

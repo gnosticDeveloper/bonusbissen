@@ -12,8 +12,19 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ExchangeCodeRepository extends JpaRepository<ExchangeCode, UUID> {
-    @Query(value = "select * from exchange_codes where code = :code and organization_id = :organizationId and active = true", nativeQuery = true)
-    Optional<ExchangeCode> findActiveByCodeAndOrganizationId(@Param("code") String code, @Param("organizationId") UUID organizationId);
+    /**
+     * The most recent code with this value in the organization, active or not. Only one can be
+     * active at a time (see migration 18), and while it is no newer one can be issued, so an
+     * active match is always the newest; an inactive one lets staff see the exchange was already
+     * resolved instead of a bare "not found".
+     */
+    @Query(
+        value = "select * from exchange_codes where code = :code and organization_id = :organizationId order by created_at desc limit 1",
+        nativeQuery = true
+    )
+    Optional<ExchangeCode> findLatestByCodeAndOrganizationId(@Param("code") String code, @Param("organizationId") UUID organizationId);
+
+    boolean existsByOrganizationIdAndCodeAndActiveTrue(UUID organizationId, String code);
 
     Optional<ExchangeCode> findByPointTransactionId(UUID pointTransactionId);
 

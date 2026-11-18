@@ -192,7 +192,7 @@ public class PointTransactionService {
     public ExchangeResponse verifyExchange(String code, UUID organizationId, UUID storefrontId, UUID callerId) {
         String normalized = normalizeCode(code);
         ExchangeCode exchangeCode = exchangeCodeRepository
-            .findActiveByCodeAndOrganizationId(normalized, organizationId)
+            .findLatestByCodeAndOrganizationId(normalized, organizationId)
             .orElseThrow(() ->
                 new NotFoundException("The redemption code does not exist.", "No pudimos encontrar el código de intercambio: " + normalized)
             );
@@ -303,6 +303,9 @@ public class PointTransactionService {
 
         pointTransaction.setState(TransactionState.DELIVERED);
         pointTransaction.setEmployee(employee);
+        if (pointTransaction.getExchangeCode() != null) {
+            pointTransaction.getExchangeCode().setActive(false);
+        }
         if (storefrontId != null) {
             storefrontRepository.findByIdAndOrganizationId(storefrontId, organizationId).ifPresent(pointTransaction::setStorefront);
         }

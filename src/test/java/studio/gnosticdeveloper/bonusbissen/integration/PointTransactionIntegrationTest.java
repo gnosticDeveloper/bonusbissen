@@ -540,6 +540,41 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void verifyingADeliveredCodeReportsItAsDeliveredAndFreesTheCode() {
+        createEmployee("cashier-verify-delivered", "password123", StaffRole.CASHIER);
+        String cashierToken = loginEmployee("cashier-verify-delivered", "password123");
+        User user = createUser("+5493462009901");
+        grant(cashierToken, user.getId(), 30);
+
+        Reward reward = createReward("Free Scone", 15);
+        String userToken = loginUser("+5493462009901");
+        claimReward(userToken, user.getId(), reward.getId());
+        PendingExchangeResponse pending = getSolePendingExchange(cashierToken, user.getId());
+
+        ResponseEntity<Void> approve = restTemplate.exchange(
+            baseUrl() + "/exchanges/approve",
+            HttpMethod.POST,
+            authed(cashierToken, new ApproveExchangeRequest(pending.id())),
+            Void.class
+        );
+        assertThat(approve.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        Boolean active = jdbc.queryForObject(
+            "select active from exchange_codes where point_transaction_id = ?", Boolean.class, pending.id()
+        );
+        assertThat(active).isFalse();
+
+        ResponseEntity<ExchangeResponse> verified = restTemplate.exchange(
+            baseUrl() + "/exchanges/verify",
+            HttpMethod.POST,
+            authed(cashierToken, new ExchangeVerifyRequest(pending.exchangeCode())),
+            ExchangeResponse.class
+        );
+        assertThat(verified.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(verified.getBody().state()).isEqualTo("delivered");
+    }
+
+    @Test
     void verifyExchangeWithUnknownCodeReturnsNotFound() {
         User cashier = createEmployee("cashier-verify-404", "password123", StaffRole.CASHIER);
         String token = loginEmployee("cashier-verify-404", "password123");
