@@ -224,7 +224,7 @@ class PointTransactionServiceTest {
         tx.setUser(user);
         tx.setPointProgram(program);
 
-        when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
+        when(pointTransactionRepository.findByIdForUpdate(tx.getId())).thenReturn(Optional.of(tx));
         when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         pointTransactionService.userCancelExchange(new UserCancelExchangeRequest(tx.getId()), user.getId());
@@ -252,7 +252,7 @@ class PointTransactionServiceTest {
         tx.setPoints(-15);
         tx.setUser(owner);
 
-        when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
+        when(pointTransactionRepository.findByIdForUpdate(tx.getId())).thenReturn(Optional.of(tx));
 
         assertThatThrownBy(() -> pointTransactionService.userCancelExchange(new UserCancelExchangeRequest(tx.getId()), caller))
             .isInstanceOf(AccessDeniedException.class);
@@ -270,7 +270,7 @@ class PointTransactionServiceTest {
         tx.setState(TransactionState.DELIVERED);
         tx.setUser(user);
 
-        when(pointTransactionRepository.findById(tx.getId())).thenReturn(Optional.of(tx));
+        when(pointTransactionRepository.findByIdForUpdate(tx.getId())).thenReturn(Optional.of(tx));
 
         assertThatThrownBy(() -> pointTransactionService.userCancelExchange(new UserCancelExchangeRequest(tx.getId()), user.getId()))
             .isInstanceOf(ConflictException.class);

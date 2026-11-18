@@ -368,10 +368,14 @@ public class PointTransactionService {
         }
     }
 
+    /**
+     * Row-locks the redemption like the cashier paths do: with a plain read, a cancel racing an
+     * approval would see PENDING, wait on the cashier's lock, then overwrite DELIVERED and refund.
+     */
     @Transactional
     public void userCancelExchange(UserCancelExchangeRequest request, UUID callerId) {
         PointTransaction pointTransaction = pointTransactionRepository
-            .findById(request.exchangeId())
+            .findByIdForUpdate(request.exchangeId())
             .orElseThrow(() ->
                 new NotFoundException(
                     "Point transaction not found: " + request.exchangeId(),
