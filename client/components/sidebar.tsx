@@ -168,7 +168,8 @@ export default function Sidebar({ sections, onNavigate, orgId, collapsed = false
                       initial={false}
                       animate={{ opacity: collapsed ? 0 : 1, x: collapsed ? -4 : 0 }}
                       transition={fade}
-                      className="whitespace-nowrap pr-3"
+                      // Expanded, a long label gives way (with an ellipsis) so the badge after it is never pushed out.
+                      className={cn("whitespace-nowrap pr-3", !collapsed && "min-w-0 truncate")}
                     >
                       {item.label}
                     </motion.span>

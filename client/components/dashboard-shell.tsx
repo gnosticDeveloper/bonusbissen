@@ -33,6 +33,48 @@ type DashboardShellProps = {
   children: React.ReactNode;
 };
 
+/**
+ * Scroll area of the navigation. The scrollbar is hidden because it would eat into the width of
+ * the links: in the 40px collapsed rail a 10px bar clips the icon and its badge. Edge fades show
+ * that there is more to scroll instead; wheel, touch and keyboard focus still scroll it.
+ * The 4px side padding (offset by the negative margin) keeps focus rings from being clipped.
+ */
+function NavScroller({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ top: false, bottom: false });
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const update = () => {
+      const top = element.scrollTop > 1;
+      const bottom = element.scrollTop + element.clientHeight < element.scrollHeight - 1;
+      setEdges((previous) => (previous.top === top && previous.bottom === bottom ? previous : { top, bottom }));
+    };
+    update();
+    // The container resizes with the window; the content, when the rail collapses or badges change.
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    if (element.firstElementChild) observer.observe(element.firstElementChild);
+    element.addEventListener("scroll", update, { passive: true });
+    return () => {
+      observer.disconnect();
+      element.removeEventListener("scroll", update);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      data-fade-top={edges.top || undefined}
+      data-fade-bottom={edges.bottom || undefined}
+      className="nav-scroller -mx-1 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1"
+    >
+      {children}
+    </div>
+  );
+}
+
 type StorefrontSwitcherProps = Pick<DashboardShellProps, "storefronts" | "activeStorefrontId"> & {
   collapsed?: boolean;
   onExpand?: VoidFunction;
@@ -243,9 +285,9 @@ export function DashboardShell({
             </motion.div>
           </AnimatePresence>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+          <NavScroller>
             <Sidebar orgId={orgId} sections={sections} badges={badges} onNavigate={() => {}} collapsed={collapsed} />
-          </div>
+          </NavScroller>
 
           <div className={cn("mt-auto flex items-center", collapsed && "justify-center")}>
             <AnimatePresence initial={false} mode="wait">
@@ -329,9 +371,9 @@ export function DashboardShell({
           </button>
         </div>
         <StorefrontSwitcher storefronts={storefronts} activeStorefrontId={activeStorefrontId} />
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <NavScroller>
           <Sidebar orgId={orgId} sections={sections} badges={badges} onNavigate={() => setIsDrawerOpen(false)} />
-        </div>
+        </NavScroller>
         <div className="mt-auto">
           <UserMenu slug={orgId} user={currentUser} />
         </div>
