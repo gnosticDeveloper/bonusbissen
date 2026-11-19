@@ -66,6 +66,17 @@ public class Invoice {
     @Column(name = "payment_reference")
     private String paymentReference;
 
+    /** What Mercado Pago charged; null until paid, and for invoices paid before migration 20. */
+    @Column(name = "paid_amount", precision = 12, scale = 2)
+    private BigDecimal paidAmount;
+
+    @Column(name = "paid_currency", length = 3)
+    private String paidCurrency;
+
+    /** Paid short of {@link #amount}, or in another currency -- see InvoiceService#applyPayment. */
+    @Column(name = "needs_reconciliation", nullable = false)
+    private boolean needsReconciliation;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 

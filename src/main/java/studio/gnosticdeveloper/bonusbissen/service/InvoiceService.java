@@ -113,15 +113,25 @@ public class InvoiceService {
 
     /**
      * Marks {@code invoice} PAID by {@code payment}. Must run inside the caller's
-     * transaction, with the org row already locked. An amount/currency mismatch
-     * (e.g. a payment charged at the old price right after a plan change) is
-     * logged, not rejected -- the money did move, and refusing it would just
-     * leave the invoice PENDING with no way to settle it.
+     * transaction, with the org row already locked. What was actually charged is kept on the
+     * invoice. A charge short of the invoice, or in another currency (e.g. one at the old price
+     * right after a plan change), still marks it paid -- the money did move, and refusing it would
+     * leave the invoice PENDING with no way to settle it -- but flags it for reconciliation
+     * (quality report B12). A missing amount or currency on the payment counts as unknown, not
+     * as a mismatch.
      */
     public void applyPayment(Invoice invoice, MercadoPagoPayment payment) {
-        if (payment.getAmount() != null && payment.getAmount().compareTo(invoice.getAmount()) != 0
-            || payment.getCurrency() != null && !payment.getCurrency().equals(invoice.getCurrency())) {
-            log.warn("Mercado Pago payment {} ({} {}) doesn't match invoice {} ({} {}); marking it paid anyway",
+        boolean shortPaid = payment.getAmount() != null && payment.getAmount().compareTo(invoice.getAmount()) < 0;
+        boolean otherCurrency = payment.getCurrency() != null && !payment.getCurrency().equals(invoice.getCurrency());
+        invoice.setPaidAmount(payment.getAmount());
+        invoice.setPaidCurrency(payment.getCurrency());
+        invoice.setNeedsReconciliation(shortPaid || otherCurrency);
+        if (shortPaid || otherCurrency) {
+            log.error("Mercado Pago payment {} ({} {}) is short of invoice {} ({} {}); marked paid and flagged for reconciliation",
+                payment.getAuthorizedPaymentId(), payment.getAmount(), payment.getCurrency(),
+                invoice.getId(), invoice.getAmount(), invoice.getCurrency());
+        } else if (payment.getAmount() != null && payment.getAmount().compareTo(invoice.getAmount()) > 0) {
+            log.warn("Mercado Pago payment {} ({} {}) is more than invoice {} ({} {})",
                 payment.getAuthorizedPaymentId(), payment.getAmount(), payment.getCurrency(),
                 invoice.getId(), invoice.getAmount(), invoice.getCurrency());
         }
