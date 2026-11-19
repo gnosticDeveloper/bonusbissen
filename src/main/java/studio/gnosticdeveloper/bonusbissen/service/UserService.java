@@ -138,6 +138,8 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
         sessionService.revokeAllForUser(userId);
+        // A user's own account change belongs to no organization.
+        traceabilityService.record(OperationType.PASSWORD_CHANGE, null, userId, userId, Map.of());
     }
 
     /**
@@ -199,7 +201,7 @@ public class UserService {
      * without this check, any admin could edit any user anywhere on the platform.
      */
     @Transactional
-    public User update(UUID id, UserUpdateRequest request, UUID callerOrganizationId) {
+    public User update(UUID id, UserUpdateRequest request, UUID callerOrganizationId, UUID actingUserId) {
         requireOrganizationRelationship(id, callerOrganizationId);
 
         User user = userRepository
@@ -208,6 +210,8 @@ public class UserService {
                 new NotFoundException("User with ID " + id + " was not found while updating profile.", "No pudimos encontrar tu usuario.")
             );
 
+        String previousName = user.getName();
+        String previousEmail = user.getEmail();
         user.setName(request.name().trim());
 
         String newEmail = EmailVerificationService.normalizeEmail(request.email());
@@ -231,6 +235,14 @@ public class UserService {
         }
 
         user = userRepository.save(user);
+
+        if (emailChanged || !Objects.equals(previousName, user.getName())) {
+            // The organization is the staff member's, or none for a user editing their own profile.
+            traceabilityService.record(
+                OperationType.USER_UPDATE, callerOrganizationId, actingUserId, id,
+                TraceabilityPayload.of("previousName", previousName, "name", user.getName(), "previousEmail", previousEmail, "email", user.getEmail())
+            );
+        }
 
         if (emailChanged && newEmail != null) {
             emailVerificationService.sendVerification(user);
@@ -266,7 +278,7 @@ public class UserService {
 
     /** {@code callerOrganizationId} null means self-service; non-null means staff, scoped to their own organization -- see {@link #update}. */
     @Transactional
-    public User reactivate(UUID id, UUID callerOrganizationId) {
+    public User reactivate(UUID id, UUID callerOrganizationId, UUID actingUserId) {
         requireOrganizationRelationship(id, callerOrganizationId);
 
         User user = userRepository
@@ -278,13 +290,18 @@ public class UserService {
                 )
             );
 
+        boolean wasActive = user.isActive();
         user.setActive(true);
-        return userRepository.save(user);
+        user = userRepository.save(user);
+        if (!wasActive) {
+            traceabilityService.record(OperationType.USER_REACTIVATE, callerOrganizationId, actingUserId, id, Map.of());
+        }
+        return user;
     }
 
     /** {@code callerOrganizationId} null means self-service; non-null means staff, scoped to their own organization -- see {@link #update}. */
     @Transactional
-    public void deleteById(UUID id, UUID callerOrganizationId) {
+    public void deleteById(UUID id, UUID callerOrganizationId, UUID actingUserId) {
         requireOrganizationRelationship(id, callerOrganizationId);
 
         User user = userRepository
@@ -296,9 +313,13 @@ public class UserService {
                 )
             );
 
+        boolean wasActive = user.isActive();
         user.setActive(false);
         userRepository.save(user);
         sessionService.revokeAllForUser(id);
+        if (wasActive) {
+            traceabilityService.record(OperationType.USER_DEACTIVATE, callerOrganizationId, actingUserId, id, Map.of());
+        }
     }
 
     /**
@@ -685,7 +706,7 @@ public class UserService {
         if (request.note() != null) {
             payload.put("note", request.note());
         }
-        traceabilityService.record(OperationType.POINTS_GRANT, employeeId, request.userId(), payload);
+        traceabilityService.record(OperationType.POINTS_GRANT, program.getOrganization().getId(), employeeId, request.userId(), payload);
         return new UserPointsAwardResponse(tx.getUser().getName(), request.points());
     }
 
@@ -757,7 +778,7 @@ public class UserService {
         payload.put("correctedTransactionId", original.getId());
         payload.put("points", delta);
         payload.put("note", correction.getNote());
-        traceabilityService.record(OperationType.POINTS_CORRECTION, callerId, userId, payload);
+        traceabilityService.record(OperationType.POINTS_CORRECTION, organizationId, callerId, userId, payload);
         return PointActionResponse.from(correction);
     }
 
@@ -878,7 +899,7 @@ public class UserService {
         payload.put("rewardId", reward.getId());
         payload.put("costPoints", reward.getCostPoints());
         payload.put("programId", reward.getPointProgram().getId());
-        traceabilityService.record(OperationType.REWARD_CLAIM, user.getId(), user.getId(), payload);
+        traceabilityService.record(OperationType.REWARD_CLAIM, reward.getPointProgram().getOrganization().getId(), user.getId(), user.getId(), payload);
 
         return new ClaimRewardResponse(exchangeCode.getCode());
     }

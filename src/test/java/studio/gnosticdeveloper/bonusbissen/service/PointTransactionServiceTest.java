@@ -219,6 +219,7 @@ class PointTransactionServiceTest {
 
         PointProgram program = new PointProgram();
         program.setId(UUID.randomUUID());
+        program.setOrganization(organization());
 
         PointTransaction tx = new PointTransaction();
         tx.setId(UUID.randomUUID());

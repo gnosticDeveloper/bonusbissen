@@ -102,25 +102,54 @@ public class StaffService {
         if (request.storefrontId() != null) {
             payload.put("storefrontId", request.storefrontId());
         }
-        traceabilityService.record(OperationType.STAFF_CREATE, actingUserId, user.getId(), payload);
+        traceabilityService.record(OperationType.STAFF_CREATE, organizationId, actingUserId, user.getId(), payload);
         return staff;
     }
 
     /** Adds storefronts to an existing staff member's assignment. */
     @Transactional
-    public OrganizationStaff attachStorefronts(UUID staffId, List<UUID> storefrontIds, UUID organizationId) {
+    public OrganizationStaff attachStorefronts(UUID staffId, List<UUID> storefrontIds, UUID organizationId, UUID actingUserId) {
         OrganizationStaff staff = getOwned(staffId, organizationId);
+        Set<UUID> before = assignedStorefrontIds(staff);
         staff.getStorefronts().addAll(resolveOwnedStorefronts(storefrontIds, organizationId));
-        return organizationStaffRepository.save(staff);
+        Set<UUID> attached = new HashSet<>(assignedStorefrontIds(staff));
+        attached.removeAll(before);
+        staff = organizationStaffRepository.save(staff);
+        recordStorefrontChange(staff, "attach", attached, organizationId, actingUserId);
+        return staff;
     }
 
     /** Removes storefronts from an existing staff member's assignment. */
     @Transactional
-    public OrganizationStaff detachStorefronts(UUID staffId, List<UUID> storefrontIds, UUID organizationId) {
+    public OrganizationStaff detachStorefronts(UUID staffId, List<UUID> storefrontIds, UUID organizationId, UUID actingUserId) {
         OrganizationStaff staff = getOwned(staffId, organizationId);
+        Set<UUID> before = assignedStorefrontIds(staff);
         Set<UUID> toDetach = new HashSet<>(storefrontIds);
         staff.getStorefronts().removeIf(s -> toDetach.contains(s.getId()));
-        return organizationStaffRepository.save(staff);
+        Set<UUID> detached = new HashSet<>(before);
+        detached.removeAll(assignedStorefrontIds(staff));
+        staff = organizationStaffRepository.save(staff);
+        recordStorefrontChange(staff, "detach", detached, organizationId, actingUserId);
+        return staff;
+    }
+
+    private static Set<UUID> assignedStorefrontIds(OrganizationStaff staff) {
+        Set<UUID> ids = new HashSet<>();
+        for (Storefront storefront : staff.getStorefronts()) {
+            ids.add(storefront.getId());
+        }
+        return ids;
+    }
+
+    /** Nothing is recorded when the request changed nothing (e.g. attaching a storefront already assigned). */
+    private void recordStorefrontChange(OrganizationStaff staff, String action, Set<UUID> changedStorefrontIds, UUID organizationId, UUID actingUserId) {
+        if (changedStorefrontIds.isEmpty()) {
+            return;
+        }
+        traceabilityService.record(
+            OperationType.STAFF_STOREFRONTS_UPDATE, organizationId, actingUserId, staff.getUser().getId(),
+            TraceabilityPayload.of("action", action, "storefrontIds", List.copyOf(changedStorefrontIds))
+        );
     }
 
     /**
@@ -154,7 +183,7 @@ public class StaffService {
         payload.put("organizationId", organizationId);
         payload.put("previousRole", previous.name());
         payload.put("newRole", request.role().name());
-        traceabilityService.record(OperationType.STAFF_ROLE_UPDATE, actingUserId, staff.getUser().getId(), payload);
+        traceabilityService.record(OperationType.STAFF_ROLE_UPDATE, organizationId, actingUserId, staff.getUser().getId(), payload);
         return staff;
     }
 
@@ -174,6 +203,10 @@ public class StaffService {
         staff.setActive(false);
         organizationStaffRepository.save(staff);
         sessionService.revokeAllForUser(staff.getUser().getId());
+        traceabilityService.record(
+            OperationType.STAFF_DEACTIVATE, organizationId, actingUserId, staff.getUser().getId(),
+            TraceabilityPayload.of("role", staff.getRole().name())
+        );
     }
 
     /**
@@ -185,7 +218,7 @@ public class StaffService {
     public void revokeSessions(UUID staffId, UUID organizationId, UUID actingUserId) {
         OrganizationStaff staff = getOwned(staffId, organizationId);
         sessionService.revokeAllForUser(staff.getUser().getId());
-        traceabilityService.record(OperationType.SESSION_REVOKE, actingUserId, staff.getUser().getId(), Map.of());
+        traceabilityService.record(OperationType.SESSION_REVOKE, organizationId, actingUserId, staff.getUser().getId(), Map.of());
     }
 
     private OrganizationStaff getOwned(UUID staffId, UUID organizationId) {

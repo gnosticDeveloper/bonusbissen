@@ -161,7 +161,7 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setEmailVerified(false);
         user = userRepository.save(user);
-        traceabilityService.record(OperationType.USER_CREATE, user.getId(), user.getId(), Map.of("username", user.getUsername()));
+        traceabilityService.record(OperationType.USER_CREATE, null, user.getId(), user.getId(), Map.of("username", user.getUsername()));
 
         if (email != null) {
             emailVerificationService.sendVerification(user);

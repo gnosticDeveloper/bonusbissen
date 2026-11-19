@@ -67,7 +67,7 @@ public class UserController {
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public UserResponse update(@PathVariable UUID id, @Valid @RequestBody UserUpdateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return UserResponse.from(userService.update(id, request, principal.organizationId()), storageService);
+        return UserResponse.from(userService.update(id, request, principal.organizationId(), principal.id()), storageService);
     }
 
     @GetMapping("/home-stats")
@@ -91,7 +91,7 @@ public class UserController {
     @PatchMapping("/me")
     @PreAuthorize("isAuthenticated()")
     public UserResponse updateSelf(@Valid @RequestBody UserUpdateRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return UserResponse.from(userService.update(principal.id(), request, null), storageService);
+        return UserResponse.from(userService.update(principal.id(), request, null, principal.id()), storageService);
     }
 
     @PostMapping(path = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -159,7 +159,7 @@ public class UserController {
     @PatchMapping("/{id}/reactivate")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     public UserResponse reactivate(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return UserResponse.from(userService.reactivate(id, principal.organizationId()), storageService);
+        return UserResponse.from(userService.reactivate(id, principal.organizationId(), principal.id()), storageService);
     }
 
     @DeleteMapping("/{id}")
@@ -167,14 +167,14 @@ public class UserController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteById(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
         requireSelfIfUser(id, principal);
-        userService.deleteById(id, principal.organizationId());
+        userService.deleteById(id, principal.organizationId(), principal.id());
     }
 
     @DeleteMapping("/me")
     @PreAuthorize("hasRole('USER')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteSelf(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        userService.deleteById(principal.id(), null);
+        userService.deleteById(principal.id(), null, principal.id());
     }
 
     @GetMapping("/{id}")

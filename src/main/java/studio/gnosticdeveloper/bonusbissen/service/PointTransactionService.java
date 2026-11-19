@@ -239,7 +239,7 @@ public class PointTransactionService {
         Map<String, Object> payload = new HashMap<>();
         payload.put("transactionId", pointTransaction.getId());
         payload.put("code", normalizedCode);
-        traceabilityService.record(OperationType.EXCHANGE_VERIFY, callerId, pointTransaction.getUser().getId(), payload);
+        traceabilityService.record(OperationType.EXCHANGE_VERIFY, pointTransaction.getPointProgram().getOrganization().getId(), callerId, pointTransaction.getUser().getId(), payload);
     }
 
     @Transactional
@@ -317,7 +317,7 @@ public class PointTransactionService {
         Map<String, Object> payload = new HashMap<>();
         payload.put("transactionId", pointTransaction.getId());
         payload.put("points", Math.abs(pointTransaction.getPoints()));
-        traceabilityService.record(OperationType.EXCHANGE_APPROVE, callerId, pointTransaction.getUser().getId(), payload);
+        traceabilityService.record(OperationType.EXCHANGE_APPROVE, pointTransaction.getPointProgram().getOrganization().getId(), callerId, pointTransaction.getUser().getId(), payload);
     }
 
     @Transactional
@@ -365,7 +365,7 @@ public class PointTransactionService {
         payload.put("transactionId", pointTransaction.getId());
         payload.put("points", Math.abs(pointTransaction.getPoints()));
         payload.put("refunded", request.shouldRefundPoints());
-        traceabilityService.record(OperationType.EXCHANGE_CANCEL, callerId, pointTransaction.getUser().getId(), payload);
+        traceabilityService.record(OperationType.EXCHANGE_CANCEL, pointTransaction.getPointProgram().getOrganization().getId(), callerId, pointTransaction.getUser().getId(), payload);
     }
 
     private void requireOwnership(PointTransaction pointTransaction, UUID organizationId) {
@@ -413,7 +413,7 @@ public class PointTransactionService {
         Map<String, Object> payload = new HashMap<>();
         payload.put("transactionId", pointTransaction.getId());
         payload.put("points", Math.abs(pointTransaction.getPoints()));
-        traceabilityService.record(OperationType.EXCHANGE_USER_CANCEL, callerId, callerId, payload);
+        traceabilityService.record(OperationType.EXCHANGE_USER_CANCEL, pointTransaction.getPointProgram().getOrganization().getId(), callerId, callerId, payload);
     }
 
     /** Gives the points back with the expiry dates they had -- see PointLedgerService#refundRedemption. */

@@ -2,8 +2,10 @@ package studio.gnosticdeveloper.bonusbissen.service;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -102,13 +104,13 @@ public class OrganizationService {
         Map<String, Object> payload = new HashMap<>();
         payload.put("role", StaffRole.ADMIN.name());
         payload.put("organizationId", organization.getId());
-        traceabilityService.record(OperationType.STAFF_CREATE, creatorUserId, creatorUserId, payload);
+        traceabilityService.record(OperationType.STAFF_CREATE, organization.getId(), creatorUserId, creatorUserId, payload);
         onboardingService.markOrganizationCreated(creatorUserId, organization.getId());
         return organization;
     }
 
     @Transactional
-    public void deactivate(UUID id) {
+    public void deactivate(UUID id, UUID actingUserId) {
         Organization organization = getById(id);
         organization.setActive(false);
         organizationRepository.save(organization);
@@ -120,6 +122,13 @@ public class OrganizationService {
         pointProgramRepository.deactivateAllByOrganizationId(id);
 
         staff.forEach(s -> sessionService.revokeAllForUser(s.getUser().getId()));
+        // The staff who lost access are the affected users; customers are too, but not enumerated.
+        Set<UUID> affectedStaff = new HashSet<>();
+        staff.forEach(s -> affectedStaff.add(s.getUser().getId()));
+        traceabilityService.record(
+            OperationType.ORGANIZATION_DEACTIVATE, id, actingUserId, affectedStaff,
+            TraceabilityPayload.of("organizationId", id)
+        );
     }
 
     @Transactional(readOnly = true)

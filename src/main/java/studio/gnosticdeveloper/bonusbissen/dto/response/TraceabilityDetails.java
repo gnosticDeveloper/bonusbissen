@@ -13,4 +13,13 @@ public sealed interface TraceabilityDetails
         ExchangeVerifyDetails,
         ExchangeApproveDetails,
         ExchangeCancelDetails,
-        ExchangeUserCancelDetails {}
+        ExchangeUserCancelDetails,
+        StaffDeactivateDetails,
+        StaffStorefrontsUpdateDetails,
+        UserUpdateDetails,
+        UserDeactivateDetails,
+        UserReactivateDetails,
+        PasswordChangeDetails,
+        PointProgramUpdateDetails,
+        ProgramStorefrontsUpdateDetails,
+        OrganizationDeactivateDetails {}

@@ -28,6 +28,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
+import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
@@ -129,6 +130,9 @@ class UserServiceTest {
         PointProgram program = new PointProgram();
         program.setId(PROGRAM_ID);
         program.setActive(true);
+        Organization organization = new Organization();
+        organization.setId(ORGANIZATION_ID);
+        program.setOrganization(organization);
         Storefront storefront = new Storefront();
         storefront.setId(STOREFRONT_ID);
         storefront.setPointProgram(program);
@@ -192,7 +196,7 @@ class UserServiceTest {
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
         when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        userService.deleteById(id, null);
+        userService.deleteById(id, null, id);
 
         assertThat(user.isActive()).isFalse();
         verify(sessionService).revokeAllForUser(id);
@@ -331,7 +335,7 @@ class UserServiceTest {
         UUID id = UUID.randomUUID();
         when(userRepository.findById(id)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.deleteById(id, null)).isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> userService.deleteById(id, null, id)).isInstanceOf(NotFoundException.class);
     }
 
     @Test
@@ -951,7 +955,7 @@ class UserServiceTest {
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
         when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        User updated = userService.update(id, new UserUpdateRequest("Someone Else", "someone@example.com"), null);
+        User updated = userService.update(id, new UserUpdateRequest("Someone Else", "someone@example.com"), null, id);
 
         assertThat(updated.getName()).isEqualTo("Someone Else");
         assertThat(updated.isEmailVerified()).isTrue();
@@ -959,11 +963,115 @@ class UserServiceTest {
     }
 
     @Test
+    void staffEditingACustomersEmailIsAuditedInTheStaffsOrganization() {
+        UUID id = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setName("Carla");
+        user.setEmail("carla@example.com");
+        user.setEmailVerified(true);
+        when(userPointProgramRepository.existsByUserIdAndOrganizationId(id, ORGANIZATION_ID)).thenReturn(true);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("other@example.com")).thenReturn(Optional.empty());
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.update(id, new UserUpdateRequest("Carla", "other@example.com"), ORGANIZATION_ID, adminId);
+
+        verify(traceabilityService).record(
+            eq(OperationType.USER_UPDATE), eq(ORGANIZATION_ID), eq(adminId), eq(id),
+            argThat(payload -> "carla@example.com".equals(payload.get("previousEmail")) && "other@example.com".equals(payload.get("email")))
+        );
+    }
+
+    @Test
+    void aUsersOwnProfileEditIsAuditedWithoutAnOrganization() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setName("Someone");
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.update(id, new UserUpdateRequest("Someone Else", null), null, id);
+
+        verify(traceabilityService).record(
+            eq(OperationType.USER_UPDATE), isNull(), eq(id), eq(id),
+            argThat(payload -> "Someone".equals(payload.get("previousName")) && "Someone Else".equals(payload.get("name")) && !payload.containsKey("email"))
+        );
+    }
+
+    @Test
+    void savingAProfileWithNothingChangedIsNotAudited() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setName("Someone");
+        user.setEmail("someone@example.com");
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.update(id, new UserUpdateRequest("Someone", "someone@example.com"), null, id);
+
+        verify(traceabilityService, never()).record(any(), any(), any(), any(UUID.class), any());
+    }
+
+    @Test
+    void reactivatingIsAuditedOnlyWhenTheAccountWasInactive() {
+        UUID id = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setActive(false);
+        when(userPointProgramRepository.existsByUserIdAndOrganizationId(id, ORGANIZATION_ID)).thenReturn(true);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.reactivate(id, ORGANIZATION_ID, adminId);
+        userService.reactivate(id, ORGANIZATION_ID, adminId);
+
+        verify(traceabilityService, times(1)).record(eq(OperationType.USER_REACTIVATE), eq(ORGANIZATION_ID), eq(adminId), eq(id), any());
+    }
+
+    @Test
+    void deactivatingIsAuditedOnlyWhenTheAccountWasActive() {
+        UUID id = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setActive(true);
+        when(userPointProgramRepository.existsByUserIdAndOrganizationId(id, ORGANIZATION_ID)).thenReturn(true);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.deleteById(id, ORGANIZATION_ID, adminId);
+        userService.deleteById(id, ORGANIZATION_ID, adminId);
+
+        verify(traceabilityService, times(1)).record(eq(OperationType.USER_DEACTIVATE), eq(ORGANIZATION_ID), eq(adminId), eq(id), any());
+    }
+
+    @Test
+    void changingYourOwnPasswordIsAuditedWithoutAnOrganization() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        user.setPasswordHash("old-hash");
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("current-password", "old-hash")).thenReturn(true);
+        when(passwordEncoder.encode("newpassword123")).thenReturn("new-hash");
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.changeOwnPassword(userId, "current-password", "newpassword123");
+
+        verify(traceabilityService).record(eq(OperationType.PASSWORD_CHANGE), isNull(), eq(userId), eq(userId), any());
+    }
+
+    @Test
     void updateWithUnknownIdThrowsNotFound() {
         UUID id = UUID.randomUUID();
         when(userRepository.findById(id)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.update(id, new UserUpdateRequest("Someone", "someone@example.com"), null))
+        assertThatThrownBy(() -> userService.update(id, new UserUpdateRequest("Someone", "someone@example.com"), null, id))
             .isInstanceOf(NotFoundException.class);
     }
 
@@ -980,7 +1088,7 @@ class UserServiceTest {
         when(userRepository.findByEmail("new@example.com")).thenReturn(Optional.empty());
         when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        User updated = userService.update(id, new UserUpdateRequest("Someone", "NEW@example.com"), null);
+        User updated = userService.update(id, new UserUpdateRequest("Someone", "NEW@example.com"), null, id);
 
         assertThat(updated.getEmail()).isEqualTo("new@example.com");
         assertThat(updated.isEmailVerified()).isFalse();
@@ -1001,7 +1109,7 @@ class UserServiceTest {
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
         when(userRepository.findByEmail("taken@example.com")).thenReturn(Optional.of(other));
 
-        assertThatThrownBy(() -> userService.update(id, new UserUpdateRequest("Someone", "taken@example.com"), null))
+        assertThatThrownBy(() -> userService.update(id, new UserUpdateRequest("Someone", "taken@example.com"), null, id))
             .isInstanceOf(ConflictException.class);
 
         verify(userRepository, never()).save(any());
@@ -1018,7 +1126,7 @@ class UserServiceTest {
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
         when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        userService.update(id, new UserUpdateRequest("Someone New", "same@example.com"), null);
+        userService.update(id, new UserUpdateRequest("Someone New", "same@example.com"), null, id);
 
         verify(userRepository, never()).findByEmail(any());
     }

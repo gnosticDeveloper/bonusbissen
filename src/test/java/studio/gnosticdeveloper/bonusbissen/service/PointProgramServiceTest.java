@@ -6,6 +6,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
@@ -24,6 +25,7 @@ import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,6 +34,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -54,6 +59,8 @@ class PointProgramServiceTest {
     private OnboardingService onboardingService;
     @Mock
     private SubscriptionGuard subscriptionGuard;
+    @Mock
+    private TraceabilityService traceabilityService;
 
     @InjectMocks
     private PointProgramService pointProgramService;
@@ -62,6 +69,7 @@ class PointProgramServiceTest {
     private static final UUID USER_ID = UUID.randomUUID();
     private static final UUID ORGANIZATION_ID = UUID.randomUUID();
     private static final UUID STOREFRONT_ID = UUID.randomUUID();
+    private static final UUID ACTING_USER_ID = UUID.randomUUID();
 
     private PointProgram activeProgram() {
         PointProgram program = new PointProgram();
@@ -93,11 +101,59 @@ class PointProgramServiceTest {
         when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.of(program));
         when(pointProgramRepository.saveAndFlush(program)).thenReturn(program);
 
-        pointProgramService.update(PROGRAM_ID, new PointProgramUpdateRequest("Points", null, true, 6), ORGANIZATION_ID);
+        pointProgramService.update(PROGRAM_ID, new PointProgramUpdateRequest("Points", null, true, 6), ORGANIZATION_ID, ACTING_USER_ID);
 
         assertThat(program.getExpirationMonths()).isEqualTo(6);
         verify(pointTransactionRepository).backfillExpiresAt(PROGRAM_ID, 6);
         verifyNoMoreInteractions(pointTransactionRepository);
+    }
+
+    @Test
+    void changingTheExpirationPeriodIsAuditedWithBeforeAndAfter() {
+        PointProgram program = activeProgram();
+        program.setName("Points");
+        program.setExpirationMonths(3);
+        when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.of(program));
+        when(pointProgramRepository.saveAndFlush(program)).thenReturn(program);
+
+        pointProgramService.update(PROGRAM_ID, new PointProgramUpdateRequest("Points", null, true, 6), ORGANIZATION_ID, ACTING_USER_ID);
+
+        verify(traceabilityService).record(
+            eq(OperationType.POINT_PROGRAM_UPDATE), eq(ORGANIZATION_ID), eq(ACTING_USER_ID), eq(Set.<UUID>of()),
+            argThat(payload -> PROGRAM_ID.equals(payload.get("programId"))
+                && Integer.valueOf(3).equals(payload.get("previousExpirationMonths"))
+                && Integer.valueOf(6).equals(payload.get("expirationMonths"))
+                && Boolean.TRUE.equals(payload.get("previousActive")) && Boolean.TRUE.equals(payload.get("active")))
+        );
+    }
+
+    @Test
+    void updatingAProgramWithNothingNewIsNotAudited() {
+        PointProgram program = activeProgram();
+        program.setName("Points");
+        program.setExpirationMonths(6);
+        when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.of(program));
+        when(pointProgramRepository.saveAndFlush(program)).thenReturn(program);
+
+        pointProgramService.update(PROGRAM_ID, new PointProgramUpdateRequest("Points", null, true, 6), ORGANIZATION_ID, ACTING_USER_ID);
+
+        verify(traceabilityService, never()).record(any(), any(), any(), any(Set.class), any());
+    }
+
+    @Test
+    void attachingAStorefrontIsAuditedButReattachingTheSameOneIsNot() {
+        PointProgram program = activeProgram();
+        Storefront storefront = storefrontWithProgram(null);
+        when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.of(program));
+        when(storefrontRepository.findByIdAndOrganizationId(STOREFRONT_ID, ORGANIZATION_ID)).thenReturn(Optional.of(storefront));
+
+        pointProgramService.attachStorefronts(PROGRAM_ID, List.of(STOREFRONT_ID), ORGANIZATION_ID, ACTING_USER_ID);
+        pointProgramService.attachStorefronts(PROGRAM_ID, List.of(STOREFRONT_ID), ORGANIZATION_ID, ACTING_USER_ID);
+
+        verify(traceabilityService, times(1)).record(
+            eq(OperationType.PROGRAM_STOREFRONTS_UPDATE), eq(ORGANIZATION_ID), eq(ACTING_USER_ID), eq(Set.<UUID>of()),
+            argThat(payload -> "attach".equals(payload.get("action")) && List.of(STOREFRONT_ID).equals(payload.get("storefrontIds")))
+        );
     }
 
     @Test
@@ -107,7 +163,7 @@ class PointProgramServiceTest {
         when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.of(program));
         when(pointProgramRepository.saveAndFlush(program)).thenReturn(program);
 
-        pointProgramService.update(PROGRAM_ID, new PointProgramUpdateRequest("Points", null, true, null), ORGANIZATION_ID);
+        pointProgramService.update(PROGRAM_ID, new PointProgramUpdateRequest("Points", null, true, null), ORGANIZATION_ID, ACTING_USER_ID);
 
         assertThat(program.getExpirationMonths()).isNull();
         verify(pointTransactionRepository).clearExpiresAt(PROGRAM_ID);
@@ -206,7 +262,7 @@ class PointProgramServiceTest {
         when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.of(target));
         when(storefrontRepository.findByIdAndOrganizationId(STOREFRONT_ID, ORGANIZATION_ID)).thenReturn(Optional.of(storefront));
 
-        assertThatThrownBy(() -> pointProgramService.attachStorefronts(PROGRAM_ID, List.of(STOREFRONT_ID), ORGANIZATION_ID))
+        assertThatThrownBy(() -> pointProgramService.attachStorefronts(PROGRAM_ID, List.of(STOREFRONT_ID), ORGANIZATION_ID, ACTING_USER_ID))
             .isInstanceOf(ConflictException.class);
 
         verify(storefrontRepository, never()).save(any());
