@@ -5,12 +5,15 @@ import java.time.Duration;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
@@ -435,7 +438,39 @@ public class UserService {
             throw new AccessDeniedException("Storefront " + storefrontId + " does not belong to organization " + callerOrganizationId + ".");
         }
         List<PointTransaction> movements = pointTransactionRepository.findAllByUserIdAndStorefrontIdOrderByCreatedAtDesc(userId, storefrontId);
-        return movements.stream().map(this::toMovementResponse).toList();
+        // A cancelled redemption is refunded as one lot per lot it spent (each keeps its expiry
+        // date, see PointLedgerService#refundRedemption); the history shows it as one line.
+        List<MovementResponse> responses = new ArrayList<>();
+        Map<UUID, Integer> refundLineByRedemption = new HashMap<>();
+        for (PointTransaction mv : movements) {
+            if (mv.getRefundedTransaction() == null) {
+                responses.add(toMovementResponse(mv));
+                continue;
+            }
+            Integer line = refundLineByRedemption.get(mv.getRefundedTransaction().getId());
+            if (line == null) {
+                refundLineByRedemption.put(mv.getRefundedTransaction().getId(), responses.size());
+                responses.add(toMovementResponse(mv));
+            } else {
+                responses.set(line, mergeRefundParts(responses.get(line), mv));
+            }
+        }
+        return responses;
+    }
+
+    /** One refund line: the parts' points added up, showing the soonest of their expiry dates. */
+    private static MovementResponse mergeRefundParts(MovementResponse line, PointTransaction part) {
+        OffsetDateTime partExpiresAt = part.getApplicableExpiresAt();
+        String expiresAt = line.expiresAt();
+        if (partExpiresAt != null && (expiresAt == null || partExpiresAt.isBefore(OffsetDateTime.parse(expiresAt)))) {
+            expiresAt = partExpiresAt.toString();
+        }
+        return new MovementResponse(
+            line.id(), line.type(), line.points() + part.getPoints(), line.imageUrl(), line.title(), line.orgName(),
+            line.storefrontName(), line.pointsLabel(), line.formattedCreatedAt(), line.correction(),
+            line.correctedTransactionId(), line.correctedTransactionAmount(), line.createdAt(), expiresAt,
+            line.expirationApplicable()
+        );
     }
 
     private MovementResponse toMovementResponse(PointTransaction mv) {
@@ -518,9 +553,18 @@ public class UserService {
         }
         UUID resolvedProgramId = balanceProgramId;
         String term = search == null || search.isBlank() ? null : search.trim();
-        return userRepository
-            .search(term, organizationId, callerRole.dbValue(), pageable)
-            .map(user -> UserPointsResponse.from(user, resolvedProgramId != null ? getBalance(user.getId(), resolvedProgramId) : null));
+        Page<User> page = userRepository.search(term, organizationId, callerRole.dbValue(), pageable);
+        if (page.isEmpty()) {
+            return page.map(user -> UserPointsResponse.from(user, null));
+        }
+        // People outside the organization only match an exact username or email (see
+        // UserRepository#SEARCH_WHERE); they come back without their email or a balance.
+        Set<UUID> related = new HashSet<>(userRepository.findIdsRelatedToOrganization(
+            page.getContent().stream().map(User::getId).toList(), organizationId
+        ));
+        return page.map(user -> related.contains(user.getId())
+            ? UserPointsResponse.from(user, resolvedProgramId != null ? getBalance(user.getId(), resolvedProgramId) : null)
+            : UserPointsResponse.outsider(user));
     }
 
     /** Top 10 customers of the selected storefront's program in the dashboard window; empty without a program. */
@@ -684,9 +728,22 @@ public class UserService {
         correction.setPoints((int) delta);
         correction.setNote(request.note().trim());
         correction.setState(TransactionState.DELIVERED);
+        if (delta > 0) {
+            // A positive correction is a lot of its own; it expires with the grant it adds to. A
+            // grant without a deadline (a standalone deduction, or one voided by an earlier
+            // correction) falls back to the program's period from today, as a new grant would.
+            correction.setExpiresAt(original.getExpiresAt() != null
+                ? original.getExpiresAt()
+                : original.getPointProgram().computeExpiresAt(OffsetDateTime.now()));
+        }
         correction = pointTransactionRepository.save(correction);
         if (delta < 0) {
-            pointLedgerService.consumeFifo(userId, programId, -(int) delta);
+            if (original.isLot()) {
+                // Take the points off the grant being corrected, not off the oldest open lot.
+                pointLedgerService.reduceLot(original, -(int) delta);
+            } else {
+                pointLedgerService.consumeFifo(userId, programId, -(int) delta);
+            }
         }
         if (request.points() <= 0) {
             // Fully (or over-) reversed by this correction -- void it so it's inert now, and stays
@@ -808,7 +865,7 @@ public class UserService {
         tx.setTransactionType(TransactionType.REDEEM);
         tx.setState(TransactionState.PENDING);
         tx = pointTransactionRepository.save(tx);
-        pointLedgerService.consumeFifo(user.getId(), reward.getPointProgram().getId(), reward.getCostPoints());
+        pointLedgerService.consumeForRedemption(tx);
 
         ExchangeCode exchangeCode = new ExchangeCode();
         exchangeCode.setOrganization(reward.getPointProgram().getOrganization());

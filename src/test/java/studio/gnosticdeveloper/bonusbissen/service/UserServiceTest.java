@@ -218,6 +218,8 @@ class UserServiceTest {
         user.setCreatedAt(OffsetDateTime.now());
 
         when(userRepository.search(eq("abc"), eq(ORGANIZATION_ID), eq("cashier"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
+
+        when(userRepository.findIdsRelatedToOrganization(List.of(user.getId()), ORGANIZATION_ID)).thenReturn(List.of(user.getId()));
         when(pointProgramRepository.existsByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(true);
         when(pointTransactionRepository.calculateBalance(user.getId(), PROGRAM_ID)).thenReturn(50);
 
@@ -237,6 +239,8 @@ class UserServiceTest {
         user.setCreatedAt(OffsetDateTime.now());
 
         when(userRepository.search(isNull(), eq(ORGANIZATION_ID), eq("cashier"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
+
+        when(userRepository.findIdsRelatedToOrganization(List.of(user.getId()), ORGANIZATION_ID)).thenReturn(List.of(user.getId()));
 
         Page<UserPointsResponse> result = userService.search(null, null, ORGANIZATION_ID, StaffRole.CASHIER, null, pageable);
 
@@ -261,6 +265,7 @@ class UserServiceTest {
         storefront.setPointProgram(program);
         when(storefrontRepository.findById(STOREFRONT_ID)).thenReturn(Optional.of(storefront));
         when(userRepository.search(isNull(), eq(ORGANIZATION_ID), eq("cashier"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
+        when(userRepository.findIdsRelatedToOrganization(List.of(user.getId()), ORGANIZATION_ID)).thenReturn(List.of(user.getId()));
         when(pointTransactionRepository.calculateBalance(user.getId(), PROGRAM_ID)).thenReturn(75);
 
         Page<UserPointsResponse> result = userService.search(null, null, ORGANIZATION_ID, StaffRole.CASHIER, STOREFRONT_ID, pageable);
@@ -282,10 +287,36 @@ class UserServiceTest {
         storefront.setPointProgram(program);
         when(storefrontRepository.findById(STOREFRONT_ID)).thenReturn(Optional.of(storefront));
         when(userRepository.search(isNull(), eq(ORGANIZATION_ID), eq("cashier"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
+        when(userRepository.findIdsRelatedToOrganization(List.of(user.getId()), ORGANIZATION_ID)).thenReturn(List.of(user.getId()));
 
         Page<UserPointsResponse> result = userService.search(null, null, ORGANIZATION_ID, StaffRole.CASHIER, STOREFRONT_ID, pageable);
 
         assertThat(result.getContent()).containsExactly(UserPointsResponse.from(user, null));
+    }
+
+    @Test
+    void searchHidesEmailAndBalanceOfPeopleOutsideTheOrganization() {
+        Pageable pageable = PageRequest.of(0, 10);
+        User outsider = new User();
+        outsider.setId(UUID.randomUUID());
+        outsider.setName("New Hire");
+        outsider.setUsername("newhire");
+        outsider.setEmail("newhire@example.com");
+        outsider.setEmailVerified(true);
+        outsider.setCreatedAt(OffsetDateTime.now());
+
+        when(userRepository.search(eq("newhire"), eq(ORGANIZATION_ID), eq("admin"), eq(pageable))).thenReturn(new PageImpl<>(List.of(outsider)));
+        when(pointProgramRepository.existsByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(true);
+        when(userRepository.findIdsRelatedToOrganization(List.of(outsider.getId()), ORGANIZATION_ID)).thenReturn(List.of());
+
+        Page<UserPointsResponse> result = userService.search("newhire", PROGRAM_ID, ORGANIZATION_ID, StaffRole.ADMIN, null, pageable);
+
+        UserPointsResponse found = result.getContent().get(0);
+        assertThat(found.username()).isEqualTo("newhire");
+        assertThat(found.email()).isNull();
+        assertThat(found.emailVerified()).isFalse();
+        assertThat(found.points()).isNull();
+        verify(pointTransactionRepository, never()).calculateBalance(any(), any());
     }
 
     @Test
@@ -688,6 +719,7 @@ class UserServiceTest {
         expired.setExpiredTransaction(earn);
         PointTransaction adjust = grantTransaction(ORGANIZATION_ID);
         adjust.setTransactionType(TransactionType.ADJUST);
+        adjust.setPoints(-30);
         PointTransaction redeem = grantTransaction(ORGANIZATION_ID);
         redeem.setTransactionType(TransactionType.REDEEM);
         Reward reward = new Reward();
@@ -714,6 +746,35 @@ class UserServiceTest {
         assertThat(history.get(4).expiresAt()).isNull();
         assertThat(history.get(5).expirationApplicable()).isFalse();
         assertThat(history.get(5).expiresAt()).isNull();
+    }
+
+    @Test
+    void movementHistoryShowsARefundSplitAcrossLotsAsOneLine() {
+        UUID userId = UUID.randomUUID();
+        PointTransaction redemption = grantTransaction(ORGANIZATION_ID);
+        redemption.setTransactionType(TransactionType.REDEEM);
+        redemption.setPoints(-500);
+        Reward reward = new Reward();
+        reward.setTitle("Coffee");
+        redemption.setReward(reward);
+        PointTransaction laterPart = grantTransaction(ORGANIZATION_ID);
+        laterPart.setPoints(200);
+        laterPart.setRefundedTransaction(redemption);
+        laterPart.setExpiresAt(laterPart.getCreatedAt().plusDays(90));
+        PointTransaction soonerPart = grantTransaction(ORGANIZATION_ID);
+        soonerPart.setPoints(300);
+        soonerPart.setRefundedTransaction(redemption);
+        soonerPart.setExpiresAt(soonerPart.getCreatedAt().plusDays(2));
+        when(pointTransactionRepository.findAllByUserIdAndStorefrontIdOrderByCreatedAtDesc(userId, STOREFRONT_ID))
+            .thenReturn(List.of(laterPart, soonerPart, redemption));
+
+        List<MovementResponse> history = userService.getMovementsByUserId(userId, STOREFRONT_ID, null);
+
+        assertThat(history).hasSize(2);
+        assertThat(history.get(0).id()).isEqualTo(laterPart.getId());
+        assertThat(history.get(0).points()).isEqualTo(500);
+        assertThat(history.get(0).expiresAt()).isEqualTo(soonerPart.getExpiresAt().toString());
+        assertThat(history.get(1).points()).isEqualTo(-500);
     }
 
     @Test

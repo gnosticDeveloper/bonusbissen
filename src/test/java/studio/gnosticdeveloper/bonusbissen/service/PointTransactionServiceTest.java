@@ -2,7 +2,6 @@ package studio.gnosticdeveloper.bonusbissen.service;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -19,7 +18,6 @@ import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
-import studio.gnosticdeveloper.bonusbissen.entity.TransactionType;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
@@ -54,6 +52,9 @@ class PointTransactionServiceTest {
     private StorefrontRepository storefrontRepository;
     @Mock
     private TraceabilityService traceabilityService;
+
+    @Mock
+    private PointLedgerService pointLedgerService;
 
     @InjectMocks
     private PointTransactionService pointTransactionService;
@@ -204,15 +205,11 @@ class PointTransactionServiceTest {
 
         pointTransactionService.cancelExchange(new CancelExchangeRequest(tx.getId(), true), organization.getId(), employee.getId());
 
-        ArgumentCaptor<PointTransaction> captor = ArgumentCaptor.forClass(PointTransaction.class);
-        verify(pointTransactionRepository, times(2)).save(captor.capture());
-
-        PointTransaction refund = captor.getAllValues().get(1);
-        assertThat(refund.getPoints()).isEqualTo(20);
-        assertThat(refund.getTransactionType()).isEqualTo(TransactionType.EARN);
-        assertThat(refund.getState()).isEqualTo(TransactionState.DELIVERED);
-        assertThat(refund.getUser()).isEqualTo(user);
-        assertThat(refund.getPointProgram()).isSameAs(tx.getPointProgram());
+        assertThat(tx.getState()).isEqualTo(TransactionState.CANCELLED);
+        verify(pointTransactionRepository).save(tx);
+        // What the refund looks like (one lot per spent lot, original expiry dates) is
+        // PointLedgerService's job -- covered end to end in PointTransactionIntegrationTest.
+        verify(pointLedgerService).refundRedemption(tx);
     }
 
     @Test
@@ -236,14 +233,8 @@ class PointTransactionServiceTest {
         pointTransactionService.userCancelExchange(new UserCancelExchangeRequest(tx.getId()), user.getId());
 
         assertThat(tx.getState()).isEqualTo(TransactionState.CANCELLED);
-
-        ArgumentCaptor<PointTransaction> captor = ArgumentCaptor.forClass(PointTransaction.class);
-        verify(pointTransactionRepository, times(2)).save(captor.capture());
-
-        PointTransaction refund = captor.getAllValues().get(1);
-        assertThat(refund.getPoints()).isEqualTo(15);
-        assertThat(refund.getTransactionType()).isEqualTo(TransactionType.EARN);
-        assertThat(refund.getState()).isEqualTo(TransactionState.DELIVERED);
+        verify(pointTransactionRepository).save(tx);
+        verify(pointLedgerService).refundRedemption(tx);
     }
 
     @Test

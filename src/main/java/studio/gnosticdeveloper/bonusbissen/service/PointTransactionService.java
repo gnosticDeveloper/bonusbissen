@@ -56,6 +56,7 @@ public class PointTransactionService {
     private final StorefrontRepository storefrontRepository;
     private final TraceabilityService traceabilityService;
     private final StorageService storageService;
+    private final PointLedgerService pointLedgerService;
 
     public PointTransactionService(
         PointTransactionRepository pointTransactionRepository,
@@ -64,7 +65,8 @@ public class PointTransactionService {
         PointProgramRepository pointProgramRepository,
         StorefrontRepository storefrontRepository,
         TraceabilityService traceabilityService,
-        StorageService storageService
+        StorageService storageService,
+        PointLedgerService pointLedgerService
     ) {
         this.pointTransactionRepository = pointTransactionRepository;
         this.exchangeCodeRepository = exchangeCodeRepository;
@@ -73,6 +75,7 @@ public class PointTransactionService {
         this.storefrontRepository = storefrontRepository;
         this.traceabilityService = traceabilityService;
         this.storageService = storageService;
+        this.pointLedgerService = pointLedgerService;
     }
 
     private String resolveThumbnailUrl(String imagePath) {
@@ -413,15 +416,8 @@ public class PointTransactionService {
         traceabilityService.record(OperationType.EXCHANGE_USER_CANCEL, callerId, callerId, payload);
     }
 
+    /** Gives the points back with the expiry dates they had -- see PointLedgerService#refundRedemption. */
     private void refundTransaction(PointTransaction pointTransaction) {
-        PointTransaction refundTransaction = new PointTransaction();
-        refundTransaction.setRefundedTransaction(pointTransaction);
-        refundTransaction.setUser(pointTransaction.getUser());
-        refundTransaction.setPointProgram(pointTransaction.getPointProgram());
-        refundTransaction.setStorefront(pointTransaction.getStorefront());
-        refundTransaction.setPoints(Math.abs(pointTransaction.getPoints()));
-        refundTransaction.setTransactionType(TransactionType.EARN);
-        refundTransaction.setState(TransactionState.DELIVERED);
-        pointTransactionRepository.save(refundTransaction);
+        pointLedgerService.refundRedemption(pointTransaction);
     }
 }
