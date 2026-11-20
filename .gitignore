@@ -41,3 +41,6 @@ build/
 .vscode/
 
 .bonusbissen/
+
+# Local image uploads when running with SPRING_PROFILES_ACTIVE=dev
+/.dev-uploads/

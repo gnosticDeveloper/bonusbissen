@@ -9,7 +9,7 @@ import { appendRewardFields } from "./helpers";
 import { Reward } from "@/lib/types/reward";
 import { useModal } from "@/components/modal";
 import { editReward } from "@/app/d/[slug]/gestion-recompensas/actions";
-import { validateImageUpload } from "@/lib/image-upload";
+import { validateRewardImage } from "@/lib/image-upload";
 
 interface Props {
   reward: Reward;
@@ -23,23 +23,46 @@ export function UpdateRewardModal({ reward }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(reward?.imageUrl ?? null);
   const [removeImage, setRemoveImage] = useState(false);
+  const [checkingImage, setCheckingImage] = useState(false);
+  // Bumped on every selection change, so a slow check can't apply to a file that was already replaced.
+  const imageCheck = useRef(0);
 
-  function handleFileChange(file?: File) {
+  async function handleFileChange(file?: File) {
     setError(null);
-    if (!file) return;
+    const check = ++imageCheck.current;
+    if (!file) {
+      setCheckingImage(false);
+      return;
+    }
 
-    const errorText = validateImageUpload(file);
+    setCheckingImage(true);
+    const errorText = await validateRewardImage(file);
+    if (check !== imageCheck.current) return;
+    setCheckingImage(false);
 
     if (errorText) {
+      // Clear the input too: the form is submitted from it, so a rejected file
+      // left there would still be uploaded on save. The preview goes back to
+      // what saving will actually keep.
       setError(errorText);
+      setPreview(removeImage ? null : (reward?.imageUrl ?? null));
+      if (fileRef.current) fileRef.current.value = "";
       return;
     }
     setRemoveImage(false);
     setPreview(URL.createObjectURL(file));
   }
 
+  function clearSelectedImage() {
+    imageCheck.current += 1;
+    setCheckingImage(false);
+    setPreview(null);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
   async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (checkingImage) return;
     setError(null);
 
     const form = e.currentTarget;
@@ -72,10 +95,16 @@ export function UpdateRewardModal({ reward }: Props) {
         title: "Actualizando recompensa",
         description: `Estamos guardando los cambios de ${title}.`,
       },
-      success: (updated) => ({
-        title: "Recompensa actualizada",
-        description: `Los cambios de ${updated.title} se guardaron correctamente.`,
-      }),
+      success: (updated) =>
+        updated.imageError
+          ? {
+              title: "Recompensa actualizada sin la imagen nueva",
+              description: `Los cambios de ${updated.title} se guardaron, pero no pudimos guardar la imagen nueva. ${updated.imageError}`,
+            }
+          : {
+              title: "Recompensa actualizada",
+              description: `Los cambios de ${updated.title} se guardaron correctamente.`,
+            },
       errorTitle: "No pudimos actualizar la recompensa",
     });
 
@@ -165,9 +194,8 @@ export function UpdateRewardModal({ reward }: Props) {
             <button
               type="button"
               onClick={() => {
-                setPreview(null);
+                clearSelectedImage();
                 setRemoveImage(true);
-                if (fileRef.current) fileRef.current.value = "";
               }}
               aria-label="Quitar imagen"
               className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-foreground text-background shadow-sm transition-colors hover:bg-foreground/90"
@@ -209,10 +237,7 @@ export function UpdateRewardModal({ reward }: Props) {
             checked={removeImage}
             onChange={(event) => {
               setRemoveImage(event.target.checked);
-              if (event.target.checked) {
-                setPreview(null);
-                if (fileRef.current) fileRef.current.value = "";
-              }
+              if (event.target.checked) clearSelectedImage();
             }}
             className="h-4 w-4 accent-primary"
           />
@@ -239,6 +264,7 @@ export function UpdateRewardModal({ reward }: Props) {
 
         <Button
           type="submit"
+          disabled={checkingImage}
           className="h-11 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:bg-primary/90 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60"
         >
           Guardar cambios

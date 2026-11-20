@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,6 +28,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
 
 @ExtendWith(MockitoExtension.class)
 class RewardServiceTest {
@@ -36,6 +38,9 @@ class RewardServiceTest {
 
     @Mock
     private PointProgramRepository pointProgramRepository;
+
+    @Mock
+    private StorefrontRepository storefrontRepository;
 
     @InjectMocks
     private RewardService rewardService;
@@ -124,16 +129,27 @@ class RewardServiceTest {
     }
 
     @Test
-    void getTopRewardsDelegatesToRepositoryWithTopTenPageable() {
+    void getTopRewardsAsksForTheTopSixOfTheLast30DaysOfTheSelectedStorefrontsProgram() {
         UUID organizationId = UUID.randomUUID();
+        UUID storefrontId = UUID.randomUUID();
+        UUID programId = UUID.randomUUID();
+        StorefrontRepository.ProgramScope program = new StorefrontRepository.ProgramScope() {
+            @Override public UUID getId() { return programId; }
+            @Override public String getName() { return "Puntos"; }
+        };
+        when(storefrontRepository.findSelectedProgram(storefrontId, organizationId)).thenReturn(Optional.of(program));
         List<TopRewardResponse> expected = List.of(new TopRewardResponse(UUID.randomUUID(), "Free Coffee", 5, 10));
+        ArgumentCaptor<OffsetDateTime> sinceCaptor = ArgumentCaptor.forClass(OffsetDateTime.class);
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        when(rewardRepository.getTopRewards(eq(organizationId), pageableCaptor.capture())).thenReturn(expected);
+        when(rewardRepository.getTopRewards(eq(programId), sinceCaptor.capture(), pageableCaptor.capture())).thenReturn(expected);
 
-        List<TopRewardResponse> result = rewardService.getTopRewards(organizationId);
+        OffsetDateTime before = OffsetDateTime.now();
+        List<TopRewardResponse> result = rewardService.getTopRewards(organizationId, storefrontId);
+        OffsetDateTime after = OffsetDateTime.now();
 
         assertThat(result).isEqualTo(expected);
-        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(10);
+        assertThat(sinceCaptor.getValue()).isBetween(before.minusDays(30), after.minusDays(30));
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(6);
         assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(0);
     }
 }

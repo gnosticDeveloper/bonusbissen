@@ -23,7 +23,6 @@ import studio.gnosticdeveloper.bonusbissen.entity.TraceabilityLog;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
-import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
@@ -36,7 +35,6 @@ public class TraceabilityService {
 
     private final TraceabilityLogRepository traceabilityLogRepository;
     private final UserRepository userRepository;
-    private final OrganizationStaffRepository organizationStaffRepository;
     private final PointProgramRepository pointProgramRepository;
     private final PointTransactionRepository pointTransactionRepository;
     private final StorefrontRepository storefrontRepository;
@@ -46,7 +44,6 @@ public class TraceabilityService {
     public TraceabilityService(
         TraceabilityLogRepository traceabilityLogRepository,
         UserRepository userRepository,
-        OrganizationStaffRepository organizationStaffRepository,
         PointProgramRepository pointProgramRepository,
         PointTransactionRepository pointTransactionRepository,
         StorefrontRepository storefrontRepository,
@@ -55,7 +52,6 @@ public class TraceabilityService {
     ) {
         this.traceabilityLogRepository = traceabilityLogRepository;
         this.userRepository = userRepository;
-        this.organizationStaffRepository = organizationStaffRepository;
         this.pointProgramRepository = pointProgramRepository;
         this.pointTransactionRepository = pointTransactionRepository;
         this.storefrontRepository = storefrontRepository;
@@ -63,17 +59,23 @@ public class TraceabilityService {
         this.rewardRepository = rewardRepository;
     }
 
-    /** Records an operation with a single affected user. Returns the new operation id. */
+    /**
+     * Records an operation with a single affected user. {@code organizationId} is the organization
+     * the operation belongs to -- what an admin's audit view filters on -- or null for operations
+     * that belong to none (self-registration, a user's own account changes). Returns the new
+     * operation id.
+     */
     @Transactional
-    public UUID record(OperationType type, UUID originatingUserId, UUID affectedUserId, Map<String, Object> payload) {
-        return record(type, originatingUserId, Set.of(affectedUserId), payload);
+    public UUID record(OperationType type, UUID organizationId, UUID originatingUserId, UUID affectedUserId, Map<String, Object> payload) {
+        return record(type, organizationId, originatingUserId, Set.of(affectedUserId), payload);
     }
 
-    /** Records an operation affecting several users under one shared operation id. */
+    /** Records an operation affecting several users (possibly none) under one shared operation id. */
     @Transactional
-    public UUID record(OperationType type, UUID originatingUserId, Set<UUID> affectedUserIds, Map<String, Object> payload) {
+    public UUID record(OperationType type, UUID organizationId, UUID originatingUserId, Set<UUID> affectedUserIds, Map<String, Object> payload) {
         TraceabilityLog log = new TraceabilityLog();
         log.setOperationType(type);
+        log.setOrganizationId(organizationId);
         log.setOriginatingUser(userRepository.getReferenceById(originatingUserId));
         log.setAffectedUserIds(Set.copyOf(affectedUserIds));
         log.setPayload(Map.copyOf(payload));
@@ -89,13 +91,17 @@ public class TraceabilityService {
         return traceabilityLogRepository.search(operationType, originatingUserId, affectedUserId);
     }
 
-    /** Same lookup as {@link #find}, restricted to rows that belong to the given organization and hydrated for display. */
+    /**
+     * Same filters as {@link #find}, restricted to the organization's own rows (newest first) and
+     * hydrated for display. The organization filter runs in SQL against the column written when
+     * each row was recorded.
+     */
     @Transactional(readOnly = true)
     public List<TraceabilityLogResponse> findForOrganization(OperationType operationType, UUID originatingUserId, UUID affectedUserId, UUID organizationId) {
-        List<TraceabilityLog> logs = find(operationType, originatingUserId, affectedUserId)
-            .stream()
-            .filter(log -> belongsToOrganization(log, organizationId))
-            .toList();
+        if (operationType == null && originatingUserId == null && affectedUserId == null) {
+            throw new BadRequestException("Especificá operationType, originatingUserId o affectedUserId.", "");
+        }
+        List<TraceabilityLog> logs = traceabilityLogRepository.searchForOrganization(organizationId, operationType, originatingUserId, affectedUserId);
         TraceabilityLogResponse.Lookup lookup = buildLookup(logs);
         return logs.stream().map(log -> TraceabilityLogResponse.from(log, lookup)).toList();
     }
@@ -120,6 +126,7 @@ public class TraceabilityService {
             Map<String, Object> payload = log.getPayload();
             addIfPresent(programIds, payload, "programId");
             addIfPresent(storefrontIds, payload, "storefrontId");
+            addAllIfPresent(storefrontIds, payload, "storefrontIds");
             addIfPresent(organizationIds, payload, "organizationId");
             addIfPresent(rewardIds, payload, "rewardId");
             addIfPresent(transactionIds, payload, "transactionId");
@@ -143,35 +150,19 @@ public class TraceabilityService {
         }
     }
 
-    private static <T, ID> Map<ID, T> indexById(Iterable<T> entities, Function<T, ID> idOf) {
-        return StreamSupport.stream(entities.spliterator(), false).collect(Collectors.toMap(idOf, Function.identity()));
+    private static void addAllIfPresent(Set<UUID> target, Map<String, Object> payload, String key) {
+        if (payload.get(key) instanceof Iterable<?> values) {
+            for (Object value : values) {
+                UUID id = uuidFrom(value);
+                if (id != null) {
+                    target.add(id);
+                }
+            }
+        }
     }
 
-    /**
-     * Resolves which organization an operation belongs to. The log itself carries no
-     * organizationId -- each {@link OperationType} is checked against whichever entity
-     * actually ties it to an organization (a payload field, or the originating staff
-     * member's own membership). USER_CREATE is self-registration and belongs to no
-     * organization, so it never matches.
-     */
-    private boolean belongsToOrganization(TraceabilityLog log, UUID organizationId) {
-        Map<String, Object> payload = log.getPayload();
-        return switch (log.getOperationType()) {
-            case STAFF_CREATE, STAFF_ROLE_UPDATE -> organizationId.equals(uuidFrom(payload.get("organizationId")));
-            case SESSION_REVOKE -> organizationStaffRepository.existsByUserIdAndOrganizationIdAndActiveTrue(
-                log.getOriginatingUser().getId(),
-                organizationId
-            );
-            case POINTS_GRANT, REWARD_CLAIM -> {
-                UUID programId = uuidFrom(payload.get("programId"));
-                yield programId != null && pointProgramRepository.existsByIdAndOrganizationId(programId, organizationId);
-            }
-            case POINTS_CORRECTION, EXCHANGE_VERIFY, EXCHANGE_APPROVE, EXCHANGE_CANCEL, EXCHANGE_USER_CANCEL -> {
-                UUID transactionId = uuidFrom(payload.get("transactionId"));
-                yield transactionId != null && pointTransactionRepository.existsByIdAndPointProgram_Organization_Id(transactionId, organizationId);
-            }
-            case USER_CREATE -> false;
-        };
+    private static <T, ID> Map<ID, T> indexById(Iterable<T> entities, Function<T, ID> idOf) {
+        return StreamSupport.stream(entities.spliterator(), false).collect(Collectors.toMap(idOf, Function.identity()));
     }
 
     private static UUID uuidFrom(Object value) {

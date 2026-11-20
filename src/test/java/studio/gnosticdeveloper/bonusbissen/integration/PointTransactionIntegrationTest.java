@@ -2,11 +2,14 @@ package studio.gnosticdeveloper.bonusbissen.integration;
 
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeWithCodeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
@@ -21,6 +24,10 @@ import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeQueueResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeReviewResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UnclaimedRewardResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.HomeStatsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopClientResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
@@ -39,6 +46,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class PointTransactionIntegrationTest extends AbstractIntegrationTest {
+
+    @Autowired
+    private JdbcTemplate jdbc;
 
     private UserPointsResponse getBalance(String token, UUID userId) {
         return restTemplate
@@ -530,6 +540,41 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void verifyingADeliveredCodeReportsItAsDeliveredAndFreesTheCode() {
+        createEmployee("cashier-verify-delivered", "password123", StaffRole.CASHIER);
+        String cashierToken = loginEmployee("cashier-verify-delivered", "password123");
+        User user = createUser("+5493462009901");
+        grant(cashierToken, user.getId(), 30);
+
+        Reward reward = createReward("Free Scone", 15);
+        String userToken = loginUser("+5493462009901");
+        claimReward(userToken, user.getId(), reward.getId());
+        PendingExchangeResponse pending = getSolePendingExchange(cashierToken, user.getId());
+
+        ResponseEntity<Void> approve = restTemplate.exchange(
+            baseUrl() + "/exchanges/approve",
+            HttpMethod.POST,
+            authed(cashierToken, new ApproveExchangeRequest(pending.id())),
+            Void.class
+        );
+        assertThat(approve.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        Boolean active = jdbc.queryForObject(
+            "select active from exchange_codes where point_transaction_id = ?", Boolean.class, pending.id()
+        );
+        assertThat(active).isFalse();
+
+        ResponseEntity<ExchangeResponse> verified = restTemplate.exchange(
+            baseUrl() + "/exchanges/verify",
+            HttpMethod.POST,
+            authed(cashierToken, new ExchangeVerifyRequest(pending.exchangeCode())),
+            ExchangeResponse.class
+        );
+        assertThat(verified.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(verified.getBody().state()).isEqualTo("delivered");
+    }
+
+    @Test
     void verifyExchangeWithUnknownCodeReturnsNotFound() {
         User cashier = createEmployee("cashier-verify-404", "password123", StaffRole.CASHIER);
         String token = loginEmployee("cashier-verify-404", "password123");
@@ -644,6 +689,413 @@ class PointTransactionIntegrationTest extends AbstractIntegrationTest {
         assertThat(ranking).extracting(r -> r.id()).containsExactly(popular.getId(), rare.getId());
         assertThat(ranking.get(0).claimCount()).isEqualTo(2);
         assertThat(ranking.get(1).claimCount()).isEqualTo(1);
+    }
+
+    /**
+     * A fresh organization with one program and storefront. The home-page figures below are
+     * org-wide totals and top-10 rankings, which other tests' data in the shared default org
+     * would skew.
+     */
+    private Storefront isolatedStorefront(String name) {
+        Organization organization = new Organization();
+        organization.setName(name + " Org");
+        organization = organizationRepository.save(organization);
+
+        PointProgram program = new PointProgram();
+        program.setOrganization(organization);
+        program.setName(name + " Points");
+        program = pointProgramRepository.save(program);
+
+        Storefront storefront = new Storefront();
+        storefront.setOrganization(organization);
+        storefront.setName(name + " Storefront");
+        storefront.setAddress("1 " + name + " St");
+        storefront.setPointProgram(program);
+        return storefrontRepository.save(storefront);
+    }
+
+    private void grantIn(String cashierToken, PointProgram program, UUID userId, int points) {
+        if (!userPointProgramRepository.existsByUser_IdAndPointProgram_Id(userId, program.getId())) {
+            joinProgram(userId, program);
+        }
+        ResponseEntity<UserPointsAwardResponse> response = restTemplate.exchange(
+            baseUrl() + "/users/grant",
+            HttpMethod.POST,
+            authed(cashierToken, new GrantPointsRequest(userId, points, null)),
+            UserPointsAwardResponse.class
+        );
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    private void cancelWithRefund(String cashierToken, UUID exchangeId) {
+        ResponseEntity<Void> response = restTemplate.exchange(
+            baseUrl() + "/exchanges/cancel",
+            HttpMethod.POST,
+            authed(cashierToken, new CancelExchangeRequest(exchangeId, true)),
+            Void.class
+        );
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    private List<TopClientResponse> topClients(String token) {
+        ResponseEntity<List<TopClientResponse>> response = restTemplate.exchange(
+            baseUrl() + "/users/top", HttpMethod.GET, authed(token), new ParameterizedTypeReference<>() {}
+        );
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        return response.getBody();
+    }
+
+    @Test
+    void pendingQueueListsOldestFirstWithTheCustomerName() {
+        Storefront storefront = isolatedStorefront("Pending Queue");
+        PointProgram program = storefront.getPointProgram();
+        createEmployee("cashier-queue", "password123", StaffRole.CASHIER, storefront.getOrganization(), storefront);
+        String cashierToken = loginEmployee("cashier-queue", "password123", storefront.getOrganization().getId());
+        User user = createUser("+5493462008001");
+        String userToken = loginUser("+5493462008001");
+        Reward first = createRewardIn(program, "Claimed First", 10);
+        Reward second = createRewardIn(program, "Claimed Second", 10);
+
+        grantIn(cashierToken, program, user.getId(), 100);
+        claimReward(userToken, user.getId(), first.getId());
+        claimReward(userToken, user.getId(), second.getId());
+
+        ResponseEntity<List<PendingExchangeReviewResponse>> response = restTemplate.exchange(
+            baseUrl() + "/exchanges/pending", HttpMethod.GET, authed(cashierToken), new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).extracting(PendingExchangeReviewResponse::rewardTitle).containsExactly("Claimed First", "Claimed Second");
+        assertThat(response.getBody()).extracting(PendingExchangeReviewResponse::userName).containsOnly(user.getName());
+    }
+
+    @Test
+    void homeStatsPointsGrantedExcludeRefundsAndCountCorrectedTotals() {
+        Storefront storefront = isolatedStorefront("Home Stats");
+        PointProgram program = storefront.getPointProgram();
+        createEmployee("cashier-home-stats", "password123", StaffRole.CASHIER, storefront.getOrganization(), storefront);
+        String cashierToken = loginEmployee("cashier-home-stats", "password123", storefront.getOrganization().getId());
+        User user = createUser("+5493462008002");
+        String userToken = loginUser("+5493462008002");
+        Reward reward = createRewardIn(program, "Refunded Reward", 30);
+
+        grantIn(cashierToken, program, user.getId(), 100);
+        grantIn(cashierToken, program, user.getId(), 50);
+        UUID mistakenGrantId = restTemplate.exchange(
+            baseUrl() + "/users/grant/history?of=" + user.getId(), HttpMethod.GET, authed(cashierToken),
+            new ParameterizedTypeReference<List<PointActionResponse>>() {}
+        ).getBody().get(0).id();
+        ResponseEntity<PointActionResponse> corrected = restTemplate.exchange(
+            baseUrl() + "/users/grant/" + mistakenGrantId, HttpMethod.PATCH,
+            authed(cashierToken, new GrantPointsUpdateRequest(20, "error de carga")), PointActionResponse.class
+        );
+        assertThat(corrected.getStatusCode()).isEqualTo(HttpStatus.OK);
+        claimReward(userToken, user.getId(), reward.getId());
+        cancelWithRefund(cashierToken, getSolePendingExchange(cashierToken, user.getId()).id());
+
+        ResponseEntity<HomeStatsResponse> response = restTemplate.exchange(
+            baseUrl() + "/users/home-stats", HttpMethod.GET, authed(cashierToken), HomeStatsResponse.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        // 100 + (50 corrected to 20); the 30-point refund gives back a redemption, it isn't a grant.
+        assertThat(response.getBody().pointsGranted()).isEqualTo(120);
+    }
+
+    @Test
+    void topClientsCountsGrantedPointsOnlyForActiveCustomersAndKeepsOtherBusinessesStaff() {
+        Storefront storefront = isolatedStorefront("Top Clients Filters");
+        PointProgram program = storefront.getPointProgram();
+        createEmployee("cashier-top-x-own", "password123", StaffRole.CASHIER, storefront.getOrganization(), storefront);
+        String cashierToken = loginEmployee("cashier-top-x-own", "password123", storefront.getOrganization().getId());
+        User otherBusinessCashier = createEmployee("cashier-top-x-other", "password123", StaffRole.CASHIER);
+        User refunded = createUser("+5493462008003");
+        String refundedToken = loginUser("+5493462008003");
+        User deactivated = createUser("+5493462008004");
+        Reward reward = createRewardIn(program, "Top Clients Reward", 30);
+
+        grantIn(cashierToken, program, refunded.getId(), 100);
+        grantIn(cashierToken, program, otherBusinessCashier.getId(), 50);
+        grantIn(cashierToken, program, deactivated.getId(), 500);
+        claimReward(refundedToken, refunded.getId(), reward.getId());
+        cancelWithRefund(cashierToken, getSolePendingExchange(cashierToken, refunded.getId()).id());
+        deactivated.setActive(false);
+        userRepository.save(deactivated);
+
+        List<TopClientResponse> ranking = topClients(cashierToken);
+
+        assertThat(ranking).extracting(TopClientResponse::id).containsExactly(refunded.getId(), otherBusinessCashier.getId());
+        assertThat(ranking.get(0).totalPoints()).isEqualTo(100);
+    }
+
+    @Test
+    void topRewardsLeavesOutDeletedRewards() {
+        Storefront storefront = isolatedStorefront("Top Rewards Deleted");
+        PointProgram program = storefront.getPointProgram();
+        createEmployee("cashier-top-x-deleted", "password123", StaffRole.CASHIER, storefront.getOrganization(), storefront);
+        String cashierToken = loginEmployee("cashier-top-x-deleted", "password123", storefront.getOrganization().getId());
+        User user = createUser("+5493462008005");
+        String userToken = loginUser("+5493462008005");
+        Reward kept = createRewardIn(program, "Kept Reward", 10);
+        Reward deleted = createRewardIn(program, "Deleted Reward", 10);
+
+        grantIn(cashierToken, program, user.getId(), 100);
+        claimReward(userToken, user.getId(), kept.getId());
+        claimReward(userToken, user.getId(), deleted.getId());
+        claimReward(userToken, user.getId(), deleted.getId());
+        deleted.setActive(false);
+        rewardRepository.save(deleted);
+
+        ResponseEntity<List<TopRewardResponse>> response = restTemplate.exchange(
+            baseUrl() + "/rewards/top", HttpMethod.GET, authed(cashierToken), new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).extracting(TopRewardResponse::id).containsExactly(kept.getId());
+    }
+
+    /** Moves every transaction of the user {@code days} into the past. */
+    private void backdateTransactionsOf(UUID userId, int days) {
+        jdbc.update("update point_transactions set created_at = created_at - make_interval(days => ?) where user_id = ?", days, userId);
+    }
+
+    private void backdateReward(UUID rewardId, int days) {
+        jdbc.update("update rewards set created_at = created_at - make_interval(days => ?) where id = ?", days, rewardId);
+    }
+
+    private ResponseEntity<PendingExchangeQueueResponse> pendingQueue(String token, int limit) {
+        return restTemplate.exchange(
+            baseUrl() + "/exchanges/pending-queue?limit=" + limit, HttpMethod.GET, authed(token), PendingExchangeQueueResponse.class
+        );
+    }
+
+    private ResponseEntity<String> approveWithCode(String token, UUID exchangeId, String code) {
+        return restTemplate.exchange(
+            baseUrl() + "/exchanges/approve-with-code", HttpMethod.POST,
+            authed(token, new ApproveExchangeWithCodeRequest(exchangeId, code)), String.class
+        );
+    }
+
+    private List<PendingExchangeResponse> pendingOf(String token, UUID userId) {
+        return restTemplate.exchange(
+            baseUrl() + "/exchanges/pending/" + userId, HttpMethod.GET, authed(token),
+            new ParameterizedTypeReference<List<PendingExchangeResponse>>() {}
+        ).getBody();
+    }
+
+    @Test
+    void pendingQueueReturnsTheOldestRowsAndTheSizeOfTheWholeQueue() {
+        Storefront storefront = isolatedStorefront("Bounded Queue");
+        PointProgram program = storefront.getPointProgram();
+        createEmployee("cashier-bounded-queue", "password123", StaffRole.CASHIER, storefront.getOrganization(), storefront);
+        String cashierToken = loginEmployee("cashier-bounded-queue", "password123", storefront.getOrganization().getId());
+        User user = createUser("+5493462008006");
+        String userToken = loginUser("+5493462008006");
+        grantIn(cashierToken, program, user.getId(), 100);
+        for (String title : List.of("Queue A", "Queue B", "Queue C")) {
+            claimReward(userToken, user.getId(), createRewardIn(program, title, 10).getId());
+        }
+        // Another business's pending redemption must not show up or count.
+        createEmployee("cashier-bounded-queue-other", "password123", StaffRole.CASHIER);
+        String otherCashierToken = loginEmployee("cashier-bounded-queue-other", "password123");
+        User outsider = createUser("+5493462008007");
+        grant(otherCashierToken, outsider.getId(), 50);
+        claimReward(loginUser("+5493462008007"), outsider.getId(), createReward("Outside Queue Reward", 10).getId());
+
+        ResponseEntity<PendingExchangeQueueResponse> response = pendingQueue(cashierToken, 2);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        PendingExchangeQueueResponse queue = response.getBody();
+        assertThat(queue.total()).isEqualTo(3);
+        assertThat(queue.items()).extracting(PendingExchangeReviewResponse::rewardTitle).containsExactly("Queue A", "Queue B");
+        assertThat(queue.items()).extracting(PendingExchangeReviewResponse::userName).containsOnly(user.getName());
+        assertThat(queue.items().get(0).createdAt()).isNotNull().isBeforeOrEqualTo(queue.items().get(1).createdAt());
+        for (int outOfRange : new int[] {0, 101}) {
+            ResponseEntity<String> rejected = restTemplate.exchange(
+                baseUrl() + "/exchanges/pending-queue?limit=" + outOfRange, HttpMethod.GET, authed(cashierToken), String.class
+            );
+            assertThat(rejected.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @Test
+    void approveWithCodeDeliversOnlyTheRedemptionTheCodeBelongsTo() {
+        Storefront storefront = isolatedStorefront("Approve With Code");
+        PointProgram program = storefront.getPointProgram();
+        createEmployee("cashier-approve-code", "password123", StaffRole.CASHIER, storefront.getOrganization(), storefront);
+        String cashierToken = loginEmployee("cashier-approve-code", "password123", storefront.getOrganization().getId());
+        User user = createUser("+5493462008008");
+        String userToken = loginUser("+5493462008008");
+        grantIn(cashierToken, program, user.getId(), 100);
+        claimReward(userToken, user.getId(), createRewardIn(program, "Code First", 10).getId());
+        claimReward(userToken, user.getId(), createRewardIn(program, "Code Second", 10).getId());
+        List<PendingExchangeResponse> pending = pendingOf(cashierToken, user.getId());
+        PendingExchangeResponse first = pending.stream().filter(p -> p.rewardTitle().equals("Code First")).findFirst().orElseThrow();
+        PendingExchangeResponse second = pending.stream().filter(p -> p.rewardTitle().equals("Code Second")).findFirst().orElseThrow();
+
+        // A real code, but of the customer's other redemption.
+        assertThat(approveWithCode(cashierToken, first.id(), second.exchangeCode()).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(approveWithCode(cashierToken, first.id(), "x").getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(pendingQueue(cashierToken, 6).getBody().total()).isEqualTo(2);
+
+        // Codes are matched case-insensitively, as on the validation page.
+        assertThat(approveWithCode(cashierToken, first.id(), first.exchangeCode().toUpperCase()).getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        assertThat(pendingQueue(cashierToken, 6).getBody().items()).extracting(PendingExchangeReviewResponse::id).containsExactly(second.id());
+        assertThat(approveWithCode(cashierToken, first.id(), first.exchangeCode()).getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        createEmployee("cashier-approve-code-other", "password123", StaffRole.CASHIER);
+        String otherCashierToken = loginEmployee("cashier-approve-code-other", "password123");
+        assertThat(approveWithCode(otherCashierToken, second.id(), second.exchangeCode()).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    /**
+     * The home page reports on the last 30 days. Data from 45 days ago lands in the comparison
+     * window, data from 70 days ago in neither, and pending redemptions count at any age.
+     */
+    @Test
+    void dashboardFiguresCoverOnlyTheLast30Days() {
+        Storefront storefront = isolatedStorefront("Last 30 Days");
+        PointProgram program = storefront.getPointProgram();
+        createEmployee("cashier-last-30", "password123", StaffRole.CASHIER, storefront.getOrganization(), storefront);
+        String cashierToken = loginEmployee("cashier-last-30", "password123", storefront.getOrganization().getId());
+        User previous = createUser("+5493462008009");
+        User current = createUser("+5493462008010");
+        User ancient = createUser("+5493462008011");
+        Reward claimedLongAgo = createRewardIn(program, "Claimed 45 Days Ago", 10);
+        Reward claimedToday = createRewardIn(program, "Claimed Today", 10);
+        Reward neverClaimed = createRewardIn(program, "Never Claimed", 10);
+        createRewardIn(program, "Added Today", 10);
+        backdateReward(claimedLongAgo.getId(), 91);
+        backdateReward(claimedToday.getId(), 90);
+        backdateReward(neverClaimed.getId(), 90);
+
+        grantIn(cashierToken, program, previous.getId(), 100);
+        claimReward(loginUser("+5493462008009"), previous.getId(), claimedLongAgo.getId());
+        backdateTransactionsOf(previous.getId(), 45);
+        // Corrected today, but the lot was granted 45 days ago: the correction belongs to that window.
+        UUID oldLotId = restTemplate.exchange(
+            baseUrl() + "/users/grant/history?of=" + previous.getId(), HttpMethod.GET, authed(cashierToken),
+            new ParameterizedTypeReference<List<PointActionResponse>>() {}
+        ).getBody().get(0).id();
+        assertThat(restTemplate.exchange(
+            baseUrl() + "/users/grant/" + oldLotId, HttpMethod.PATCH,
+            authed(cashierToken, new GrantPointsUpdateRequest(60, "error de carga")), PointActionResponse.class
+        ).getStatusCode()).isEqualTo(HttpStatus.OK);
+        grantIn(cashierToken, program, current.getId(), 40);
+        claimReward(loginUser("+5493462008010"), current.getId(), claimedToday.getId());
+        grantIn(cashierToken, program, ancient.getId(), 7);
+        backdateTransactionsOf(ancient.getId(), 70);
+
+        HomeStatsResponse stats = restTemplate.exchange(
+            baseUrl() + "/users/home-stats", HttpMethod.GET, authed(cashierToken), HomeStatsResponse.class
+        ).getBody();
+        assertThat(stats).isEqualTo(new HomeStatsResponse(program.getId(), "Last 30 Days Points", 30, 1, 1, 1, 1, 40, 60, 2));
+
+        List<TopRewardResponse> topRewards = restTemplate.exchange(
+            baseUrl() + "/rewards/top", HttpMethod.GET, authed(cashierToken), new ParameterizedTypeReference<List<TopRewardResponse>>() {}
+        ).getBody();
+        assertThat(topRewards).extracting(TopRewardResponse::id).containsExactly(claimedToday.getId());
+
+        List<TopClientResponse> topClients = topClients(cashierToken);
+        assertThat(topClients).extracting(TopClientResponse::id).containsExactly(current.getId());
+        assertThat(topClients.get(0).totalPoints()).isEqualTo(40);
+
+        // "Added Today" hasn't been in the catalog for the whole window, so it isn't flagged.
+        List<UnclaimedRewardResponse> unclaimed = restTemplate.exchange(
+            baseUrl() + "/rewards/unclaimed", HttpMethod.GET, authed(cashierToken), new ParameterizedTypeReference<List<UnclaimedRewardResponse>>() {}
+        ).getBody();
+        assertThat(unclaimed).extracting(UnclaimedRewardResponse::id).containsExactly(claimedLongAgo.getId(), neverClaimed.getId());
+    }
+
+    @Test
+    void topRewardsShowsAtMostSix() {
+        Storefront storefront = isolatedStorefront("Top Six");
+        PointProgram program = storefront.getPointProgram();
+        createEmployee("cashier-top-six", "password123", StaffRole.CASHIER, storefront.getOrganization(), storefront);
+        String cashierToken = loginEmployee("cashier-top-six", "password123", storefront.getOrganization().getId());
+        User user = createUser("+5493462008012");
+        String userToken = loginUser("+5493462008012");
+        grantIn(cashierToken, program, user.getId(), 100);
+        IntStream.rangeClosed(1, 7).forEach(i -> claimReward(userToken, user.getId(), createRewardIn(program, "Six " + i, 1).getId()));
+
+        List<TopRewardResponse> topRewards = restTemplate.exchange(
+            baseUrl() + "/rewards/top", HttpMethod.GET, authed(cashierToken), new ParameterizedTypeReference<List<TopRewardResponse>>() {}
+        ).getBody();
+
+        assertThat(topRewards).hasSize(6);
+    }
+
+    private HomeStatsResponse homeStats(String token) {
+        return restTemplate.exchange(baseUrl() + "/users/home-stats", HttpMethod.GET, authed(token), HomeStatsResponse.class).getBody();
+    }
+
+    private int pendingCount(String token) {
+        return restTemplate.exchange(baseUrl() + "/exchanges/pending-count", HttpMethod.GET, authed(token), Integer.class).getBody();
+    }
+
+    private List<TopRewardResponse> topRewards(String token) {
+        return restTemplate.exchange(
+            baseUrl() + "/rewards/top", HttpMethod.GET, authed(token), new ParameterizedTypeReference<List<TopRewardResponse>>() {}
+        ).getBody();
+    }
+
+    /**
+     * One organization, two storefronts on different programs and one with no program: each
+     * cashier's home shows only their selected storefront's program.
+     */
+    @Test
+    void dashboardHomeShowsOnlyTheSelectedStorefrontsProgram() {
+        Storefront centro = isolatedStorefront("Scope Centro");
+        Organization organization = centro.getOrganization();
+        PointProgram centroProgram = centro.getPointProgram();
+        PointProgram norteProgram = new PointProgram();
+        norteProgram.setOrganization(organization);
+        norteProgram.setName("Scope Norte Points");
+        norteProgram = pointProgramRepository.save(norteProgram);
+        Storefront norte = new Storefront();
+        norte.setOrganization(organization);
+        norte.setName("Scope Norte Storefront");
+        norte.setAddress("2 Scope Norte St");
+        norte.setPointProgram(norteProgram);
+        norte = storefrontRepository.save(norte);
+        Storefront withoutProgram = new Storefront();
+        withoutProgram.setOrganization(organization);
+        withoutProgram.setName("Scope Sin Programa Storefront");
+        withoutProgram.setAddress("3 Scope St");
+        withoutProgram = storefrontRepository.save(withoutProgram);
+
+        createEmployee("cashier-scope-centro", "password123", StaffRole.CASHIER, organization, centro);
+        createEmployee("cashier-scope-norte", "password123", StaffRole.CASHIER, organization, norte);
+        createEmployee("cashier-scope-none", "password123", StaffRole.CASHIER, organization, withoutProgram);
+        String centroToken = loginEmployee("cashier-scope-centro", "password123", organization.getId());
+        String norteToken = loginEmployee("cashier-scope-norte", "password123", organization.getId());
+        String noProgramToken = loginEmployee("cashier-scope-none", "password123", organization.getId());
+
+        User customer = createUser("+5493462008013");
+        String customerToken = loginUser("+5493462008013");
+        Reward centroReward = createRewardIn(centroProgram, "Scope Centro Reward", 10);
+        Reward norteReward = createRewardIn(norteProgram, "Scope Norte Reward", 10);
+        grantIn(centroToken, centroProgram, customer.getId(), 100);
+        grantIn(norteToken, norteProgram, customer.getId(), 40);
+        claimReward(customerToken, customer.getId(), centroReward.getId());
+        claimReward(customerToken, customer.getId(), norteReward.getId());
+
+        assertThat(homeStats(centroToken)).isEqualTo(new HomeStatsResponse(centroProgram.getId(), "Scope Centro Points", 30, 1, 0, 1, 0, 100, 0, 1));
+        assertThat(homeStats(norteToken)).isEqualTo(new HomeStatsResponse(norteProgram.getId(), "Scope Norte Points", 30, 1, 0, 1, 0, 40, 0, 1));
+        PendingExchangeQueueResponse centroQueue = pendingQueue(centroToken, 6).getBody();
+        assertThat(centroQueue.total()).isEqualTo(1);
+        assertThat(centroQueue.items()).extracting(PendingExchangeReviewResponse::rewardTitle).containsExactly("Scope Centro Reward");
+        assertThat(pendingCount(centroToken)).isEqualTo(1);
+        assertThat(topRewards(centroToken)).extracting(TopRewardResponse::id).containsExactly(centroReward.getId());
+        assertThat(topRewards(norteToken)).extracting(TopRewardResponse::id).containsExactly(norteReward.getId());
+        assertThat(topClients(centroToken)).extracting(TopClientResponse::totalPoints).containsExactly(100);
+        assertThat(topClients(norteToken)).extracting(TopClientResponse::totalPoints).containsExactly(40);
+
+        assertThat(homeStats(noProgramToken)).isEqualTo(HomeStatsResponse.withoutProgram(30));
+        assertThat(pendingQueue(noProgramToken, 6).getBody().total()).isZero();
+        assertThat(pendingCount(noProgramToken)).isZero();
+        assertThat(topRewards(noProgramToken)).isEmpty();
+        assertThat(topClients(noProgramToken)).isEmpty();
     }
 
     private Reward createRewardIn(PointProgram program, String title, int costPoints) {

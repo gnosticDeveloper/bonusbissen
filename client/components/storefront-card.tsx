@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Storefront } from "@/lib/types/storefront";
 import { deactivateStorefront } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
 import { useModal } from "./modal";
+import { ActionsMenu } from "./actions-menu";
 
 export function StorefrontCard({ storefront, onEdit }: { storefront: Storefront; onEdit: () => void }) {
   const { open, close, runWithStatus } = useModal();
@@ -49,8 +50,17 @@ export function StorefrontCard({ storefront, onEdit }: { storefront: Storefront;
           </p>
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-1">
-        <Button type="button" variant="ghost" onClick={onEdit} aria-label={`Editar ${storefront.name}`}>
+      {/* On phones the labelled buttons would squeeze the name; they move into a menu. */}
+      <ActionsMenu
+        label={`Acciones de ${storefront.name}`}
+        className="shrink-0 sm:hidden"
+        items={[
+          { label: "Editar", icon: <Pencil />, onSelect: onEdit },
+          ...(storefront.active ? [{ label: "Desactivar", icon: <Trash2 />, onSelect: handleDeactivate, destructive: true }] : []),
+        ]}
+      />
+      <div className="hidden shrink-0 items-center gap-1 sm:flex">
+        <Button type="button" variant="ghost" onClick={onEdit} aria-haspopup="dialog" aria-label={`Editar ${storefront.name}`}>
           <Pencil className="size-4" /> Editar
         </Button>
         {storefront.active ? (

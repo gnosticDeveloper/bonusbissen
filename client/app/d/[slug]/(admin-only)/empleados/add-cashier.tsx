@@ -27,7 +27,7 @@ export function AddCashierButton(props: AddCashierProps) {
   const disabled = props.storefronts.length === 0;
 
   return (
-    <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
+    <div className="flex flex-col items-stretch gap-1.5 sm:items-end" data-guide="add-cashier">
       <Button
         disabled={disabled}
         onClick={() =>

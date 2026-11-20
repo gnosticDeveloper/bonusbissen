@@ -1,0 +1,19 @@
+# Local development overrides. Activate with SPRING_PROFILES_ACTIVE=dev
+# (or -Dspring.profiles.active=dev) when running the backend directly via
+# mvnw spring-boot:run / the IDE, outside docker compose.
+app:
+  uploads:
+    # Git-ignored folder at the project root (relative to the working
+    # directory, so run the backend from the repo root). Delete it freely to
+    # reclaim space -- DB rows pointing at removed files just render broken.
+    dir: ${DEV_UPLOADS_DIR:./.dev-uploads}
+  storage:
+    # Always local in dev: images are written to app.uploads.dir and served by
+    # the backend itself under /uploads/** (see DevUploadsConfig), so no
+    # nginx or Cloudinary is needed.
+    provider: local
+    # Relative on purpose: the Next dev server proxies /uploads/** to this
+    # backend (see client/next.config.ts rewrites), so image URLs resolve
+    # against whatever host the page was opened from -- localhost on the PC,
+    # the LAN IP on a phone. Override with DEV_ASSETS_URL if needed.
+    assets-url: ${DEV_ASSETS_URL:/uploads/}

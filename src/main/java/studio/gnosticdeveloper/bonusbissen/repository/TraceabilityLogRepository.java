@@ -34,6 +34,28 @@ public interface TraceabilityLogRepository extends JpaRepository<TraceabilityLog
         @Param("affectedUserId") UUID affectedUserId
     );
 
+    /**
+     * One organization's rows, newest first, with the same optional filters as {@link #search}.
+     * The organization is a column written when the row was recorded, so the filter and the
+     * ordering are served by idx_traceability_logs_organization_created_at.
+     */
+    @Query(
+        """
+        SELECT DISTINCT t FROM TraceabilityLog t LEFT JOIN t.affectedUserIds a
+        WHERE t.organizationId = :organizationId
+          AND (:operationType IS NULL OR t.operationType = :operationType)
+          AND (:originatingUserId IS NULL OR t.originatingUser.id = :originatingUserId)
+          AND (:affectedUserId IS NULL OR a = :affectedUserId)
+        ORDER BY t.createdAt DESC
+        """
+    )
+    List<TraceabilityLog> searchForOrganization(
+        @Param("organizationId") UUID organizationId,
+        @Param("operationType") OperationType operationType,
+        @Param("originatingUserId") UUID originatingUserId,
+        @Param("affectedUserId") UUID affectedUserId
+    );
+
     /** Bulk-deletes expired, non-exempt rows in one statement; ON DELETE CASCADE clears their affected-user rows. */
     @Modifying
     @Query("DELETE FROM TraceabilityLog t WHERE t.createdAt < :cutoff AND t.operationType NOT IN :exemptTypes")

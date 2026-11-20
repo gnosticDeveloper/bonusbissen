@@ -42,7 +42,7 @@ public class StaffController {
         @Valid @RequestBody AttachStorefrontsRequest request,
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
-        return StaffResponse.from(staffService.attachStorefronts(id, request.storefrontIds(), principal.organizationId()));
+        return StaffResponse.from(staffService.attachStorefronts(id, request.storefrontIds(), principal.organizationId(), principal.id()));
     }
 
     @DeleteMapping("/{id}/storefronts")
@@ -51,7 +51,7 @@ public class StaffController {
         @Valid @RequestBody AttachStorefrontsRequest request,
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
-        return StaffResponse.from(staffService.detachStorefronts(id, request.storefrontIds(), principal.organizationId()));
+        return StaffResponse.from(staffService.detachStorefronts(id, request.storefrontIds(), principal.organizationId(), principal.id()));
     }
 
     /** Changes a staff member's role. Their sessions are revoked so tokens carrying the old role stop working. */

@@ -16,6 +16,28 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
 
     Optional<Storefront> findByIdAndOrganizationId(UUID id, UUID organizationId);
 
+    /** The point program a storefront runs: what the dashboard home ("Inicio") reports on. */
+    interface ProgramScope {
+        UUID getId();
+        String getName();
+    }
+
+    @Query("""
+        select p.id as id, p.name as name
+        from Storefront s join s.pointProgram p
+        where s.id = :storefrontId and s.organization.id = :organizationId
+        """)
+    Optional<ProgramScope> findProgramOfStorefront(@Param("storefrontId") UUID storefrontId, @Param("organizationId") UUID organizationId);
+
+    /**
+     * The program of the staff member's selected storefront, read server-side from the verified
+     * session's storefront and checked against their organization. Empty when no storefront is
+     * selected, or the storefront has no program.
+     */
+    default Optional<ProgramScope> findSelectedProgram(UUID storefrontId, UUID organizationId) {
+        return storefrontId == null ? Optional.empty() : findProgramOfStorefront(storefrontId, organizationId);
+    }
+
     @Modifying
     @Query("update Storefront s set s.active = false where s.organization.id = :organizationId")
     void deactivateAllByOrganizationId(@Param("organizationId") UUID organizationId);

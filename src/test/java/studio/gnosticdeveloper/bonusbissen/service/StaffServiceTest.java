@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import studio.gnosticdeveloper.bonusbissen.dto.request.StaffCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.StaffUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
@@ -29,6 +30,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -131,11 +135,12 @@ class StaffServiceTest {
     void attachStorefrontsAddsToExistingAssignment() {
         OrganizationStaff staff = new OrganizationStaff();
         staff.setId(STAFF_ID);
+        staff.setUser(activeUser());
         when(organizationStaffRepository.findByIdAndOrganizationId(STAFF_ID, ORGANIZATION_ID)).thenReturn(Optional.of(staff));
         when(storefrontRepository.findByIdAndOrganizationId(STOREFRONT_ID, ORGANIZATION_ID)).thenReturn(Optional.of(ownedStorefront()));
         when(organizationStaffRepository.save(staff)).thenReturn(staff);
 
-        OrganizationStaff result = staffService.attachStorefronts(STAFF_ID, List.of(STOREFRONT_ID), ORGANIZATION_ID);
+        OrganizationStaff result = staffService.attachStorefronts(STAFF_ID, List.of(STOREFRONT_ID), ORGANIZATION_ID, ACTING_USER_ID);
 
         assertThat(result.getStorefronts()).extracting(Storefront::getId).containsExactly(STOREFRONT_ID);
     }
@@ -145,6 +150,7 @@ class StaffServiceTest {
         OrganizationStaff staff = new OrganizationStaff();
         staff.setId(STAFF_ID);
         staff.setActive(true);
+        staff.setRole(StaffRole.CASHIER);
         staff.setUser(activeUser());
         when(organizationStaffRepository.findByIdAndOrganizationId(STAFF_ID, ORGANIZATION_ID)).thenReturn(Optional.of(staff));
 
@@ -154,6 +160,47 @@ class StaffServiceTest {
         verify(organizationStaffRepository).save(captor.capture());
         assertThat(captor.getValue().isActive()).isFalse();
         verify(sessionService).revokeAllForUser(USER_ID);
+        verify(traceabilityService).record(
+            eq(OperationType.STAFF_DEACTIVATE), eq(ORGANIZATION_ID), eq(ACTING_USER_ID), eq(USER_ID),
+            argThat(payload -> "CASHIER".equals(payload.get("role")))
+        );
+    }
+
+    @Test
+    void attachingStorefrontsIsAuditedWithOnlyWhatChanged() {
+        OrganizationStaff staff = new OrganizationStaff();
+        staff.setId(STAFF_ID);
+        staff.setUser(activeUser());
+        when(organizationStaffRepository.findByIdAndOrganizationId(STAFF_ID, ORGANIZATION_ID)).thenReturn(Optional.of(staff));
+        when(storefrontRepository.findByIdAndOrganizationId(STOREFRONT_ID, ORGANIZATION_ID)).thenReturn(Optional.of(ownedStorefront()));
+        when(organizationStaffRepository.save(staff)).thenReturn(staff);
+
+        staffService.attachStorefronts(STAFF_ID, List.of(STOREFRONT_ID), ORGANIZATION_ID, ACTING_USER_ID);
+        // Attaching the same storefront again changes nothing, so it must not be recorded again.
+        staffService.attachStorefronts(STAFF_ID, List.of(STOREFRONT_ID), ORGANIZATION_ID, ACTING_USER_ID);
+
+        verify(traceabilityService, times(1)).record(
+            eq(OperationType.STAFF_STOREFRONTS_UPDATE), eq(ORGANIZATION_ID), eq(ACTING_USER_ID), eq(USER_ID),
+            argThat(payload -> "attach".equals(payload.get("action")) && List.of(STOREFRONT_ID).equals(payload.get("storefrontIds")))
+        );
+    }
+
+    @Test
+    void detachingStorefrontsIsAuditedAndDetachingNothingIsNot() {
+        OrganizationStaff staff = new OrganizationStaff();
+        staff.setId(STAFF_ID);
+        staff.setUser(activeUser());
+        staff.getStorefronts().add(ownedStorefront());
+        when(organizationStaffRepository.findByIdAndOrganizationId(STAFF_ID, ORGANIZATION_ID)).thenReturn(Optional.of(staff));
+        when(organizationStaffRepository.save(staff)).thenReturn(staff);
+
+        staffService.detachStorefronts(STAFF_ID, List.of(STOREFRONT_ID), ORGANIZATION_ID, ACTING_USER_ID);
+        staffService.detachStorefronts(STAFF_ID, List.of(STOREFRONT_ID), ORGANIZATION_ID, ACTING_USER_ID);
+
+        verify(traceabilityService, times(1)).record(
+            eq(OperationType.STAFF_STOREFRONTS_UPDATE), eq(ORGANIZATION_ID), eq(ACTING_USER_ID), eq(USER_ID),
+            argThat(payload -> "detach".equals(payload.get("action")) && List.of(STOREFRONT_ID).equals(payload.get("storefrontIds")))
+        );
     }
 
     @Test

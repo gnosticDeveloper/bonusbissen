@@ -10,7 +10,7 @@ import { createReward } from "@/app/d/[slug]/gestion-recompensas/actions";
 import { getPointPrograms } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
 import { PointProgram } from "@/lib/types/point-program";
 import { ModalContentLoader } from "@/components/modals/action-status-modal";
-import { validateImageUpload } from "@/lib/image-upload";
+import { validateRewardImage } from "@/lib/image-upload";
 
 export function CreateRewardModal() {
   const router = useRouter();
@@ -19,6 +19,9 @@ export function CreateRewardModal() {
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [checkingImage, setCheckingImage] = useState(false);
+  // Bumped on every selection change, so a slow check can't apply to a file that was already replaced.
+  const imageCheck = useRef(0);
 
   const [pointPrograms, setPointPrograms] = useState<PointProgram[] | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -37,21 +40,40 @@ export function CreateRewardModal() {
     };
   }, []);
 
-  function handleFileChange(file?: File) {
+  async function handleFileChange(file?: File) {
     setError(null);
-    if (!file) return;
+    const check = ++imageCheck.current;
+    if (!file) {
+      setCheckingImage(false);
+      return;
+    }
 
-    const errorText = validateImageUpload(file);
+    setCheckingImage(true);
+    const errorText = await validateRewardImage(file);
+    if (check !== imageCheck.current) return;
+    setCheckingImage(false);
 
     if (errorText) {
+      // Clear the input too: the form is submitted from it, so a rejected file
+      // left there would still be uploaded on save.
       setError(errorText);
+      setPreview(null);
+      if (fileRef.current) fileRef.current.value = "";
       return;
     }
     setPreview(URL.createObjectURL(file));
   }
 
+  function clearSelectedImage() {
+    imageCheck.current += 1;
+    setCheckingImage(false);
+    setPreview(null);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
   async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (checkingImage) return;
     const form = e.currentTarget;
     const data = new FormData(form);
     const title = String(data.get("title") ?? "").trim();
@@ -74,10 +96,16 @@ export function CreateRewardModal() {
         title: "Creando recompensa",
         description: `Estamos agregando ${title} al catálogo.`,
       },
-      success: (reward) => ({
-        title: "Recompensa creada",
-        description: `${reward.title} ya está disponible en el catálogo.`,
-      }),
+      success: (reward) =>
+        reward.imageError
+          ? {
+              title: "Recompensa creada sin imagen",
+              description: `${reward.title} ya está disponible en el catálogo, pero no pudimos guardar la imagen. ${reward.imageError}`,
+            }
+          : {
+              title: "Recompensa creada",
+              description: `${reward.title} ya está disponible en el catálogo.`,
+            },
       errorTitle: "No pudimos crear la recompensa",
     });
 
@@ -229,10 +257,7 @@ export function CreateRewardModal() {
               <span className="truncate text-xs font-medium">Imagen seleccionada</span>
               <button
                 type="button"
-                onClick={() => {
-                  setPreview(null);
-                  if (fileRef.current) fileRef.current.value = "";
-                }}
+                onClick={clearSelectedImage}
                 aria-label="Quitar imagen"
                 className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-card/20 transition-colors hover:bg-card/30"
               >
@@ -287,6 +312,7 @@ export function CreateRewardModal() {
         </Button>
         <Button
           type="submit"
+          disabled={checkingImage}
           className="h-11 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:bg-primary/90 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60"
         >
           Crear recompensa

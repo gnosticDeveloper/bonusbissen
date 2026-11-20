@@ -62,9 +62,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="font-sans antialiased">
         <ThemeProvider>
-          <ModalProvider>
-            <ToastProvider>{children}</ToastProvider>
-          </ModalProvider>
+          {/* Toasts wrap modals so forms shown inside a modal can notify (toasts sit above modals: z-60 vs z-50). */}
+          <ToastProvider>
+            <ModalProvider>{children}</ModalProvider>
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

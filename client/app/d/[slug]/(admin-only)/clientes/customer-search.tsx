@@ -39,7 +39,7 @@ export function CustomerSearch({ initialQuery }: { initialQuery: string }) {
   };
 
   return (
-    <div role="search" className="relative w-full sm:max-w-sm">
+    <div role="search" className="relative w-full sm:max-w-sm" data-guide="customers-search">
       <Input
         type="text"
         value={value}

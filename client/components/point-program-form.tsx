@@ -31,6 +31,7 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
+/** Create or edit a point program. Rendered inside a modal (see PointProgramsSection), which supplies the surface. */
 export function PointProgramForm({
   pointProgram,
   pointPrograms,
@@ -66,7 +67,7 @@ export function PointProgramForm({
   };
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 rounded-2xl border border-border bg-background p-4" noValidate>
+    <form action={formAction} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="active" value={active ? "true" : "false"} />
       {isEdit && <input type="hidden" name="originalStorefrontIds" value={originalIds.join(",")} />}
 

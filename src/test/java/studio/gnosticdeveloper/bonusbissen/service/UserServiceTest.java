@@ -28,6 +28,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
+import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
@@ -58,10 +59,12 @@ import studio.gnosticdeveloper.bonusbissen.security.SessionService;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -127,6 +130,9 @@ class UserServiceTest {
         PointProgram program = new PointProgram();
         program.setId(PROGRAM_ID);
         program.setActive(true);
+        Organization organization = new Organization();
+        organization.setId(ORGANIZATION_ID);
+        program.setOrganization(organization);
         Storefront storefront = new Storefront();
         storefront.setId(STOREFRONT_ID);
         storefront.setPointProgram(program);
@@ -135,13 +141,49 @@ class UserServiceTest {
     }
 
     @Test
-    void getHomeStatsCountsMembersScopedToTheOrganization() {
+    void getHomeStatsReadsTheLast30DaysAndThe30BeforeThemForTheSelectedStorefrontsProgram() {
         UUID organizationId = UUID.randomUUID();
-        when(userPointProgramRepository.countDistinctUsersByOrganizationId(organizationId)).thenReturn(7);
+        UUID storefrontId = UUID.randomUUID();
+        UUID programId = UUID.randomUUID();
+        when(storefrontRepository.findSelectedProgram(storefrontId, organizationId)).thenReturn(Optional.of(programScope(programId, "Puntos Centro")));
+        PointTransactionRepository.HomeStatsRow row = Mockito.mock(PointTransactionRepository.HomeStatsRow.class);
+        when(row.getActiveCustomers()).thenReturn(7L);
+        when(row.getPendingExchanges()).thenReturn(2L);
+        ArgumentCaptor<OffsetDateTime> since = ArgumentCaptor.forClass(OffsetDateTime.class);
+        ArgumentCaptor<OffsetDateTime> previousSince = ArgumentCaptor.forClass(OffsetDateTime.class);
+        when(pointTransactionRepository.findHomeStats(eq(programId), since.capture(), previousSince.capture())).thenReturn(row);
 
-        HomeStatsResponse stats = userService.getHomeStats(organizationId);
+        OffsetDateTime before = OffsetDateTime.now();
+        HomeStatsResponse stats = userService.getHomeStats(organizationId, storefrontId);
+        OffsetDateTime after = OffsetDateTime.now();
 
-        assertThat(stats.totalUsers()).isEqualTo(7);
+        assertThat(stats.programId()).isEqualTo(programId);
+        assertThat(stats.programName()).isEqualTo("Puntos Centro");
+        assertThat(stats.periodDays()).isEqualTo(30);
+        assertThat(stats.activeCustomers()).isEqualTo(7);
+        assertThat(stats.pendingExchanges()).isEqualTo(2);
+        assertThat(since.getValue()).isBetween(before.minusDays(30), after.minusDays(30));
+        assertThat(previousSince.getValue()).isBetween(before.minusDays(60), after.minusDays(60));
+    }
+
+    @Test
+    void getHomeStatsWithoutAProgramReturnsZerosWithoutQueryingTransactions() {
+        UUID organizationId = UUID.randomUUID();
+        UUID storefrontId = UUID.randomUUID();
+        when(storefrontRepository.findSelectedProgram(storefrontId, organizationId)).thenReturn(Optional.empty());
+
+        HomeStatsResponse stats = userService.getHomeStats(organizationId, storefrontId);
+
+        assertThat(stats).isEqualTo(HomeStatsResponse.withoutProgram(30));
+        Mockito.verifyNoInteractions(pointTransactionRepository);
+    }
+
+    /** A storefront-to-program lookup result, as the repository projection returns it. */
+    private static StorefrontRepository.ProgramScope programScope(UUID programId, String name) {
+        return new StorefrontRepository.ProgramScope() {
+            @Override public UUID getId() { return programId; }
+            @Override public String getName() { return name; }
+        };
     }
 
     @Test
@@ -154,7 +196,7 @@ class UserServiceTest {
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
         when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        userService.deleteById(id);
+        userService.deleteById(id, null, id);
 
         assertThat(user.isActive()).isFalse();
         verify(sessionService).revokeAllForUser(id);
@@ -180,6 +222,8 @@ class UserServiceTest {
         user.setCreatedAt(OffsetDateTime.now());
 
         when(userRepository.search(eq("abc"), eq(ORGANIZATION_ID), eq("cashier"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
+
+        when(userRepository.findIdsRelatedToOrganization(List.of(user.getId()), ORGANIZATION_ID)).thenReturn(List.of(user.getId()));
         when(pointProgramRepository.existsByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(true);
         when(pointTransactionRepository.calculateBalance(user.getId(), PROGRAM_ID)).thenReturn(50);
 
@@ -199,6 +243,8 @@ class UserServiceTest {
         user.setCreatedAt(OffsetDateTime.now());
 
         when(userRepository.search(isNull(), eq(ORGANIZATION_ID), eq("cashier"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
+
+        when(userRepository.findIdsRelatedToOrganization(List.of(user.getId()), ORGANIZATION_ID)).thenReturn(List.of(user.getId()));
 
         Page<UserPointsResponse> result = userService.search(null, null, ORGANIZATION_ID, StaffRole.CASHIER, null, pageable);
 
@@ -223,6 +269,7 @@ class UserServiceTest {
         storefront.setPointProgram(program);
         when(storefrontRepository.findById(STOREFRONT_ID)).thenReturn(Optional.of(storefront));
         when(userRepository.search(isNull(), eq(ORGANIZATION_ID), eq("cashier"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
+        when(userRepository.findIdsRelatedToOrganization(List.of(user.getId()), ORGANIZATION_ID)).thenReturn(List.of(user.getId()));
         when(pointTransactionRepository.calculateBalance(user.getId(), PROGRAM_ID)).thenReturn(75);
 
         Page<UserPointsResponse> result = userService.search(null, null, ORGANIZATION_ID, StaffRole.CASHIER, STOREFRONT_ID, pageable);
@@ -244,10 +291,36 @@ class UserServiceTest {
         storefront.setPointProgram(program);
         when(storefrontRepository.findById(STOREFRONT_ID)).thenReturn(Optional.of(storefront));
         when(userRepository.search(isNull(), eq(ORGANIZATION_ID), eq("cashier"), eq(pageable))).thenReturn(new PageImpl<>(List.of(user)));
+        when(userRepository.findIdsRelatedToOrganization(List.of(user.getId()), ORGANIZATION_ID)).thenReturn(List.of(user.getId()));
 
         Page<UserPointsResponse> result = userService.search(null, null, ORGANIZATION_ID, StaffRole.CASHIER, STOREFRONT_ID, pageable);
 
         assertThat(result.getContent()).containsExactly(UserPointsResponse.from(user, null));
+    }
+
+    @Test
+    void searchHidesEmailAndBalanceOfPeopleOutsideTheOrganization() {
+        Pageable pageable = PageRequest.of(0, 10);
+        User outsider = new User();
+        outsider.setId(UUID.randomUUID());
+        outsider.setName("New Hire");
+        outsider.setUsername("newhire");
+        outsider.setEmail("newhire@example.com");
+        outsider.setEmailVerified(true);
+        outsider.setCreatedAt(OffsetDateTime.now());
+
+        when(userRepository.search(eq("newhire"), eq(ORGANIZATION_ID), eq("admin"), eq(pageable))).thenReturn(new PageImpl<>(List.of(outsider)));
+        when(pointProgramRepository.existsByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(true);
+        when(userRepository.findIdsRelatedToOrganization(List.of(outsider.getId()), ORGANIZATION_ID)).thenReturn(List.of());
+
+        Page<UserPointsResponse> result = userService.search("newhire", PROGRAM_ID, ORGANIZATION_ID, StaffRole.ADMIN, null, pageable);
+
+        UserPointsResponse found = result.getContent().get(0);
+        assertThat(found.username()).isEqualTo("newhire");
+        assertThat(found.email()).isNull();
+        assertThat(found.emailVerified()).isFalse();
+        assertThat(found.points()).isNull();
+        verify(pointTransactionRepository, never()).calculateBalance(any(), any());
     }
 
     @Test
@@ -262,7 +335,7 @@ class UserServiceTest {
         UUID id = UUID.randomUUID();
         when(userRepository.findById(id)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.deleteById(id)).isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> userService.deleteById(id, null, id)).isInstanceOf(NotFoundException.class);
     }
 
     @Test
@@ -414,6 +487,40 @@ class UserServiceTest {
     }
 
     @Test
+    void claimRewardFromAnInactiveProgramIsRejectedBeforeAnythingIsWritten() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        UUID rewardId = UUID.randomUUID();
+        Reward reward = rewardWithProgram(rewardId, 30);
+        reward.getPointProgram().setActive(false);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(rewardRepository.findById(rewardId)).thenReturn(Optional.of(reward));
+
+        assertThatThrownBy(() -> userService.claimReward(new ClaimRewardRequest(userId, rewardId)))
+            .isInstanceOf(NotFoundException.class);
+
+        verify(pointTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void claimRewardFromAnInactiveOrganizationIsRejectedBeforeAnythingIsWritten() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        UUID rewardId = UUID.randomUUID();
+        Reward reward = rewardWithProgram(rewardId, 30);
+        reward.getPointProgram().getOrganization().setActive(false);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(rewardRepository.findById(rewardId)).thenReturn(Optional.of(reward));
+
+        assertThatThrownBy(() -> userService.claimReward(new ClaimRewardRequest(userId, rewardId)))
+            .isInstanceOf(NotFoundException.class);
+
+        verify(pointTransactionRepository, never()).save(any());
+    }
+
+    @Test
     void claimRewardCreatesPendingRedeemTransactionWithNegativePoints() {
         UUID userId = UUID.randomUUID();
         User user = new User();
@@ -438,6 +545,43 @@ class UserServiceTest {
         assertThat(captor.getValue().getPoints()).isEqualTo(-30);
 
         verify(exchangeCodeRepository).save(any(ExchangeCode.class));
+    }
+
+    @Test
+    void claimRewardDrawsAnotherCodeWhenTheFirstIsActiveInTheOrganization() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        UUID rewardId = UUID.randomUUID();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(rewardRepository.findById(rewardId)).thenReturn(Optional.of(rewardWithProgram(rewardId, 30)));
+        when(pointTransactionRepository.calculateBalance(userId, PROGRAM_ID)).thenReturn(30);
+        when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(exchangeCodeRepository.existsByOrganizationIdAndCodeAndActiveTrue(eq(ORGANIZATION_ID), anyString())).thenReturn(true, false);
+
+        ClaimRewardResponse response = userService.claimReward(new ClaimRewardRequest(userId, rewardId));
+
+        assertThat(response.code()).matches("[0-9]{4}[a-z][0-9]");
+        verify(exchangeCodeRepository, times(2)).existsByOrganizationIdAndCodeAndActiveTrue(eq(ORGANIZATION_ID), anyString());
+        verify(exchangeCodeRepository).save(any(ExchangeCode.class));
+    }
+
+    @Test
+    void claimRewardFailsCleanlyWhenNoFreeCodeIsFound() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        UUID rewardId = UUID.randomUUID();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(rewardRepository.findById(rewardId)).thenReturn(Optional.of(rewardWithProgram(rewardId, 30)));
+        when(pointTransactionRepository.calculateBalance(userId, PROGRAM_ID)).thenReturn(30);
+        when(pointTransactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(exchangeCodeRepository.existsByOrganizationIdAndCodeAndActiveTrue(eq(ORGANIZATION_ID), anyString())).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.claimReward(new ClaimRewardRequest(userId, rewardId)))
+            .isInstanceOf(ConflictException.class);
+
+        verify(exchangeCodeRepository, never()).save(any(ExchangeCode.class));
     }
 
     @Test
@@ -579,6 +723,7 @@ class UserServiceTest {
         expired.setExpiredTransaction(earn);
         PointTransaction adjust = grantTransaction(ORGANIZATION_ID);
         adjust.setTransactionType(TransactionType.ADJUST);
+        adjust.setPoints(-30);
         PointTransaction redeem = grantTransaction(ORGANIZATION_ID);
         redeem.setTransactionType(TransactionType.REDEEM);
         Reward reward = new Reward();
@@ -605,6 +750,35 @@ class UserServiceTest {
         assertThat(history.get(4).expiresAt()).isNull();
         assertThat(history.get(5).expirationApplicable()).isFalse();
         assertThat(history.get(5).expiresAt()).isNull();
+    }
+
+    @Test
+    void movementHistoryShowsARefundSplitAcrossLotsAsOneLine() {
+        UUID userId = UUID.randomUUID();
+        PointTransaction redemption = grantTransaction(ORGANIZATION_ID);
+        redemption.setTransactionType(TransactionType.REDEEM);
+        redemption.setPoints(-500);
+        Reward reward = new Reward();
+        reward.setTitle("Coffee");
+        redemption.setReward(reward);
+        PointTransaction laterPart = grantTransaction(ORGANIZATION_ID);
+        laterPart.setPoints(200);
+        laterPart.setRefundedTransaction(redemption);
+        laterPart.setExpiresAt(laterPart.getCreatedAt().plusDays(90));
+        PointTransaction soonerPart = grantTransaction(ORGANIZATION_ID);
+        soonerPart.setPoints(300);
+        soonerPart.setRefundedTransaction(redemption);
+        soonerPart.setExpiresAt(soonerPart.getCreatedAt().plusDays(2));
+        when(pointTransactionRepository.findAllByUserIdAndStorefrontIdOrderByCreatedAtDesc(userId, STOREFRONT_ID))
+            .thenReturn(List.of(laterPart, soonerPart, redemption));
+
+        List<MovementResponse> history = userService.getMovementsByUserId(userId, STOREFRONT_ID, null);
+
+        assertThat(history).hasSize(2);
+        assertThat(history.get(0).id()).isEqualTo(laterPart.getId());
+        assertThat(history.get(0).points()).isEqualTo(500);
+        assertThat(history.get(0).expiresAt()).isEqualTo(soonerPart.getExpiresAt().toString());
+        assertThat(history.get(1).points()).isEqualTo(-500);
     }
 
     @Test
@@ -781,7 +955,7 @@ class UserServiceTest {
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
         when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        User updated = userService.update(id, new UserUpdateRequest("Someone Else", "someone@example.com"));
+        User updated = userService.update(id, new UserUpdateRequest("Someone Else", "someone@example.com"), null, id);
 
         assertThat(updated.getName()).isEqualTo("Someone Else");
         assertThat(updated.isEmailVerified()).isTrue();
@@ -789,11 +963,115 @@ class UserServiceTest {
     }
 
     @Test
+    void staffEditingACustomersEmailIsAuditedInTheStaffsOrganization() {
+        UUID id = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setName("Carla");
+        user.setEmail("carla@example.com");
+        user.setEmailVerified(true);
+        when(userPointProgramRepository.existsByUserIdAndOrganizationId(id, ORGANIZATION_ID)).thenReturn(true);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("other@example.com")).thenReturn(Optional.empty());
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.update(id, new UserUpdateRequest("Carla", "other@example.com"), ORGANIZATION_ID, adminId);
+
+        verify(traceabilityService).record(
+            eq(OperationType.USER_UPDATE), eq(ORGANIZATION_ID), eq(adminId), eq(id),
+            argThat(payload -> "carla@example.com".equals(payload.get("previousEmail")) && "other@example.com".equals(payload.get("email")))
+        );
+    }
+
+    @Test
+    void aUsersOwnProfileEditIsAuditedWithoutAnOrganization() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setName("Someone");
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.update(id, new UserUpdateRequest("Someone Else", null), null, id);
+
+        verify(traceabilityService).record(
+            eq(OperationType.USER_UPDATE), isNull(), eq(id), eq(id),
+            argThat(payload -> "Someone".equals(payload.get("previousName")) && "Someone Else".equals(payload.get("name")) && !payload.containsKey("email"))
+        );
+    }
+
+    @Test
+    void savingAProfileWithNothingChangedIsNotAudited() {
+        UUID id = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setName("Someone");
+        user.setEmail("someone@example.com");
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.update(id, new UserUpdateRequest("Someone", "someone@example.com"), null, id);
+
+        verify(traceabilityService, never()).record(any(), any(), any(), any(UUID.class), any());
+    }
+
+    @Test
+    void reactivatingIsAuditedOnlyWhenTheAccountWasInactive() {
+        UUID id = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setActive(false);
+        when(userPointProgramRepository.existsByUserIdAndOrganizationId(id, ORGANIZATION_ID)).thenReturn(true);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.reactivate(id, ORGANIZATION_ID, adminId);
+        userService.reactivate(id, ORGANIZATION_ID, adminId);
+
+        verify(traceabilityService, times(1)).record(eq(OperationType.USER_REACTIVATE), eq(ORGANIZATION_ID), eq(adminId), eq(id), any());
+    }
+
+    @Test
+    void deactivatingIsAuditedOnlyWhenTheAccountWasActive() {
+        UUID id = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        User user = new User();
+        user.setId(id);
+        user.setActive(true);
+        when(userPointProgramRepository.existsByUserIdAndOrganizationId(id, ORGANIZATION_ID)).thenReturn(true);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.deleteById(id, ORGANIZATION_ID, adminId);
+        userService.deleteById(id, ORGANIZATION_ID, adminId);
+
+        verify(traceabilityService, times(1)).record(eq(OperationType.USER_DEACTIVATE), eq(ORGANIZATION_ID), eq(adminId), eq(id), any());
+    }
+
+    @Test
+    void changingYourOwnPasswordIsAuditedWithoutAnOrganization() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        user.setPasswordHash("old-hash");
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("current-password", "old-hash")).thenReturn(true);
+        when(passwordEncoder.encode("newpassword123")).thenReturn("new-hash");
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.changeOwnPassword(userId, "current-password", "newpassword123");
+
+        verify(traceabilityService).record(eq(OperationType.PASSWORD_CHANGE), isNull(), eq(userId), eq(userId), any());
+    }
+
+    @Test
     void updateWithUnknownIdThrowsNotFound() {
         UUID id = UUID.randomUUID();
         when(userRepository.findById(id)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.update(id, new UserUpdateRequest("Someone", "someone@example.com")))
+        assertThatThrownBy(() -> userService.update(id, new UserUpdateRequest("Someone", "someone@example.com"), null, id))
             .isInstanceOf(NotFoundException.class);
     }
 
@@ -810,7 +1088,7 @@ class UserServiceTest {
         when(userRepository.findByEmail("new@example.com")).thenReturn(Optional.empty());
         when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        User updated = userService.update(id, new UserUpdateRequest("Someone", "NEW@example.com"));
+        User updated = userService.update(id, new UserUpdateRequest("Someone", "NEW@example.com"), null, id);
 
         assertThat(updated.getEmail()).isEqualTo("new@example.com");
         assertThat(updated.isEmailVerified()).isFalse();
@@ -831,7 +1109,7 @@ class UserServiceTest {
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
         when(userRepository.findByEmail("taken@example.com")).thenReturn(Optional.of(other));
 
-        assertThatThrownBy(() -> userService.update(id, new UserUpdateRequest("Someone", "taken@example.com")))
+        assertThatThrownBy(() -> userService.update(id, new UserUpdateRequest("Someone", "taken@example.com"), null, id))
             .isInstanceOf(ConflictException.class);
 
         verify(userRepository, never()).save(any());
@@ -848,53 +1126,9 @@ class UserServiceTest {
         when(userRepository.findById(id)).thenReturn(Optional.of(user));
         when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        userService.update(id, new UserUpdateRequest("Someone New", "same@example.com"));
+        userService.update(id, new UserUpdateRequest("Someone New", "same@example.com"), null, id);
 
         verify(userRepository, never()).findByEmail(any());
-    }
-
-    @Test
-    void resetPasswordUpdatesTheHashWhenTargetBelongsToCallersOrganization() {
-        UUID organizationId = UUID.randomUUID();
-        UUID targetUserId = UUID.randomUUID();
-
-        Organization organization = new Organization();
-        organization.setId(organizationId);
-        OrganizationStaff staff = new OrganizationStaff();
-        staff.setOrganization(organization);
-
-        User user = new User();
-        user.setId(targetUserId);
-        user.setPasswordHash("old-hash");
-
-        when(organizationStaffRepository.findByUserIdAndActiveTrue(targetUserId)).thenReturn(Optional.of(staff));
-        when(userRepository.findById(targetUserId)).thenReturn(Optional.of(user));
-        when(passwordEncoder.encode("newpassword123")).thenReturn("new-hash");
-        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-
-        userService.resetPassword(targetUserId, "newpassword123", organizationId);
-
-        assertThat(user.getPasswordHash()).isEqualTo("new-hash");
-        verify(sessionService).revokeAllForUser(targetUserId);
-    }
-
-    @Test
-    void resetPasswordRejectsATargetInADifferentOrganization() {
-        UUID callerOrganizationId = UUID.randomUUID();
-        UUID targetUserId = UUID.randomUUID();
-
-        Organization otherOrganization = new Organization();
-        otherOrganization.setId(UUID.randomUUID());
-        OrganizationStaff staff = new OrganizationStaff();
-        staff.setOrganization(otherOrganization);
-
-        when(organizationStaffRepository.findByUserIdAndActiveTrue(targetUserId)).thenReturn(Optional.of(staff));
-
-        assertThatThrownBy(() -> userService.resetPassword(targetUserId, "newpassword123", callerOrganizationId))
-            .isInstanceOf(NotFoundException.class);
-
-        verify(userRepository, never()).save(any());
-        verify(sessionService, never()).revokeAllForUser(any());
     }
 
     @Test

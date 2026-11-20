@@ -21,6 +21,7 @@ export function CreateRewardButton() {
   return (
     <Button
       className="self-stretch"
+      data-guide="create-reward"
       onClick={() =>
         open(<CreateRewardModal />, {
           title: "Crear recompensa",

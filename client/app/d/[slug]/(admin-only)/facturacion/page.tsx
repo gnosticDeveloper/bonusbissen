@@ -182,7 +182,7 @@ export default function FacturacionPage() {
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em]">Panel de administración</p>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-3xl font-semibold tracking-tighter sm:text-4xl">Facturación</h1>
-          <Button variant="outline" disabled={loading} onClick={refresh}>
+          <Button variant="outline" disabled={loading} onClick={refresh} data-guide="billing-refresh">
             <RefreshCw className={`size-4 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} aria-hidden="true" />
             {loading ? "Actualizando…" : "Actualizar"}
           </Button>
@@ -193,7 +193,7 @@ export default function FacturacionPage() {
       {loading && <p role="status" className="mb-5 text-sm text-foreground/80">Cargando información de facturación…</p>}
 
       <div className="space-y-6">
-        <section aria-labelledby="billing-plan-title" aria-busy={loading} className="rounded-3xl border border-border bg-card p-5 sm:p-6">
+        <section aria-labelledby="billing-plan-title" aria-busy={loading} data-guide="billing-plan" className="rounded-3xl border border-border bg-card p-5 sm:p-6">
           <h2 id="billing-plan-title" className="text-lg font-semibold tracking-tight">Tu plan</h2>
           <div className="mt-4">
             {loading ? <p className="text-sm text-foreground/70">Cargando plan y estado…</p> : organization?.ok ? (
@@ -225,7 +225,7 @@ export default function FacturacionPage() {
           </div>
         </section>
 
-        <section aria-labelledby="billing-invoices-title" aria-busy={loading} className="rounded-3xl border border-border bg-card p-5 sm:p-6">
+        <section aria-labelledby="billing-invoices-title" aria-busy={loading} data-guide="billing-invoices" className="rounded-3xl border border-border bg-card p-5 sm:p-6">
           <h2 id="billing-invoices-title" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
             <ReceiptText className="size-5" aria-hidden="true" /> Historial de facturas
           </h2>

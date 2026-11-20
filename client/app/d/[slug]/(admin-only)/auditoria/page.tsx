@@ -454,7 +454,7 @@ export default function AuditPage() {
       </header>
 
       <div className="grid min-h-0 gap-5">
-        <Card className="rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]">
+        <Card className="rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]" data-guide="audit-filters">
           <CardHeader className="border-b border-border px-5 py-5 sm:px-6">
             <CardTitle className="flex items-center gap-3 text-base tracking-[-0.02em]">
               <span className="grid size-10 place-items-center rounded-2xl bg-primary/10">
@@ -524,7 +524,7 @@ export default function AuditPage() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]">
+        <Card className="overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)]" data-guide="audit-records">
           <CardHeader className="border-b border-border px-5 py-5 sm:px-6">
             <CardTitle className="flex items-center gap-3 text-base tracking-[-0.02em]">
               <span className="grid size-10 place-items-center rounded-2xl bg-primary/10">

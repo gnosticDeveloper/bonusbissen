@@ -3,43 +3,35 @@
 import { Award, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PointProgram } from "@/lib/types/point-program";
+import { ActionsMenu } from "./actions-menu";
 
+/** One program as a row, laid out like `StorefrontCard`. */
 export function PointProgramCard({ pointProgram, onEdit }: { pointProgram: PointProgram; onEdit: () => void }) {
+  const storefrontNames = pointProgram.storefronts.map((sf) => sf.name).join(", ");
+
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-background px-4 py-3.5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-foreground">
-            <Award className="size-4" />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{pointProgram.name}</p>
-            <p className="truncate text-xs text-foreground/80">
-              {pointProgram.unitLabel ?? "puntos"}
-              {!pointProgram.active && " · Inactivo"}
-            </p>
-          </div>
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-background px-4 py-3.5">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-foreground">
+          <Award className="size-4" />
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{pointProgram.name}</p>
+          <p className="truncate text-xs text-foreground/80">
+            {pointProgram.unitLabel || "puntos"}
+            {" · "}
+            {pointProgram.expirationMonths == null ? "Sin vencimiento" : `Vencimiento: ${pointProgram.expirationMonths} meses`}
+            {!pointProgram.active && " · Inactivo"}
+          </p>
+          <p className="truncate text-xs text-foreground/80" title={storefrontNames || undefined}>
+            {storefrontNames ? `Sucursales: ${storefrontNames}` : "Sin sucursales asignadas"}
+          </p>
         </div>
-        <Button type="button" variant="ghost" onClick={onEdit} aria-label={`Editar ${pointProgram.name}`}>
-          <Pencil className="size-4" /> Editar
-        </Button>
       </div>
-
-      <p className="pl-12 text-xs text-foreground/80">
-        {pointProgram.expirationMonths == null ? "Sin vencimiento" : `Vencimiento: ${pointProgram.expirationMonths} meses`}
-      </p>
-
-      <div className="flex flex-wrap gap-1.5 pl-12">
-        {pointProgram.storefronts.length === 0 ? (
-          <span className="text-xs text-foreground/80">Sin sucursales asignadas</span>
-        ) : (
-          pointProgram.storefronts.map((sf) => (
-            <span key={sf.id} className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-foreground">
-              {sf.name}
-            </span>
-          ))
-        )}
-      </div>
+      <ActionsMenu label={`Acciones de ${pointProgram.name}`} className="shrink-0 sm:hidden" items={[{ label: "Editar", icon: <Pencil />, onSelect: onEdit }]} />
+      <Button type="button" variant="ghost" onClick={onEdit} aria-haspopup="dialog" aria-label={`Editar ${pointProgram.name}`} className="hidden sm:inline-flex">
+        <Pencil className="size-4" /> Editar
+      </Button>
     </div>
   );
 }

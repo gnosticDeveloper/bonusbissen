@@ -69,7 +69,7 @@ export function QRCodePreview({ storefrontId }: { storefrontId: string }) {
   }
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-8">
+    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-8" data-guide="qr-card">
       <div className="flex items-center gap-3">
         <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-foreground">
           <QrCode className="size-5" aria-hidden="true" />
@@ -92,7 +92,7 @@ export function QRCodePreview({ storefrontId }: { storefrontId: string }) {
             {currentQr.url}
           </a>
           <div className="flex flex-wrap items-end justify-center gap-3">
-            <label htmlFor="qr-format" className="flex flex-col gap-1.5 text-sm font-medium">
+            <label htmlFor="qr-format" className="flex flex-col gap-1.5 text-sm font-medium" data-guide="qr-format">
               Formato de descarga
               <select
                 id="qr-format"

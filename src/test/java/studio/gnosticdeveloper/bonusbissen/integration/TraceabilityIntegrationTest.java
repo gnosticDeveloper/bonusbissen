@@ -146,6 +146,7 @@ class TraceabilityIntegrationTest extends AbstractIntegrationTest {
 
         UUID operationId = traceabilityService.record(
             OperationType.POINTS_GRANT,
+            null,
             originator.getId(),
             Set.of(affectedOne.getId(), affectedTwo.getId()),
             Map.of()
@@ -160,8 +161,8 @@ class TraceabilityIntegrationTest extends AbstractIntegrationTest {
         User originator = createUser("trace-fresh-originator");
         User affected = createUser("trace-fresh-affected");
 
-        UUID first = traceabilityService.record(OperationType.POINTS_GRANT, originator.getId(), affected.getId(), Map.of());
-        UUID second = traceabilityService.record(OperationType.POINTS_GRANT, originator.getId(), affected.getId(), Map.of());
+        UUID first = traceabilityService.record(OperationType.POINTS_GRANT, null, originator.getId(), affected.getId(), Map.of());
+        UUID second = traceabilityService.record(OperationType.POINTS_GRANT, null, originator.getId(), affected.getId(), Map.of());
 
         assertThat(first).isNotEqualTo(second);
     }

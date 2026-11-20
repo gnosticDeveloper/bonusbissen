@@ -30,4 +30,10 @@ public record UserPointsResponse(
             formattedDate
         );
     }
+
+    /** Someone with no tie to the caller's organization, found by exact username or email: no email or balance. */
+    public static UserPointsResponse outsider(User user) {
+        UserPointsResponse full = from(user, null);
+        return new UserPointsResponse(full.id(), full.name(), full.username(), null, false, null, full.formattedCreatedAt());
+    }
 }
