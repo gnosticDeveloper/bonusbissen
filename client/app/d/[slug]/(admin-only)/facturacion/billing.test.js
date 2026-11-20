@@ -15,7 +15,7 @@ let refreshResult = { status: "expired" };
 const jar = new Map();
 
 mock.module("server-only", () => ({}));
-mock.module("next/headers", () => ({ cookies: async () => ({
+mock.module("next/headers", () => ({ headers: async () => new Headers(), cookies: async () => ({
   get: key => jar.has(key) ? { value: jar.get(key) } : undefined,
   set: (key, value) => jar.set(key, value),
   delete: key => jar.delete(key),

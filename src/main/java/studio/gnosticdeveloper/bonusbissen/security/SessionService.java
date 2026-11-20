@@ -81,7 +81,7 @@ public class SessionService {
         UUID organizationId,
         UUID storefrontId,
         String username,
-        String userAgent
+        DeviceHints device
     ) {
         UUID sessionId = UUID.randomUUID();
         String raw = generateToken();
@@ -99,7 +99,7 @@ public class SessionService {
             fields.put("storefrontId", storefrontId.toString());
         }
         fields.put("refreshTokenHash", hash);
-        fields.put("device", deviceLabel(userAgent));
+        fields.put("device", DeviceLabel.of(device));
         fields.put("createdAt", now);
         fields.put("lastUsedAt", now);
 
@@ -301,7 +301,7 @@ public class SessionService {
             }
             sessions.add(new SessionInfo(
                 UUID.fromString(id),
-                (String) fields.getOrDefault("device", "Dispositivo desconocido"),
+                (String) fields.getOrDefault("device", DeviceLabel.UNKNOWN_DEVICE),
                 Instant.parse((String) fields.get("createdAt")),
                 Instant.parse((String) fields.get("lastUsedAt"))
             ));
@@ -326,35 +326,5 @@ public class SessionService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 unavailable", e);
         }
-    }
-
-    /**
-     * Turns a User-Agent string into a short human label (e.g. "Chrome en Windows")
-     * instead of storing the raw header or any network-identifying data -- device +
-     * last-used time is enough for someone to recognize their own sessions.
-     */
-    private static String deviceLabel(String userAgent) {
-        if (userAgent == null || userAgent.isBlank()) {
-            return "Dispositivo desconocido";
-        }
-        return browserFrom(userAgent) + " en " + osFrom(userAgent);
-    }
-
-    private static String browserFrom(String ua) {
-        if (ua.contains("Edg/")) return "Edge";
-        if (ua.contains("OPR/") || ua.contains("Opera")) return "Opera";
-        if (ua.contains("Firefox/")) return "Firefox";
-        if (ua.contains("CriOS/") || ua.contains("Chrome/")) return "Chrome";
-        if (ua.contains("Safari/")) return "Safari";
-        return "navegador desconocido";
-    }
-
-    private static String osFrom(String ua) {
-        if (ua.contains("Windows")) return "Windows";
-        if (ua.contains("Mac OS X") || ua.contains("Macintosh")) return "macOS";
-        if (ua.contains("Android")) return "Android";
-        if (ua.contains("iPhone") || ua.contains("iPad") || ua.contains("iOS")) return "iOS";
-        if (ua.contains("Linux")) return "Linux";
-        return "dispositivo desconocido";
     }
 }

@@ -27,7 +27,7 @@ export async function signUp(formData: FormData): Promise<ActionResult<SignInUse
       body: JSON.stringify({ username, name, password, email }),
       cache: "no-store",
     },
-    { schema: sessionTokenSchema, messages: { failed: REQUEST_FAILED_MESSAGE } },
+    { schema: sessionTokenSchema, messages: { failed: REQUEST_FAILED_MESSAGE }, forwardDevice: true },
   );
   if (!result.ok) return result;
 
