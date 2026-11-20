@@ -35,19 +35,22 @@ public class DiscoveryService {
     private final PointTransactionRepository pointTransactionRepository;
     private final RewardResponseMapper rewardResponseMapper;
     private final StorageService storageService;
+    private final SubscriptionGuard subscriptionGuard;
 
     public DiscoveryService(
         StorefrontRepository storefrontRepository,
         RewardRepository rewardRepository,
         PointTransactionRepository pointTransactionRepository,
         RewardResponseMapper rewardResponseMapper,
-        StorageService storageService
+        StorageService storageService,
+        SubscriptionGuard subscriptionGuard
     ) {
         this.storefrontRepository = storefrontRepository;
         this.rewardRepository = rewardRepository;
         this.pointTransactionRepository = pointTransactionRepository;
         this.rewardResponseMapper = rewardResponseMapper;
         this.storageService = storageService;
+        this.subscriptionGuard = subscriptionGuard;
     }
 
     @Transactional(readOnly = true)
@@ -63,7 +66,10 @@ public class DiscoveryService {
     public BusinessResponse discoverBusinessById(UUID storefrontId, UUID viewerUserId) {
         BusinessResponse business = storefrontRepository
             .findById(storefrontId)
-            .map(storefront -> toBusiness(storefront, viewerUserId))
+            .map(storefront -> {
+                subscriptionGuard.requireAvailableToCustomers(storefront.getOrganization().getId());
+                return toBusiness(storefront, viewerUserId);
+            })
             .orElseThrow(() ->
                 new NotFoundException(
                     "No se pudo encontrar la sucursal con ID " + storefrontId + ".",
@@ -86,6 +92,10 @@ public class DiscoveryService {
     public StorefrontDiscoverResponse getStorefrontBasicInfoById(UUID id) {
         return storefrontRepository
             .getBasicInfoById(id)
+            .map(info -> {
+                subscriptionGuard.requireAvailableToCustomers(info.getOrgId());
+                return info;
+            })
             .map(info -> new StorefrontDiscoverResponse(
                 info.getId(), info.getName(), info.getOrgName(), info.getColor(), info.getIconUrl(), info.getPointLabel(),
                 imageUrl(info.getOrgLogoPath(), DeliveryVariant.THUMBNAIL),

@@ -1,129 +1,123 @@
-/* ---------- relative time (in Spanish) ---------- */
+import { PointActionType } from "@/lib/types/dashboard";
+import { ExchangeState } from "../types/exchange";
 
-export function relativeTime(iso: string): string {
-  const then = new Date(iso).getTime();
-  const now = Date.now();
-  const diffMs = now - then;
-  const future = diffMs < 0;
-  const abs = Math.abs(diffMs);
+/* ---------- formatters ---------- */
 
-  const minute = 60 * 1000;
-  const hour = 60 * minute;
-  const day = 24 * hour;
+// Building an Intl formatter is far slower than using one, so each is created
+// once and reused. Locale and time zone are fixed, so server and client render
+// the same text.
+const LOCALE = "es-AR";
+const TIME_ZONE = "America/Argentina/Buenos_Aires";
 
-  const prefix = future ? "en " : "hace ";
+const numberFormatter = new Intl.NumberFormat(LOCALE);
+const dateFormatter = new Intl.DateTimeFormat(LOCALE, { timeZone: TIME_ZONE });
+const dateTimeFormatter = new Intl.DateTimeFormat(LOCALE, {
+  timeZone: TIME_ZONE,
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  hour: "numeric",
+  minute: "numeric",
+  second: "numeric",
+});
+const monthYearFormatter = new Intl.DateTimeFormat(LOCALE, { timeZone: TIME_ZONE, month: "long", year: "numeric" });
 
-  if (abs < minute) return future ? "en instantes" : "hace instantes";
-  if (abs < hour) {
-    const m = Math.round(abs / minute);
-    return `${prefix}${m} ${m === 1 ? "minuto" : "minutos"}`;
+// Money needs one formatter per currency. Currencies come from backend data,
+// so the cache is capped: when it's full, the oldest entry is dropped (a Map
+// keeps insertion order). In practice only ARS and maybe USD ever show up.
+const MAX_MONEY_FORMATTERS = 10;
+const moneyFormatters = new Map<string, Intl.NumberFormat>();
+
+function moneyFormatter(currency: string): Intl.NumberFormat {
+  let formatter = moneyFormatters.get(currency);
+  if (formatter) return formatter;
+
+  // Throws a RangeError for an invalid currency code; nothing gets cached then.
+  formatter = new Intl.NumberFormat(LOCALE, { style: "currency", currency });
+  if (moneyFormatters.size >= MAX_MONEY_FORMATTERS) {
+    const oldest = moneyFormatters.keys().next().value;
+    if (oldest !== undefined) moneyFormatters.delete(oldest);
   }
-  if (abs < day) {
-    const h = Math.round(abs / hour);
-    return `${prefix}${h} ${h === 1 ? "hora" : "horas"}`;
-  }
-  const d = Math.round(abs / day);
-  if (d < 30) return `${prefix}${d} ${d === 1 ? "día" : "días"}`;
-  const months = Math.round(d / 30);
-  if (months < 12) return `${prefix}${months} ${months === 1 ? "mes" : "meses"}`;
-  const years = Math.round(months / 12);
-  return `${prefix}${years} ${years === 1 ? "año" : "años"}`;
+  moneyFormatters.set(currency, formatter);
+  return formatter;
+}
+
+/** Formats with `formatter`, or returns a fallback when `iso` isn't a valid date. */
+function formatIso(iso: string, formatter: Intl.DateTimeFormat): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? "Fecha no disponible" : formatter.format(date);
 }
 
 export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  return formatIso(iso, dateFormatter);
 }
 
-export function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+/** The Argentina-time calendar month of `iso` ("Noviembre 2026"), or `null` when it isn't a valid date. */
+export function monthOfYear(iso: string): { key: string; label: string } | null {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const parts = monthYearFormatter.formatToParts(date);
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+  return { key: `${year}-${month}`, label: `${month.charAt(0).toUpperCase()}${month.slice(1)} ${year}` };
 }
 
-export function formatPoints(points: number): string {
-  return points.toLocaleString("es-AR");
+export function formatNumber(value: number): string {
+  return numberFormatter.format(value);
 }
 
-export function formatDiscountValue(value: number): string {
-  const result = value * 100;
-
-  return `${result}%`;
+export function formatMoney(amount: number, currency: string): string {
+  try {
+    return moneyFormatter(currency).format(amount);
+  } catch {
+    return `${formatNumber(amount)} ${currency}`;
+  }
 }
 
-/* ---------- validation / sanitization ---------- */
+/* ---------- billing labels ---------- */
 
-export const MAX_NAME_LENGTH = 60;
-export const MAX_TEXT_LENGTH = 280;
-export const MAX_TITLE_LENGTH = 60;
 
-export function sanitizeText(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
+export function subscriptionLabel(status: string | null): string {
+  if (status === null) return "Sin suscripción iniciada";
+  const labels = new Map([
+    ["pending", "Pendiente de autorización"],
+    ["authorized", "Cobros autorizados (no confirma un pago)"],
+    ["paused", "Suscripción pausada"],
+    ["cancelled", "Suscripción cancelada"],
+    ["finished", "Suscripción finalizada"],
+  ]);
+  return labels.get(status) ?? `Estado desconocido (${status})`;
+}
+export function invoiceLabel(status: string): string {
+  return (
+    new Map([
+      ["paid", "Pagada"],
+      ["pending", "Pendiente de pago"],
+      ["void", "Anulada"],
+    ]).get(status) ?? `Estado desconocido (${status})`
+  );
 }
 
-export function validateName(value: string): string | null {
-  const v = sanitizeText(value);
-  if (!v) return "El nombre no puede estar vacío.";
-  if (v.length < 2) return "El nombre debe tener al menos 2 caracteres.";
-  if (v.length > MAX_NAME_LENGTH) return `El nombre no puede superar los ${MAX_NAME_LENGTH} caracteres.`;
-  if (!/[a-zA-ZáéíóúñÁÉÍÓÚÑ]/.test(v)) return "Ingresá un nombre válido, con letras.";
-  return null;
-}
-
-/** Accepts digits, spaces, +, -, parentheses. Requires 8–15 digits. */
-export function validatePhone(value: string): string | null {
-  const v = value.trim();
-  if (!v) return "El teléfono no puede estar vacío.";
-  if (!/^[\d\s+()-]+$/.test(v)) return "El teléfono solo puede tener números, espacios y los signos + ( ) -.";
-  const digits = v.replace(/\D/g, "");
-  if (digits.length < 8) return "El teléfono es demasiado corto. Revisá que tenga el código de área.";
-  if (digits.length > 15) return "El teléfono es demasiado largo. Ingresá un número válido.";
-  return null;
-}
-
-/** Parses a positive integer string. Returns null if invalid. */
-export function parsePositiveInt(value: string, opts?: { max?: number }): number | null {
-  const v = value.trim();
-  if (!/^\d+$/.test(v)) return null;
-  const n = Number(v);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  if (opts?.max != null && n > opts.max) return null;
-  return n;
-}
-
-export function validateRequired(value: string, label: string, maxLength = MAX_TEXT_LENGTH): string | null {
-  const v = sanitizeText(value);
-  if (!v) return `${label} no puede estar vacío.`;
-  if (v.length > maxLength) return `${label} no puede superar los ${maxLength} caracteres.`;
-  return null;
-}
-
-export function truncate(value: string, length: number): string {
-  if (value.length <= length) return value;
-  return value.slice(0, length).trimEnd() + "…";
+export function billingDate(value: string | null): string {
+  if (!value) return "Sin fecha informada";
+  return formatDate(value);
 }
 
 /* ---------- status labels ---------- */
 
-export function redemptionStatusLabel(status: "pending" | "delivered" | "cancelled"): string {
+export function redemptionStatusLabel(status: ExchangeState): string {
   switch (status) {
-    case "pending":
+    case ExchangeState.PENDING:
       return "Pendiente";
-    case "delivered":
+    case ExchangeState.COMPLETED:
       return "Entregado";
-    case "cancelled":
+    case ExchangeState.CANCELLED:
       return "Anulado";
   }
 }
 
-export function pointActionLabel(type: "add" | "subtract" | "edit"): string {
+export function pointActionLabel(type: PointActionType): string {
   switch (type) {
     case "add":
       return "Suma de puntos";

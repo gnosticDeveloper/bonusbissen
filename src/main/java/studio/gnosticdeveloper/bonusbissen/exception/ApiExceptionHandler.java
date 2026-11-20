@@ -11,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import studio.gnosticdeveloper.bonusbissen.mercadopago.MercadoPagoApiException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -30,6 +31,14 @@ public class ApiExceptionHandler {
         log.warn("Conflict: {}", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getPublicMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+    }
+
+    @ExceptionHandler(SubscriptionLapsedException.class)
+    public ResponseEntity<ProblemDetail> handleSubscriptionLapsed(SubscriptionLapsedException ex) {
+        log.warn("Subscription lapsed: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.PAYMENT_REQUIRED, ex.getPublicMessage());
+        problem.setProperty("code", ex.getCode());
+        return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(problem);
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
@@ -75,6 +84,13 @@ public class ApiExceptionHandler {
         log.warn("Incorrect password: {}", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getPublicMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
+    }
+
+    @ExceptionHandler(MercadoPagoApiException.class)
+    public ResponseEntity<ProblemDetail> handleMercadoPagoApi(MercadoPagoApiException ex) {
+        log.error("Mercado Pago API call failed: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, "No pudimos comunicarnos con Mercado Pago. Intentá de nuevo en unos minutos.");
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(problem);
     }
 
     @ExceptionHandler(AccessDeniedException.class)

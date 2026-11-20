@@ -8,14 +8,16 @@ interface PaginationControlsProps {
   onPageChange: (page: number) => void;
   disabled?: boolean;
   className?: string;
+  /** What this pager navigates, for screen readers. */
+  label?: string;
 }
 
-export function PaginationControls({ page, totalPages, onPageChange, disabled, className = "" }: PaginationControlsProps) {
+export function PaginationControls({ page, totalPages, onPageChange, disabled, className = "", label = "Paginación" }: PaginationControlsProps) {
   const isFirst = page <= 0;
   const isLast = page >= totalPages - 1;
 
   return (
-    <nav aria-label="Paginación de negocios" className={`flex items-center justify-between gap-3 ${className}`}>
+    <nav aria-label={label} className={`flex items-center justify-between gap-3 ${className}`}>
       <button
         type="button"
         onClick={() => onPageChange(page - 1)}

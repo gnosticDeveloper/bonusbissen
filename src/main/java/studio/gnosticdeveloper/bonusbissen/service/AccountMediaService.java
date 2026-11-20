@@ -106,7 +106,8 @@ public class AccountMediaService {
         return users.findById(id).orElseThrow(() -> new NotFoundException("User not found: " + id, "No pudimos encontrar tu usuario."));
     }
 
+    /** billingPlan fetch-joined -- setLogo/setBanner etc. hand the result to OrganizationResponse after this transaction closes. */
     private Organization organization(UUID id) {
-        return organizations.findById(id).orElseThrow(() -> new NotFoundException("Organization not found: " + id, "No pudimos encontrar la organización."));
+        return organizations.findByIdWithBillingPlan(id).orElseThrow(() -> new NotFoundException("Organization not found: " + id, "No pudimos encontrar la organización."));
     }
 }

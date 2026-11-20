@@ -16,7 +16,6 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.JoinPointProgramRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.StaffCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserRegisterRequest;
@@ -103,12 +102,7 @@ class TraceabilityIntegrationTest extends AbstractIntegrationTest {
         String cashierToken = loginEmployee("trace-cashier", TEST_USER_PASSWORD);
         User user = createUser("trace-grant-me");
 
-        restTemplate.exchange(
-            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
-            HttpMethod.POST,
-            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
-            Void.class
-        );
+        joinProgram(user.getId(), defaultProgram());
         ResponseEntity<UserPointsAwardResponse> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
@@ -152,6 +146,7 @@ class TraceabilityIntegrationTest extends AbstractIntegrationTest {
 
         UUID operationId = traceabilityService.record(
             OperationType.POINTS_GRANT,
+            null,
             originator.getId(),
             Set.of(affectedOne.getId(), affectedTwo.getId()),
             Map.of()
@@ -166,8 +161,8 @@ class TraceabilityIntegrationTest extends AbstractIntegrationTest {
         User originator = createUser("trace-fresh-originator");
         User affected = createUser("trace-fresh-affected");
 
-        UUID first = traceabilityService.record(OperationType.POINTS_GRANT, originator.getId(), affected.getId(), Map.of());
-        UUID second = traceabilityService.record(OperationType.POINTS_GRANT, originator.getId(), affected.getId(), Map.of());
+        UUID first = traceabilityService.record(OperationType.POINTS_GRANT, null, originator.getId(), affected.getId(), Map.of());
+        UUID second = traceabilityService.record(OperationType.POINTS_GRANT, null, originator.getId(), affected.getId(), Map.of());
 
         assertThat(first).isNotEqualTo(second);
     }
@@ -230,12 +225,7 @@ class TraceabilityIntegrationTest extends AbstractIntegrationTest {
 
     /** Joins the default program, grants enough points, and claims {@code reward}; returns the pending transaction id. */
     private UUID claimPendingExchange(String cashierToken, String userToken, User user, Reward reward) {
-        restTemplate.exchange(
-            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
-            HttpMethod.POST,
-            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
-            Void.class
-        );
+        joinProgram(user.getId(), defaultProgram());
         restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
@@ -376,12 +366,7 @@ class TraceabilityIntegrationTest extends AbstractIntegrationTest {
         String adminToken = adminToken("trace-api-admin");
         User user = createUser("trace-api-grant-me");
 
-        restTemplate.exchange(
-            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
-            HttpMethod.POST,
-            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
-            Void.class
-        );
+        joinProgram(user.getId(), defaultProgram());
         restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
@@ -419,12 +404,7 @@ class TraceabilityIntegrationTest extends AbstractIntegrationTest {
         String adminToken = adminToken("trace-type-admin");
         User user = createUser("trace-type-grant-me");
 
-        restTemplate.exchange(
-            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
-            HttpMethod.POST,
-            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
-            Void.class
-        );
+        joinProgram(user.getId(), defaultProgram());
         restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
@@ -472,12 +452,7 @@ class TraceabilityIntegrationTest extends AbstractIntegrationTest {
         User userB = createUser("trace-combo-grant-b");
 
         for (User target : List.of(userA, userB)) {
-            restTemplate.exchange(
-                baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
-                HttpMethod.POST,
-                authed(cashierToken, new JoinPointProgramRequest(target.getId())),
-                Void.class
-            );
+            joinProgram(target.getId(), defaultProgram());
             restTemplate.exchange(
                 baseUrl() + "/users/grant",
                 HttpMethod.POST,
@@ -544,12 +519,7 @@ class TraceabilityIntegrationTest extends AbstractIntegrationTest {
         String defaultOrgAdminToken = adminToken("trace-isolation-admin");
         User user = createUser("trace-isolation-grant-me");
 
-        restTemplate.exchange(
-            baseUrl() + "/point-programs/" + otherProgram.getId() + "/members",
-            HttpMethod.POST,
-            authed(otherCashierToken, new JoinPointProgramRequest(user.getId())),
-            Void.class
-        );
+        joinProgram(user.getId(), otherProgram);
         restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,

@@ -1,5 +1,6 @@
-import { ExchangesErrorState } from "@/components/exchanges-error-state";
-import { EmptyExchangesState } from "@/components/empty-exchanges-state";
+import { Gift } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
 import { ExchangeCard } from "@/components/exchange-card";
 import { getExchangeHistory } from "@/app/b/resumen/actions";
 
@@ -14,7 +15,7 @@ export default async function MisCanjesPage() {
           <p className="mt-1 text-sm text-foreground/75">Revisá tus recompensas canjeadas y pendientes.</p>
         </header>
 
-        <ExchangesErrorState />
+        <ErrorState title="No pudimos cargar tus canjes" />
       </main>
     );
   }
@@ -29,7 +30,7 @@ export default async function MisCanjesPage() {
       </header>
 
       {exchanges.length === 0 ? (
-        <EmptyExchangesState />
+        <EmptyState icon={Gift} title="Todavía no canjeaste ninguna recompensa" description="Cuando canjees puntos por una recompensa, la vas a ver acá." />
       ) : (
         <ul className="flex flex-col gap-3">
           {exchanges.map((exchange) => (

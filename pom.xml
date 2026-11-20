@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.1</version>
+        <version>4.1.2</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>studio.gnosticdeveloper.bonusbussen</groupId>
@@ -137,6 +137,21 @@
             <groupId>com.cloudinary</groupId>
             <artifactId>cloudinary-http5</artifactId>
             <version>2.4.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>3.0.5</version>
+            <exclusions>
+                <!-- OpenPDF drags brotli4j in, and with it on the classpath Apache HttpClient starts
+                     advertising "br". Cloudflare-fronted APIs (Georef) then answer brotli, whose native
+                     decoder is glibc-only and dies with UnsatisfiedLinkError on our Alpine (musl) image.
+                     OpenPDF 3.0.5 declares it but no class in the jar references it. -->
+                <exclusion>
+                    <groupId>com.aayushatharva.brotli4j</groupId>
+                    <artifactId>brotli4j</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

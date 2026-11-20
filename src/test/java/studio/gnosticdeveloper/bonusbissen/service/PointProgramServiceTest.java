@@ -6,12 +6,15 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
+import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.UserPointProgram;
 import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
+import studio.gnosticdeveloper.bonusbissen.exception.SubscriptionLapsedException;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointTransactionRepository;
@@ -22,13 +25,18 @@ import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -47,6 +55,12 @@ class PointProgramServiceTest {
     private UserRepository userRepository;
     @Mock
     private PointTransactionRepository pointTransactionRepository;
+    @Mock
+    private OnboardingService onboardingService;
+    @Mock
+    private SubscriptionGuard subscriptionGuard;
+    @Mock
+    private TraceabilityService traceabilityService;
 
     @InjectMocks
     private PointProgramService pointProgramService;
@@ -55,11 +69,15 @@ class PointProgramServiceTest {
     private static final UUID USER_ID = UUID.randomUUID();
     private static final UUID ORGANIZATION_ID = UUID.randomUUID();
     private static final UUID STOREFRONT_ID = UUID.randomUUID();
+    private static final UUID ACTING_USER_ID = UUID.randomUUID();
 
     private PointProgram activeProgram() {
         PointProgram program = new PointProgram();
         program.setId(PROGRAM_ID);
         program.setActive(true);
+        Organization organization = new Organization();
+        organization.setId(ORGANIZATION_ID);
+        program.setOrganization(organization);
         return program;
     }
 
@@ -83,11 +101,59 @@ class PointProgramServiceTest {
         when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.of(program));
         when(pointProgramRepository.saveAndFlush(program)).thenReturn(program);
 
-        pointProgramService.update(PROGRAM_ID, new PointProgramUpdateRequest("Points", null, true, 6), ORGANIZATION_ID);
+        pointProgramService.update(PROGRAM_ID, new PointProgramUpdateRequest("Points", null, true, 6), ORGANIZATION_ID, ACTING_USER_ID);
 
         assertThat(program.getExpirationMonths()).isEqualTo(6);
         verify(pointTransactionRepository).backfillExpiresAt(PROGRAM_ID, 6);
         verifyNoMoreInteractions(pointTransactionRepository);
+    }
+
+    @Test
+    void changingTheExpirationPeriodIsAuditedWithBeforeAndAfter() {
+        PointProgram program = activeProgram();
+        program.setName("Points");
+        program.setExpirationMonths(3);
+        when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.of(program));
+        when(pointProgramRepository.saveAndFlush(program)).thenReturn(program);
+
+        pointProgramService.update(PROGRAM_ID, new PointProgramUpdateRequest("Points", null, true, 6), ORGANIZATION_ID, ACTING_USER_ID);
+
+        verify(traceabilityService).record(
+            eq(OperationType.POINT_PROGRAM_UPDATE), eq(ORGANIZATION_ID), eq(ACTING_USER_ID), eq(Set.<UUID>of()),
+            argThat(payload -> PROGRAM_ID.equals(payload.get("programId"))
+                && Integer.valueOf(3).equals(payload.get("previousExpirationMonths"))
+                && Integer.valueOf(6).equals(payload.get("expirationMonths"))
+                && Boolean.TRUE.equals(payload.get("previousActive")) && Boolean.TRUE.equals(payload.get("active")))
+        );
+    }
+
+    @Test
+    void updatingAProgramWithNothingNewIsNotAudited() {
+        PointProgram program = activeProgram();
+        program.setName("Points");
+        program.setExpirationMonths(6);
+        when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.of(program));
+        when(pointProgramRepository.saveAndFlush(program)).thenReturn(program);
+
+        pointProgramService.update(PROGRAM_ID, new PointProgramUpdateRequest("Points", null, true, 6), ORGANIZATION_ID, ACTING_USER_ID);
+
+        verify(traceabilityService, never()).record(any(), any(), any(), any(Set.class), any());
+    }
+
+    @Test
+    void attachingAStorefrontIsAuditedButReattachingTheSameOneIsNot() {
+        PointProgram program = activeProgram();
+        Storefront storefront = storefrontWithProgram(null);
+        when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.of(program));
+        when(storefrontRepository.findByIdAndOrganizationId(STOREFRONT_ID, ORGANIZATION_ID)).thenReturn(Optional.of(storefront));
+
+        pointProgramService.attachStorefronts(PROGRAM_ID, List.of(STOREFRONT_ID), ORGANIZATION_ID, ACTING_USER_ID);
+        pointProgramService.attachStorefronts(PROGRAM_ID, List.of(STOREFRONT_ID), ORGANIZATION_ID, ACTING_USER_ID);
+
+        verify(traceabilityService, times(1)).record(
+            eq(OperationType.PROGRAM_STOREFRONTS_UPDATE), eq(ORGANIZATION_ID), eq(ACTING_USER_ID), eq(Set.<UUID>of()),
+            argThat(payload -> "attach".equals(payload.get("action")) && List.of(STOREFRONT_ID).equals(payload.get("storefrontIds")))
+        );
     }
 
     @Test
@@ -97,7 +163,7 @@ class PointProgramServiceTest {
         when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.of(program));
         when(pointProgramRepository.saveAndFlush(program)).thenReturn(program);
 
-        pointProgramService.update(PROGRAM_ID, new PointProgramUpdateRequest("Points", null, true, null), ORGANIZATION_ID);
+        pointProgramService.update(PROGRAM_ID, new PointProgramUpdateRequest("Points", null, true, null), ORGANIZATION_ID, ACTING_USER_ID);
 
         assertThat(program.getExpirationMonths()).isNull();
         verify(pointTransactionRepository).clearExpiresAt(PROGRAM_ID);
@@ -116,6 +182,17 @@ class PointProgramServiceTest {
         verify(userPointProgramRepository).save(captor.capture());
         assertThat(captor.getValue().getUser().getId()).isEqualTo(USER_ID);
         assertThat(captor.getValue().getPointProgram().getId()).isEqualTo(PROGRAM_ID);
+    }
+
+    @Test
+    void joinIsRefusedWhenTheBusinessIsLapsed() {
+        when(pointProgramRepository.findById(PROGRAM_ID)).thenReturn(Optional.of(activeProgram()));
+        doThrow(new SubscriptionLapsedException("lapsed", "no disponible", SubscriptionLapsedException.CUSTOMER_CODE))
+            .when(subscriptionGuard).requireAvailableToCustomers(ORGANIZATION_ID);
+
+        assertThatThrownBy(() -> pointProgramService.join(USER_ID, PROGRAM_ID)).isInstanceOf(SubscriptionLapsedException.class);
+
+        verify(userPointProgramRepository, never()).save(any());
     }
 
     @Test
@@ -141,26 +218,6 @@ class PointProgramServiceTest {
     }
 
     @Test
-    void joinOnBehalfRequiresTheProgramBelongToTheCallersOrganization() {
-        when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> pointProgramService.joinOnBehalf(USER_ID, PROGRAM_ID, ORGANIZATION_ID)).isInstanceOf(NotFoundException.class);
-
-        verify(userPointProgramRepository, never()).save(any());
-    }
-
-    @Test
-    void joinOnBehalfCreatesMembershipForAnOwnedProgram() {
-        when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.of(activeProgram()));
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user()));
-        when(userPointProgramRepository.existsByUser_IdAndPointProgram_Id(USER_ID, PROGRAM_ID)).thenReturn(false);
-
-        pointProgramService.joinOnBehalf(USER_ID, PROGRAM_ID, ORGANIZATION_ID);
-
-        verify(userPointProgramRepository).save(any(UserPointProgram.class));
-    }
-
-    @Test
     void joinByStorefrontJoinsUsingTheStorefrontsProgram() {
         when(storefrontRepository.findById(STOREFRONT_ID)).thenReturn(Optional.of(storefrontWithProgram(activeProgram())));
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user()));
@@ -171,6 +228,7 @@ class PointProgramServiceTest {
         ArgumentCaptor<UserPointProgram> captor = ArgumentCaptor.forClass(UserPointProgram.class);
         verify(userPointProgramRepository).save(captor.capture());
         assertThat(captor.getValue().getPointProgram().getId()).isEqualTo(PROGRAM_ID);
+        assertThat(captor.getValue().getStorefront()).isNotNull();
     }
 
     @Test
@@ -204,7 +262,7 @@ class PointProgramServiceTest {
         when(pointProgramRepository.findByIdAndOrganizationId(PROGRAM_ID, ORGANIZATION_ID)).thenReturn(Optional.of(target));
         when(storefrontRepository.findByIdAndOrganizationId(STOREFRONT_ID, ORGANIZATION_ID)).thenReturn(Optional.of(storefront));
 
-        assertThatThrownBy(() -> pointProgramService.attachStorefronts(PROGRAM_ID, List.of(STOREFRONT_ID), ORGANIZATION_ID))
+        assertThatThrownBy(() -> pointProgramService.attachStorefronts(PROGRAM_ID, List.of(STOREFRONT_ID), ORGANIZATION_ID, ACTING_USER_ID))
             .isInstanceOf(ConflictException.class);
 
         verify(storefrontRepository, never()).save(any());

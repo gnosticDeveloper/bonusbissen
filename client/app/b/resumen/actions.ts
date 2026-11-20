@@ -1,19 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { ActionResult } from "@/lib/action-result";
-import { request } from "@/lib/api";
-import { decodeJwt, getSessionToken } from "@/lib/auth/session";
-import { signOut } from "../actions";
+import { ActionResult, request } from "@/lib/api";
+import { currentUserId } from "@/lib/auth/session";
 import { HistoricalExchangeResponse } from "@/lib/types/exchange";
 
 export async function getExchangeHistory(sId?: string): Promise<ActionResult<HistoricalExchangeResponse[]>> {
-  const raw = await getSessionToken();
-
-  if (!raw) return await signOut();
-
-  const token = decodeJwt(raw);
-  const userId = token.sub;
+  const userId = await currentUserId();
 
   const params = new URLSearchParams();
   if (sId) params.append("storefrontId", sId);

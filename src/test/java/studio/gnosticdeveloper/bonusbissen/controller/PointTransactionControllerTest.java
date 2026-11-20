@@ -38,9 +38,11 @@ class PointTransactionControllerTest {
     @Test
     void userRequestingTheirOwnPendingExchangesSucceeds() {
         UUID userId = UUID.randomUUID();
+        // A customer sees every one of their own pending exchanges across every business --
+        // organizationId is never used to scope it, even though the mock principal carries one.
         AuthenticatedPrincipal principal = new AuthenticatedPrincipal(userId, "Someone", "USER", UUID.randomUUID(), null);
         List<PendingExchangeResponse> expected = List.of();
-        when(pointTransactionService.getAllPendingExchangesById(userId)).thenReturn(expected);
+        when(pointTransactionService.getAllPendingExchangesById(userId, null)).thenReturn(expected);
 
         List<PendingExchangeResponse> result = controller.getAllPendingExchangesByUserId(userId, principal);
 
@@ -56,16 +58,17 @@ class PointTransactionControllerTest {
         assertThatThrownBy(() -> controller.getAllPendingExchangesByUserId(victimId, principal))
             .isInstanceOf(AccessDeniedException.class);
 
-        verify(pointTransactionService, never()).getAllPendingExchangesById(any());
+        verify(pointTransactionService, never()).getAllPendingExchangesById(any(), any());
     }
 
     @Test
     void cashierRequestingAnyUsersPendingExchangesSucceeds() {
         UUID cashierId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(cashierId, "Cashier", "CASHIER", UUID.randomUUID(), UUID.randomUUID());
+        UUID organizationId = UUID.randomUUID();
+        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(cashierId, "Cashier", "CASHIER", organizationId, UUID.randomUUID());
         List<PendingExchangeResponse> expected = List.of();
-        when(pointTransactionService.getAllPendingExchangesById(userId)).thenReturn(expected);
+        when(pointTransactionService.getAllPendingExchangesById(userId, organizationId)).thenReturn(expected);
 
         List<PendingExchangeResponse> result = controller.getAllPendingExchangesByUserId(userId, principal);
 
@@ -76,9 +79,11 @@ class PointTransactionControllerTest {
     void adminRequestingAnyUsersPendingExchangesSucceeds() {
         UUID adminId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(adminId, "Admin", "ADMIN", UUID.randomUUID(), UUID.randomUUID());
+        UUID organizationId = UUID.randomUUID();
+        // Scoped to the admin's own organization -- not an unconditional "any user" lookup.
+        AuthenticatedPrincipal principal = new AuthenticatedPrincipal(adminId, "Admin", "ADMIN", organizationId, UUID.randomUUID());
         List<PendingExchangeResponse> expected = List.of();
-        when(pointTransactionService.getAllPendingExchangesById(userId)).thenReturn(expected);
+        when(pointTransactionService.getAllPendingExchangesById(userId, organizationId)).thenReturn(expected);
 
         List<PendingExchangeResponse> result = controller.getAllPendingExchangesByUserId(userId, principal);
 

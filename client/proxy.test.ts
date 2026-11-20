@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { afterEach, test } from "node:test";
+import { mock } from "bun:test";
 import { exportSPKI, generateKeyPair, jwtVerify, SignJWT } from "jose";
 import { NextRequest, NextResponse } from "next/server";
-import { proxy } from "./proxy";
-import { refreshSession } from "./lib/auth/refresh";
+
+// The real "server-only" throws outside a React Server context. Mock it before
+// loading anything that imports it; static imports would run first.
+mock.module("server-only", () => ({}));
+const { proxy } = await import("./proxy");
+const { refreshSession } = await import("./lib/auth/refresh");
 
 // Keep the key stable because session.ts caches it across test cases.
 const { privateKey, publicKey } = await generateKeyPair("ES256", { extractable: true });
@@ -42,6 +47,110 @@ function request(path: string, cookies: Record<string, string> = {}, action = fa
   });
 }
 
+test("landing stays public without refreshing unrelated sessions", async () => {
+  const { getFetchCallCount } = mockBackend(() => { throw new Error("Public routes must not refresh sessions"); });
+  for (const path of ["/", "/billing?status=approved"]) {
+    for (const action of [false, true]) {
+      const response = await proxy(request(path, { access_token: "expired", bb_user_rt: rawToken() }, action));
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("location"), null);
+    }
+  }
+  assert.equal(getFetchCallCount(), 0);
+});
+
+test("onboarding stays public with no session", async () => {
+  const { getFetchCallCount } = mockBackend(() => { throw new Error("No credentials to refresh"); });
+  for (const path of ["/onboarding", "/onboarding/pago"]) {
+    for (const action of [false, true]) {
+      const response = await proxy(request(path, {}, action));
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("location"), null);
+    }
+  }
+  assert.equal(getFetchCallCount(), 0);
+});
+
+test("onboarding renews both sessions and forwards rotated cookies to actions", async () => {
+  const customer = await jwt("USER");
+  const dashboard = await jwt("ADMIN", false, "created-storefront");
+  const userRaw = rawToken();
+  const dashboardRaw = rawToken();
+  const userRotated = rawToken();
+  const dashboardRotated = rawToken();
+  const { refreshCalls } = mockBackend(init => {
+    const raw = new Headers(init?.headers).get("cookie");
+    return raw === `bb_rt=${userRaw}` ? refreshed(customer, userRotated) : refreshed(dashboard, dashboardRotated);
+  });
+  const response = await proxy(request("/onboarding", {
+    access_token: await jwt("USER", true), bb_user_rt: userRaw,
+    d_token: await jwt("ADMIN", true), bb_dashboard_rt: dashboardRaw,
+  }, true));
+  assert.equal(refreshCalls.length, 2);
+  assertRestored(response, "customer", customer, userRotated);
+  assertRestored(response, "dashboard", dashboard, dashboardRotated);
+});
+
+test("expired onboarding refresh clears only that session and never redirects an action", async () => {
+  const dashboard = await jwt("ADMIN");
+  mockBackend(() => new Response(null, { status: 401 }));
+  const response = await proxy(request("/onboarding/pago", {
+    access_token: await jwt("USER", true), bb_user_rt: rawToken(),
+    d_token: dashboard, bb_dashboard_rt: rawToken(),
+  }, true));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("location"), null);
+  assert.equal(response.cookies.get("access_token")?.value, "");
+  assert.equal(response.cookies.get("bb_user_rt")?.value, "");
+  assert.equal(response.cookies.get("d_token"), undefined);
+  const forwarded = forwardedCookies(response);
+  assert.equal(forwarded.get("access_token"), undefined);
+  assert.equal(forwarded.get("d_token")?.value, dashboard);
+});
+
+test("onboarding preserves a rotated customer session if dashboard refresh is unavailable", async () => {
+  const customer = await jwt("USER");
+  const userRaw = rawToken();
+  const rotated = rawToken();
+  mockBackend(init => new Headers(init?.headers).get("cookie") === `bb_rt=${userRaw}`
+    ? refreshed(customer, rotated) : new Response(null, { status: 503 }));
+  const response = await proxy(request("/onboarding", { bb_user_rt: userRaw, bb_dashboard_rt: rawToken() }));
+  assert.equal(response.status, 503);
+  assert.equal(response.cookies.get("access_token")?.value, customer);
+  assert.equal(response.cookies.get("bb_user_rt")?.value, rotated);
+  assert.equal(response.cookies.get("bb_dashboard_rt"), undefined);
+});
+
+test("onboarding never refreshes an invalid signed session and deletes its cookies", async () => {
+  const customer = await jwt("USER");
+  const { refreshCalls } = mockBackend(() => { throw new Error("Invalid token must not trigger refresh"); });
+  for (const action of [false, true]) {
+    const response = await proxy(request("/onboarding", {
+      access_token: customer,
+      d_token: "not-a-jwt", bb_dashboard_rt: rawToken(), d_storefronts: "branches",
+    }, action));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("location"), null);
+    assert.equal(refreshCalls.length, 0);
+    // The tampered dashboard session is gone for the browser and for this request.
+    for (const name of ["d_token", "bb_dashboard_rt", "d_storefronts"]) {
+      assert.equal(response.cookies.get(name)?.value, "");
+      assert.equal(forwardedCookies(response).get(name), undefined);
+    }
+    // The account session still verifies, so it is left alone.
+    assert.equal(response.cookies.get("access_token"), undefined);
+    assert.equal(forwardedCookies(response).get("access_token")?.value, customer);
+  }
+});
+
+test("public landing does not open protected routes or similar prefixes", async () => {
+  for (const path of ["/b", "/d/private", "/onboarding-private", "/billing-private", "/billing/private"]) {
+    const response = await proxy(request(path));
+    assert.equal(response.status, 307);
+    assert.equal(new URL(response.headers.get("location")!).pathname, path.startsWith("/d/") ? "/d/sign-in" : "/descubrir");
+  }
+});
+
 function refreshed(token: string, rotated = rawToken()) {
   return Response.json({ token }, {
     headers: { "set-cookie": `bb_rt=${rotated}; Max-Age=${maxAge}; Path=/; HttpOnly; SameSite=Strict` },
@@ -57,7 +166,7 @@ function mockBackend(
   assert.equal(restoreFetch, undefined, "install one backend mock per test");
   const originalFetch = globalThis.fetch;
   restoreFetch = () => { globalThis.fetch = originalFetch; };
-  globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  const mockFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     fetchCallCount++;
     const url = new URL(input instanceof Request ? input.url : String(input));
     if (url.pathname === "/auth/public-key") {
@@ -67,6 +176,8 @@ function mockBackend(
     refreshCalls.push(init ?? {});
     return refresh(init);
   };
+  // Bun's `typeof fetch` also has `fetch.preconnect`; keep the real one.
+  globalThis.fetch = Object.assign(mockFetch, { preconnect: originalFetch.preconnect });
   return { refreshCalls, getFetchCallCount: () => fetchCallCount };
 }
 

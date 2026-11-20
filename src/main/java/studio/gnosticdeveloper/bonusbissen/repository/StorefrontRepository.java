@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
@@ -15,8 +16,35 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
 
     Optional<Storefront> findByIdAndOrganizationId(UUID id, UUID organizationId);
 
+    /** The point program a storefront runs: what the dashboard home ("Inicio") reports on. */
+    interface ProgramScope {
+        UUID getId();
+        String getName();
+    }
+
+    @Query("""
+        select p.id as id, p.name as name
+        from Storefront s join s.pointProgram p
+        where s.id = :storefrontId and s.organization.id = :organizationId
+        """)
+    Optional<ProgramScope> findProgramOfStorefront(@Param("storefrontId") UUID storefrontId, @Param("organizationId") UUID organizationId);
+
     /**
-     * Active storefronts running an active program, newest first, optionally by
+     * The program of the staff member's selected storefront, read server-side from the verified
+     * session's storefront and checked against their organization. Empty when no storefront is
+     * selected, or the storefront has no program.
+     */
+    default Optional<ProgramScope> findSelectedProgram(UUID storefrontId, UUID organizationId) {
+        return storefrontId == null ? Optional.empty() : findProgramOfStorefront(storefrontId, organizationId);
+    }
+
+    @Modifying
+    @Query("update Storefront s set s.active = false where s.organization.id = :organizationId")
+    void deactivateAllByOrganizationId(@Param("organizationId") UUID organizationId);
+
+    /**
+     * Active storefronts running an active program (and whose org isn't lapsed,
+     * see LapseSql: overdue invoice or ended subscription), newest first, optionally by
      * city. {@code city} is matched against the same "Localidad, Provincia"
      * display string the /discover/cities picker returns -- city and province
      * are stored as separate columns, so it's rebuilt here at query time.
@@ -27,6 +55,7 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
         join point_programs pp on pp.id = s.point_program_id
         where s.active and pp.active
           and (cast(:city as text) is null or (s.city || ', ' || s.province) = cast(:city as text))
+          """ + LapseSql.STOREFRONT_NOT_LAPSED + """
         order by s.created_at desc
         """,
         countQuery = """
@@ -34,6 +63,7 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
         join point_programs pp on pp.id = s.point_program_id
         where s.active and pp.active
           and (cast(:city as text) is null or (s.city || ', ' || s.province) = cast(:city as text))
+          """ + LapseSql.STOREFRONT_NOT_LAPSED + """
         """,
         nativeQuery = true
     )
@@ -44,6 +74,7 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
         value = """
         select distinct s.city || ', ' || s.province from storefronts s
         where s.active and s.city is not null and s.province is not null
+          """ + LapseSql.STOREFRONT_NOT_LAPSED + """
         order by 1
         """,
         nativeQuery = true
@@ -62,6 +93,7 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
             SELECT
                 s.id AS id,
                 s.name AS name,
+                o.id AS "orgId",
                 o.name AS "orgName",
                 s.color AS color,
                 s.icon_path AS "iconUrl",
@@ -80,6 +112,7 @@ public interface StorefrontRepository extends JpaRepository<Storefront, UUID> {
     interface BasicInfo {
         UUID getId();
         String getName();
+        UUID getOrgId();
         String getOrgName();
         String getColor();
         String getIconUrl();

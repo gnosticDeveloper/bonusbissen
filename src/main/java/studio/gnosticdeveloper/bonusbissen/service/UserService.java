@@ -1,15 +1,20 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -35,6 +40,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.ExchangeCode;
 import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
+import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.PointTransaction;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
@@ -79,6 +85,7 @@ public class UserService {
     private final PointLedgerService pointLedgerService;
     private final StorageService storageService;
     private final SessionService sessionService;
+    private final SubscriptionGuard subscriptionGuard;
 
     public UserService(
         UserRepository userRepository,
@@ -95,7 +102,8 @@ public class UserService {
         BalanceLockService balanceLockService,
         PointLedgerService pointLedgerService,
         StorageService storageService,
-        SessionService sessionService
+        SessionService sessionService,
+        SubscriptionGuard subscriptionGuard
     ) {
         this.userRepository = userRepository;
         this.pointTransactionRepository = pointTransactionRepository;
@@ -112,39 +120,7 @@ public class UserService {
         this.pointLedgerService = pointLedgerService;
         this.storageService = storageService;
         this.sessionService = sessionService;
-    }
-
-    /** Resets the password of a currently-active staff account -- scoped to the calling admin's own organization. */
-    @Transactional
-    public void resetPassword(UUID userId, String newPassword, UUID callerOrganizationId) {
-        OrganizationStaff staff = organizationStaffRepository
-            .findByUserIdAndActiveTrue(userId)
-            .orElseThrow(() ->
-                new NotFoundException(
-                    "Active staff membership not found for user ID " + userId + ".",
-                    "No pudimos encontrar al empleado seleccionado."
-                )
-            );
-
-        if (!staff.getOrganization().getId().equals(callerOrganizationId)) {
-            throw new NotFoundException(
-                "Staff member with user ID " + userId + " does not belong to organization " + callerOrganizationId + ".",
-                "No pudimos encontrar al empleado seleccionado."
-            );
-        }
-
-        User user = userRepository
-            .findById(userId)
-            .orElseThrow(() ->
-                new NotFoundException(
-                    "User with ID " + userId + " was not found while resetting staff password.",
-                    "No pudimos encontrar al empleado seleccionado."
-                )
-            );
-
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
-        sessionService.revokeAllForUser(userId);
+        this.subscriptionGuard = subscriptionGuard;
     }
 
     /** Self-service password change: any authenticated account, own password only, current password required. */
@@ -162,16 +138,36 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
         sessionService.revokeAllForUser(userId);
+        // A user's own account change belongs to no organization.
+        traceabilityService.record(OperationType.PASSWORD_CHANGE, null, userId, userId, Map.of());
     }
 
-    @Transactional
-    public HomeStatsResponse getHomeStats(UUID organizationId) {
-        int totalExchanges = pointTransactionRepository.countByTransactionType(TransactionType.REDEEM, organizationId);
-        int pendingExchanges = pointTransactionRepository.countByTransactionTypeStatePending(TransactionType.REDEEM, organizationId);
-        int totalUsers = userPointProgramRepository.countDistinctUsersByOrganizationId(organizationId);
-        int totalPointsAwarded = pointTransactionRepository.calculatePointsAwarded(TransactionType.EARN, organizationId);
-
-        return new HomeStatsResponse(totalExchanges, pendingExchanges, totalUsers, totalPointsAwarded);
+    /**
+     * Last-{@value DashboardWindow#DAYS}-day figures of the selected storefront's program, against
+     * the window before -- see {@link PointTransactionRepository#findHomeStats}.
+     */
+    @Transactional(readOnly = true)
+    public HomeStatsResponse getHomeStats(UUID organizationId, UUID storefrontId) {
+        Optional<StorefrontRepository.ProgramScope> program = storefrontRepository.findSelectedProgram(storefrontId, organizationId);
+        if (program.isEmpty()) {
+            return HomeStatsResponse.withoutProgram(DashboardWindow.DAYS);
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        PointTransactionRepository.HomeStatsRow row = pointTransactionRepository.findHomeStats(
+            program.get().getId(), DashboardWindow.start(now), DashboardWindow.previousStart(now)
+        );
+        return new HomeStatsResponse(
+            program.get().getId(),
+            program.get().getName(),
+            DashboardWindow.DAYS,
+            row.getExchanges(),
+            row.getPreviousExchanges(),
+            row.getActiveCustomers(),
+            row.getPreviousActiveCustomers(),
+            row.getPointsGranted(),
+            row.getPreviousPointsGranted(),
+            row.getPendingExchanges()
+        );
     }
 
     @Transactional(readOnly = true)
@@ -199,18 +195,23 @@ public class UserService {
     }
 
     /**
-     * A user edits their own profile: display name plus an optional email.
-     * Changing the email (or clearing it) drops the verified flag; when a new
-     * address is set, a fresh verification message goes out.
+     * A user edits their own profile: display name plus an optional email. {@code
+     * callerOrganizationId} is null for self-service; non-null means staff, who may only
+     * touch users (customers or fellow staff) with a relationship to their own organization --
+     * without this check, any admin could edit any user anywhere on the platform.
      */
     @Transactional
-    public User update(UUID id, UserUpdateRequest request) {
+    public User update(UUID id, UserUpdateRequest request, UUID callerOrganizationId, UUID actingUserId) {
+        requireOrganizationRelationship(id, callerOrganizationId);
+
         User user = userRepository
             .findById(id)
             .orElseThrow(() ->
                 new NotFoundException("User with ID " + id + " was not found while updating profile.", "No pudimos encontrar tu usuario.")
             );
 
+        String previousName = user.getName();
+        String previousEmail = user.getEmail();
         user.setName(request.name().trim());
 
         String newEmail = EmailVerificationService.normalizeEmail(request.email());
@@ -234,6 +235,14 @@ public class UserService {
         }
 
         user = userRepository.save(user);
+
+        if (emailChanged || !Objects.equals(previousName, user.getName())) {
+            // The organization is the staff member's, or none for a user editing their own profile.
+            traceabilityService.record(
+                OperationType.USER_UPDATE, callerOrganizationId, actingUserId, id,
+                TraceabilityPayload.of("previousName", previousName, "name", user.getName(), "previousEmail", previousEmail, "email", user.getEmail())
+            );
+        }
 
         if (emailChanged && newEmail != null) {
             emailVerificationService.sendVerification(user);
@@ -267,8 +276,11 @@ public class UserService {
         emailVerificationService.sendVerification(user);
     }
 
+    /** {@code callerOrganizationId} null means self-service; non-null means staff, scoped to their own organization -- see {@link #update}. */
     @Transactional
-    public User reactivate(UUID id) {
+    public User reactivate(UUID id, UUID callerOrganizationId, UUID actingUserId) {
+        requireOrganizationRelationship(id, callerOrganizationId);
+
         User user = userRepository
             .findById(id)
             .orElseThrow(() ->
@@ -278,12 +290,20 @@ public class UserService {
                 )
             );
 
+        boolean wasActive = user.isActive();
         user.setActive(true);
-        return userRepository.save(user);
+        user = userRepository.save(user);
+        if (!wasActive) {
+            traceabilityService.record(OperationType.USER_REACTIVATE, callerOrganizationId, actingUserId, id, Map.of());
+        }
+        return user;
     }
 
+    /** {@code callerOrganizationId} null means self-service; non-null means staff, scoped to their own organization -- see {@link #update}. */
     @Transactional
-    public void deleteById(UUID id) {
+    public void deleteById(UUID id, UUID callerOrganizationId, UUID actingUserId) {
+        requireOrganizationRelationship(id, callerOrganizationId);
+
         User user = userRepository
             .findById(id)
             .orElseThrow(() ->
@@ -293,9 +313,34 @@ public class UserService {
                 )
             );
 
+        boolean wasActive = user.isActive();
         user.setActive(false);
         userRepository.save(user);
         sessionService.revokeAllForUser(id);
+        if (wasActive) {
+            traceabilityService.record(OperationType.USER_DEACTIVATE, callerOrganizationId, actingUserId, id, Map.of());
+        }
+    }
+
+    /**
+     * Staff may only act on users (customers or fellow staff) with a relationship to their own
+     * organization. A no-op for self-service calls (null {@code callerOrganizationId}).
+     */
+    private void requireOrganizationRelationship(UUID userId, UUID callerOrganizationId) {
+        if (callerOrganizationId == null) {
+            return;
+        }
+        boolean isCustomerOfCallerOrg = userPointProgramRepository.existsByUserIdAndOrganizationId(userId, callerOrganizationId);
+        boolean isStaffOfCallerOrg = organizationStaffRepository
+            .findByUserIdAndActiveTrue(userId)
+            .map(staff -> staff.getOrganization().getId().equals(callerOrganizationId))
+            .orElse(false);
+        if (!isCustomerOfCallerOrg && !isStaffOfCallerOrg) {
+            throw new NotFoundException(
+                "User " + userId + " has no relationship to organization " + callerOrganizationId + ".",
+                "No pudimos encontrar al cliente seleccionado."
+            );
+        }
     }
 
     @Transactional(readOnly = true)
@@ -325,6 +370,13 @@ public class UserService {
         return getBalance(userId, program.getId());
     }
 
+    /**
+     * {@code callerOrganizationId} null means the caller is the customer themselves -- no further
+     * check needed. Non-null means staff: without a positive relationship check, any staff member
+     * of any organization could pull another organization's customer's PII (name, username,
+     * email) by user id alone, {@code programId} or not -- the id-ownership check below only
+     * covered the case where a programId happened to be supplied.
+     */
     @Transactional(readOnly = true)
     public UserPointsResponse getUserPointsById(UUID id, UUID programId, UUID callerOrganizationId) {
         User user = userRepository
@@ -336,6 +388,12 @@ public class UserService {
                 )
             );
 
+        if (callerOrganizationId != null && !userPointProgramRepository.existsByUserIdAndOrganizationId(id, callerOrganizationId)) {
+            throw new NotFoundException(
+                "User " + id + " has no relationship to organization " + callerOrganizationId + ".",
+                "No pudimos encontrar al cliente seleccionado."
+            );
+        }
         if (programId != null && callerOrganizationId != null && !pointProgramRepository.existsByIdAndOrganizationId(programId, callerOrganizationId)) {
             throw new AccessDeniedException("Point program " + programId + " is not owned by organization " + callerOrganizationId + ".");
         }
@@ -401,7 +459,39 @@ public class UserService {
             throw new AccessDeniedException("Storefront " + storefrontId + " does not belong to organization " + callerOrganizationId + ".");
         }
         List<PointTransaction> movements = pointTransactionRepository.findAllByUserIdAndStorefrontIdOrderByCreatedAtDesc(userId, storefrontId);
-        return movements.stream().map(this::toMovementResponse).toList();
+        // A cancelled redemption is refunded as one lot per lot it spent (each keeps its expiry
+        // date, see PointLedgerService#refundRedemption); the history shows it as one line.
+        List<MovementResponse> responses = new ArrayList<>();
+        Map<UUID, Integer> refundLineByRedemption = new HashMap<>();
+        for (PointTransaction mv : movements) {
+            if (mv.getRefundedTransaction() == null) {
+                responses.add(toMovementResponse(mv));
+                continue;
+            }
+            Integer line = refundLineByRedemption.get(mv.getRefundedTransaction().getId());
+            if (line == null) {
+                refundLineByRedemption.put(mv.getRefundedTransaction().getId(), responses.size());
+                responses.add(toMovementResponse(mv));
+            } else {
+                responses.set(line, mergeRefundParts(responses.get(line), mv));
+            }
+        }
+        return responses;
+    }
+
+    /** One refund line: the parts' points added up, showing the soonest of their expiry dates. */
+    private static MovementResponse mergeRefundParts(MovementResponse line, PointTransaction part) {
+        OffsetDateTime partExpiresAt = part.getApplicableExpiresAt();
+        String expiresAt = line.expiresAt();
+        if (partExpiresAt != null && (expiresAt == null || partExpiresAt.isBefore(OffsetDateTime.parse(expiresAt)))) {
+            expiresAt = partExpiresAt.toString();
+        }
+        return new MovementResponse(
+            line.id(), line.type(), line.points() + part.getPoints(), line.imageUrl(), line.title(), line.orgName(),
+            line.storefrontName(), line.pointsLabel(), line.formattedCreatedAt(), line.correction(),
+            line.correctedTransactionId(), line.correctedTransactionAmount(), line.createdAt(), expiresAt,
+            line.expirationApplicable()
+        );
     }
 
     private MovementResponse toMovementResponse(PointTransaction mv) {
@@ -467,7 +557,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public Page<UserPointsResponse> search(String search, UUID programId, UUID organizationId, UUID storefrontId, Pageable pageable) {
+    public Page<UserPointsResponse> search(String search, UUID programId, UUID organizationId, StaffRole callerRole, UUID storefrontId, Pageable pageable) {
         UUID balanceProgramId = programId;
         if (balanceProgramId != null) {
             if (!pointProgramRepository.existsByIdAndOrganizationId(balanceProgramId, organizationId)) {
@@ -484,15 +574,28 @@ public class UserService {
         }
         UUID resolvedProgramId = balanceProgramId;
         String term = search == null || search.isBlank() ? null : search.trim();
-        return userRepository
-            .search(term, pageable)
-            .map(user -> UserPointsResponse.from(user, resolvedProgramId != null ? getBalance(user.getId(), resolvedProgramId) : null));
+        Page<User> page = userRepository.search(term, organizationId, callerRole.dbValue(), pageable);
+        if (page.isEmpty()) {
+            return page.map(user -> UserPointsResponse.from(user, null));
+        }
+        // People outside the organization only match an exact username or email (see
+        // UserRepository#SEARCH_WHERE); they come back without their email or a balance.
+        Set<UUID> related = new HashSet<>(userRepository.findIdsRelatedToOrganization(
+            page.getContent().stream().map(User::getId).toList(), organizationId
+        ));
+        return page.map(user -> related.contains(user.getId())
+            ? UserPointsResponse.from(user, resolvedProgramId != null ? getBalance(user.getId(), resolvedProgramId) : null)
+            : UserPointsResponse.outsider(user));
     }
 
+    /** Top 10 customers of the selected storefront's program in the dashboard window; empty without a program. */
     @Transactional(readOnly = true)
-    public List<TopClientResponse> getTopClients(UUID organizationId) {
+    public List<TopClientResponse> getTopClients(UUID organizationId, UUID storefrontId) {
         Pageable topTen = PageRequest.of(0, 10);
-        return userRepository.getTopClients(organizationId, topTen);
+        return storefrontRepository
+            .findSelectedProgram(storefrontId, organizationId)
+            .map(program -> userRepository.getTopClients(program.getId(), DashboardWindow.start(OffsetDateTime.now()), topTen))
+            .orElse(List.of());
     }
 
     @Transactional(readOnly = true)
@@ -528,6 +631,8 @@ public class UserService {
                 )
             );
 
+        subscriptionGuard.requireNotLapsed(employee.getOrganization().getId());
+
         User user = userRepository
             .findById(request.userId())
             .filter(User::isActive)
@@ -546,6 +651,12 @@ public class UserService {
                     "No pudimos encontrar el local seleccionado."
                 )
             );
+        if (!storefront.isActive()) {
+            throw new BadRequestException(
+                "Point grant attempted at deactivated storefront " + storefrontId + ".",
+                "Este local está desactivado."
+            );
+        }
 
         PointProgram program = storefront.getPointProgram();
         if (program == null || !program.isActive()) {
@@ -595,7 +706,7 @@ public class UserService {
         if (request.note() != null) {
             payload.put("note", request.note());
         }
-        traceabilityService.record(OperationType.POINTS_GRANT, employeeId, request.userId(), payload);
+        traceabilityService.record(OperationType.POINTS_GRANT, program.getOrganization().getId(), employeeId, request.userId(), payload);
         return new UserPointsAwardResponse(tx.getUser().getName(), request.points());
     }
 
@@ -622,6 +733,10 @@ public class UserService {
             }
             throw new BadRequestException("Invalid or empty correction delta: " + delta, "La corrección debe cambiar los puntos dentro del rango permitido.");
         }
+        if (delta > 0) {
+            // Adding points is awarding; taking points back stays allowed while lapsed.
+            subscriptionGuard.requireNotLapsed(organizationId);
+        }
         requireAffordableAdjustment(userId, programId, (int) delta, request.allowDebt());
 
         PointTransaction correction = new PointTransaction();
@@ -634,9 +749,22 @@ public class UserService {
         correction.setPoints((int) delta);
         correction.setNote(request.note().trim());
         correction.setState(TransactionState.DELIVERED);
+        if (delta > 0) {
+            // A positive correction is a lot of its own; it expires with the grant it adds to. A
+            // grant without a deadline (a standalone deduction, or one voided by an earlier
+            // correction) falls back to the program's period from today, as a new grant would.
+            correction.setExpiresAt(original.getExpiresAt() != null
+                ? original.getExpiresAt()
+                : original.getPointProgram().computeExpiresAt(OffsetDateTime.now()));
+        }
         correction = pointTransactionRepository.save(correction);
         if (delta < 0) {
-            pointLedgerService.consumeFifo(userId, programId, -(int) delta);
+            if (original.isLot()) {
+                // Take the points off the grant being corrected, not off the oldest open lot.
+                pointLedgerService.reduceLot(original, -(int) delta);
+            } else {
+                pointLedgerService.consumeFifo(userId, programId, -(int) delta);
+            }
         }
         if (request.points() <= 0) {
             // Fully (or over-) reversed by this correction -- void it so it's inert now, and stays
@@ -650,12 +778,12 @@ public class UserService {
         payload.put("correctedTransactionId", original.getId());
         payload.put("points", delta);
         payload.put("note", correction.getNote());
-        traceabilityService.record(OperationType.POINTS_CORRECTION, callerId, userId, payload);
+        traceabilityService.record(OperationType.POINTS_CORRECTION, organizationId, callerId, userId, payload);
         return PointActionResponse.from(correction);
     }
 
     /** Window within which an identical retried/double-clicked submission is treated as a no-op instead of a duplicate. */
-    private static final java.time.Duration DUPLICATE_SUBMISSION_WINDOW = java.time.Duration.ofSeconds(5);
+    private static final Duration DUPLICATE_SUBMISSION_WINDOW = Duration.ofSeconds(5);
 
     /** Null when no recent duplicate exists (the normal case); otherwise the earlier transaction to replay the response from. */
     private PointTransaction findRecentDuplicateGrant(UUID userId, UUID programId, UUID employeeId, int points, String note) {
@@ -724,12 +852,17 @@ public class UserService {
         Reward reward = rewardRepository
             .findById(request.rewardId())
             .filter(Reward::isActive)
+            .filter(r -> r.getPointProgram().isActive())
+            .filter(r -> r.getPointProgram().getOrganization().isActive())
             .orElseThrow(() ->
                 new NotFoundException(
-                    "Active reward with ID " + request.rewardId() + " was not found while processing claim.",
+                    "Active reward with ID " + request.rewardId() + " (with an active program and organization) was not found while processing claim.",
                     "No pudimos encontrar la recompensa seleccionada."
                 )
             );
+
+        // Points can't be spent at a business that can't cash them in.
+        subscriptionGuard.requireAvailableToCustomers(reward.getPointProgram().getOrganization().getId());
 
         tx.setReward(reward);
         tx.setPointProgram(reward.getPointProgram());
@@ -753,40 +886,55 @@ public class UserService {
         tx.setTransactionType(TransactionType.REDEEM);
         tx.setState(TransactionState.PENDING);
         tx = pointTransactionRepository.save(tx);
-        pointLedgerService.consumeFifo(user.getId(), reward.getPointProgram().getId(), reward.getCostPoints());
+        pointLedgerService.consumeForRedemption(tx);
 
         ExchangeCode exchangeCode = new ExchangeCode();
         exchangeCode.setOrganization(reward.getPointProgram().getOrganization());
         exchangeCode.setPointTransaction(tx);
         exchangeCode.setUser(user);
-        exchangeCode.setCode(generateExchangeCode());
+        exchangeCode.setCode(generateExchangeCode(reward.getPointProgram().getOrganization().getId()));
         exchangeCodeRepository.save(exchangeCode);
 
         Map<String, Object> payload = new HashMap<>();
         payload.put("rewardId", reward.getId());
         payload.put("costPoints", reward.getCostPoints());
         payload.put("programId", reward.getPointProgram().getId());
-        traceabilityService.record(OperationType.REWARD_CLAIM, user.getId(), user.getId(), payload);
+        traceabilityService.record(OperationType.REWARD_CLAIM, reward.getPointProgram().getOrganization().getId(), user.getId(), user.getId(), payload);
 
         return new ClaimRewardResponse(exchangeCode.getCode());
     }
 
-    private String generateExchangeCode() {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
+    private static final SecureRandom EXCHANGE_CODE_RANDOM = new SecureRandom();
+    private static final int EXCHANGE_CODE_ATTEMPTS = 10;
 
-        StringBuilder code = new StringBuilder(6);
-
-        // First 4 characters: digits
-        for (int i = 0; i < 4; i++) {
-            code.append(random.nextInt(10));
+    /**
+     * A code no other active redemption of the organization holds. Only active codes must be
+     * unique (migration 18), so the pool is ~2.6M per organization minus its open redemptions and
+     * a clash is rare; checking first keeps it off the unique index, whose violation would abort
+     * the whole claim transaction. The format (4 digits, a letter, a digit) is what customers and
+     * the dashboard already know, so it is kept. SecureRandom because a code is what proves a
+     * redemption belongs to whoever shows it.
+     */
+    private String generateExchangeCode(UUID organizationId) {
+        for (int attempt = 0; attempt < EXCHANGE_CODE_ATTEMPTS; attempt++) {
+            String code = randomExchangeCode();
+            if (!exchangeCodeRepository.existsByOrganizationIdAndCodeAndActiveTrue(organizationId, code)) {
+                return code;
+            }
         }
+        throw new ConflictException(
+            "Could not find a free exchange code for organization " + organizationId + " after " + EXCHANGE_CODE_ATTEMPTS + " attempts.",
+            "No pudimos generar el código del canje. Probá de nuevo."
+        );
+    }
 
-        // Fifth character: lowercase letter
-        code.append((char) ('a' + random.nextInt(26)));
-
-        // Sixth character: digit
-        code.append(random.nextInt(10));
-
-        return code.toString().toLowerCase();
+    private static String randomExchangeCode() {
+        StringBuilder code = new StringBuilder(6);
+        for (int i = 0; i < 4; i++) {
+            code.append(EXCHANGE_CODE_RANDOM.nextInt(10));
+        }
+        code.append((char) ('a' + EXCHANGE_CODE_RANDOM.nextInt(26)));
+        code.append(EXCHANGE_CODE_RANDOM.nextInt(10));
+        return code.toString();
     }
 }

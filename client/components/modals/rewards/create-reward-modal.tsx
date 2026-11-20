@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isValidImage } from "./helpers";
 import { useModal } from "@/components/modal";
 import { Input, Textarea } from "@/components/ui/input";
 import { AlertCircle, ImagePlus, Upload, X } from "lucide-react";
@@ -10,16 +9,19 @@ import { Button } from "@/components/ui/button";
 import { createReward } from "@/app/d/[slug]/gestion-recompensas/actions";
 import { getPointPrograms } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
 import { PointProgram } from "@/lib/types/point-program";
-import { useToast } from "@/components/toast";
 import { ModalContentLoader } from "@/components/modals/action-status-modal";
+import { validateRewardImage } from "@/lib/image-upload";
 
 export function CreateRewardModal() {
   const router = useRouter();
-  const { close, runAction } = useModal();
-  const notify = useToast();
+  const { close, runWithStatus } = useModal();
+  const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [checkingImage, setCheckingImage] = useState(false);
+  // Bumped on every selection change, so a slow check can't apply to a file that was already replaced.
+  const imageCheck = useRef(0);
 
   const [pointPrograms, setPointPrograms] = useState<PointProgram[] | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -28,7 +30,7 @@ export function CreateRewardModal() {
     let cancelled = false;
     getPointPrograms()
       .then((programs) => {
-        if (!cancelled) setPointPrograms(programs.filter((p) => p.active));
+        if (!cancelled && programs.ok) setPointPrograms(programs.data.filter((p) => p.active));
       })
       .catch(() => {
         if (!cancelled) setLoadError(true);
@@ -38,17 +40,40 @@ export function CreateRewardModal() {
     };
   }, []);
 
-  function handleFileChange(file?: File) {
-    if (!file) return;
-    if (!isValidImage(file)) {
-      notify("Selecciona un archivo de imagen válido.", "error");
+  async function handleFileChange(file?: File) {
+    setError(null);
+    const check = ++imageCheck.current;
+    if (!file) {
+      setCheckingImage(false);
+      return;
+    }
+
+    setCheckingImage(true);
+    const errorText = await validateRewardImage(file);
+    if (check !== imageCheck.current) return;
+    setCheckingImage(false);
+
+    if (errorText) {
+      // Clear the input too: the form is submitted from it, so a rejected file
+      // left there would still be uploaded on save.
+      setError(errorText);
+      setPreview(null);
+      if (fileRef.current) fileRef.current.value = "";
       return;
     }
     setPreview(URL.createObjectURL(file));
   }
 
+  function clearSelectedImage() {
+    imageCheck.current += 1;
+    setCheckingImage(false);
+    setPreview(null);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
   async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (checkingImage) return;
     const form = e.currentTarget;
     const data = new FormData(form);
     const title = String(data.get("title") ?? "").trim();
@@ -57,7 +82,7 @@ export function CreateRewardModal() {
     const pointProgramId = String(data.get("pointProgramId") ?? "");
 
     if (!title || !Number.isInteger(costPoints) || costPoints <= 0 || !Number.isFinite(discountValue) || discountValue < 0 || !pointProgramId) {
-      notify("Revisa el título, los puntos, el valor del descuento y el programa de puntos.", "error");
+      setError("Revisa el título, los puntos, el valor del descuento y el programa de puntos.");
       return;
     }
 
@@ -66,15 +91,21 @@ export function CreateRewardModal() {
       data.set("image", image);
     }
 
-    const result = await runAction(() => createReward(data), {
+    const result = await runWithStatus(() => createReward(data), {
       loading: {
         title: "Creando recompensa",
         description: `Estamos agregando ${title} al catálogo.`,
       },
-      success: (reward) => ({
-        title: "Recompensa creada",
-        description: `${reward.title} ya está disponible en el catálogo.`,
-      }),
+      success: (reward) =>
+        reward.imageError
+          ? {
+              title: "Recompensa creada sin imagen",
+              description: `${reward.title} ya está disponible en el catálogo, pero no pudimos guardar la imagen. ${reward.imageError}`,
+            }
+          : {
+              title: "Recompensa creada",
+              description: `${reward.title} ya está disponible en el catálogo.`,
+            },
       errorTitle: "No pudimos crear la recompensa",
     });
 
@@ -85,9 +116,7 @@ export function CreateRewardModal() {
   }
 
   if (pointPrograms === null && !loadError) {
-    return (
-      <ModalContentLoader label="Cargando programas de puntos…" />
-    );
+    return <ModalContentLoader label="Cargando programas de puntos…" />;
   }
 
   if (loadError) {
@@ -107,7 +136,7 @@ export function CreateRewardModal() {
         </span>
         <div>
           <p className="text-sm font-semibold text-foreground">Necesitás un programa de puntos primero</p>
-          <p className="mt-1 text-xs leading-5 text-foreground/80">Para crear una recompensa primero creá un programa de puntos en "Mi negocio".</p>
+          <p className="mt-1 text-xs leading-5 text-foreground/80">Para crear una recompensa primero creá un programa de puntos en &quot;Mi negocio&quot;.</p>
         </div>
         <Button
           type="button"
@@ -183,7 +212,9 @@ export function CreateRewardModal() {
         {singleProgram ? (
           <>
             <input type="hidden" name="pointProgramId" value={singleProgram.id} />
-            <div className="flex h-11 items-center rounded-xl border border-border bg-background px-3.5 text-sm text-foreground/80">{singleProgram.name}</div>
+            <div className="flex h-11 items-center rounded-xl border border-border bg-background px-3.5 text-sm text-foreground/80">
+              {singleProgram.name}
+            </div>
           </>
         ) : (
           <select
@@ -226,10 +257,7 @@ export function CreateRewardModal() {
               <span className="truncate text-xs font-medium">Imagen seleccionada</span>
               <button
                 type="button"
-                onClick={() => {
-                  setPreview(null);
-                  if (fileRef.current) fileRef.current.value = "";
-                }}
+                onClick={clearSelectedImage}
                 aria-label="Quitar imagen"
                 className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-card/20 transition-colors hover:bg-card/30"
               >
@@ -266,6 +294,13 @@ export function CreateRewardModal() {
         ) : null}
       </div>
 
+      {error ? (
+        <div role="alert" className="flex items-start gap-3 rounded-xl border border-primary/25 bg-primary/10 px-3.5 py-3 text-sm text-foreground">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-foreground" aria-hidden="true" />
+          <p>{error}</p>
+        </div>
+      ) : null}
+
       <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">
         <Button
           type="button"
@@ -277,6 +312,7 @@ export function CreateRewardModal() {
         </Button>
         <Button
           type="submit"
+          disabled={checkingImage}
           className="h-11 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:bg-primary/90 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60"
         >
           Crear recompensa

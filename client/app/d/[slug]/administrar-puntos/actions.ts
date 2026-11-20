@@ -2,9 +2,9 @@
 
 import { dashboardRequest } from "@/lib/api";
 import { Customer } from "@/lib/types/customer";
-import { PointAction } from "../../types";
-import { PagedRequestFunction, PagedResponse } from "@/lib/definitions";
-import { ActionResult } from "@/lib/action-result";
+import { PointAction } from "@/lib/types/dashboard";
+import { PagedRequestFunction, PagedResponse } from "@/lib/types/paging";
+import type { ActionResult } from "@/lib/api";
 
 interface UserPointsAwardResponse {
   userName: string;
@@ -35,7 +35,11 @@ export async function updateGrant(id: string, values: UpdateGrantRequest) {
   return res;
 }
 
-
+/**
+ * Throws on failure instead of returning an `ActionResult`: it's a
+ * `PagedRequestFunction`, and `Autocomplete` catches the error to show its own
+ * message. Callers outside `Autocomplete` need a `try`/`catch`.
+ */
 export const getAllCustomers: PagedRequestFunction<Customer> = async ({ search, page, size }) => {
   const params = new URLSearchParams();
   params.append("page", page.toString());
@@ -49,13 +53,9 @@ export const getAllCustomers: PagedRequestFunction<Customer> = async ({ search, 
   return result.data;
 };
 
-export const getAllPointActions = async (id?: string): Promise<PointAction[]> => {
+export const getAllPointActions = async (id?: string): Promise<ActionResult<PointAction[]>> => {
   const params = new URLSearchParams();
   params.append("size", "10");
   if (id) params.append("of", id);
-  const res = await dashboardRequest<PointAction[]>(`/users/grant/history?${params.toString()}`);
-
-  if (!res.ok) throw new Error("Hubo un error buscando el historial de puntos.");
-
-  return res.data;
+  return await dashboardRequest<PointAction[]>(`/users/grant/history?${params.toString()}`);
 };

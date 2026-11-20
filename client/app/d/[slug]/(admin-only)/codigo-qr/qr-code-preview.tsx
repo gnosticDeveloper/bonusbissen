@@ -1,27 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { Download, QrCode } from "lucide-react";
 import { generateQRCode } from "@/lib/helpers/qr-code";
 
-type QRPreview = { storefrontId: string; url: string; image: string } | { storefrontId: string; error: string } | null;
+type QRPreview = { url: string; image: string } | { error: string };
+
+function buildQr(storefrontId: string, origin: string): QRPreview {
+  const url = new URL(`/s/${encodeURIComponent(storefrontId)}/afiliarse`, origin).toString();
+  try {
+    return { url, image: generateQRCode(url) };
+  } catch {
+    return { error: "No pudimos generar el código QR para este local." };
+  }
+}
+
+// The origin only exists in the browser; the server renders the loading message.
+const subscribeToNothing = () => () => {};
 
 export function QRCodePreview({ storefrontId }: { storefrontId: string }) {
-  const [qr, setQr] = useState<QRPreview>(null);
+  const origin = useSyncExternalStore(subscribeToNothing, () => window.location.origin, () => null);
+  const currentQr = useMemo(() => (origin ? buildQr(storefrontId, origin) : null), [storefrontId, origin]);
   const [format, setFormat] = useState<"png" | "svg">("png");
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const url = new URL(`/s/${encodeURIComponent(storefrontId)}/afiliarse`, window.location.origin).toString();
-    try {
-      setQr({ storefrontId, url, image: generateQRCode(url) });
-    } catch {
-      setQr({ storefrontId, error: "No pudimos generar el código QR para este local." });
-    }
-  }, [storefrontId]);
-
-  const currentQr = qr?.storefrontId === storefrontId ? qr : null;
 
   async function handleDownload() {
     if (!currentQr || "error" in currentQr || downloading) return;
@@ -67,7 +69,7 @@ export function QRCodePreview({ storefrontId }: { storefrontId: string }) {
   }
 
   return (
-    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-8">
+    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-8" data-guide="qr-card">
       <div className="flex items-center gap-3">
         <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-foreground">
           <QrCode className="size-5" aria-hidden="true" />
@@ -90,7 +92,7 @@ export function QRCodePreview({ storefrontId }: { storefrontId: string }) {
             {currentQr.url}
           </a>
           <div className="flex flex-wrap items-end justify-center gap-3">
-            <label htmlFor="qr-format" className="flex flex-col gap-1.5 text-sm font-medium">
+            <label htmlFor="qr-format" className="flex flex-col gap-1.5 text-sm font-medium" data-guide="qr-format">
               Formato de descarga
               <select
                 id="qr-format"

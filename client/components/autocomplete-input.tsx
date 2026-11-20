@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Loader2, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/helpers/utils";
-import { PagedRequestFunction } from "@/lib/definitions";
+import { PagedRequestFunction } from "@/lib/types/paging";
 
 const DEFAULT_DEBOUNCE_MS = 250;
 const DEFAULT_MIN_QUERY_LENGTH = 2;

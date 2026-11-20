@@ -1,0 +1,123 @@
+import "server-only";
+
+import { cookies } from "next/headers";
+import { z } from "zod";
+import { dashboardRequest, request, type ActionResult } from "@/lib/api";
+import { checkSession, currentSession, getDashboardSessionToken, getSessionToken, type SessionCheck } from "@/lib/auth/session";
+import { accessCookieOptions } from "@/lib/auth/cookies";
+import type { Storefront } from "@/lib/types/storefront";
+import type { PointProgram } from "@/lib/types/point-program";
+import type { OnboardingBackendStep } from "@/lib/types/onboarding";
+import { readOnboardingProgress, type SessionToken } from "./progress-state";
+
+export const PROGRESS_COOKIE = "onboarding_progress";
+
+// Same flags as the access cookie, but only sent to onboarding and kept a week.
+export const cookieOptions = { ...accessCookieOptions, path: "/onboarding", maxAge: 60 * 60 * 24 * 7 };
+const progressSchema = z.object({ organizationId: z.uuid(), owner: z.uuid() });
+export type Organization = { id: string; name: string; billingPlanName?: string | null; mercadoPagoSubscriptionStatus?: string | null };
+export type OnboardingState = {
+  userId: string | null;
+  customer: boolean;
+  organizationId: string | null;
+  organization: Organization | null;
+  storefronts: Storefront[];
+  programs: PointProgram[];
+  /** First unfinished step recorded by the backend; a resume hint, never a permission. */
+  backendStep: OnboardingBackendStep | null;
+  /** A present session token stopped verifying: its cookies must be deleted. */
+  sessionReset: boolean;
+  error?: string;
+};
+
+export const SESSION_RESET_ERROR = "Tu sesión no es válida o venció. Volvé a ingresar para continuar la configuración.";
+
+export async function readProgress() {
+  try {
+    return progressSchema.parse(JSON.parse((await cookies()).get(PROGRESS_COOKIE)?.value ?? "null"));
+  } catch { return null; }
+}
+
+export async function customerSession() {
+  return currentSession();
+}
+
+/** Both optional sessions with the exact token each verification was made on. */
+export async function sessionTokens(): Promise<{ customer: SessionToken; dashboard: SessionToken }> {
+  const [customer, dashboard] = await Promise.all([getSessionToken(), getDashboardSessionToken()]);
+  const [customerCheck, dashboardCheck] = await Promise.all([checkSession(customer), checkSession(dashboard, "dashboard")]);
+  return { customer: { check: customerCheck, token: customer }, dashboard: { check: dashboardCheck, token: dashboard } };
+}
+
+/**
+ * A token that is present but no longer verifies — tampered payload, foreign
+ * signature, or expired past the renewal the proxy already attempted — is a dead
+ * session. "unavailable" is excluded: a verification key we could not fetch is a
+ * transient problem and must never destroy a working session.
+ */
+export function deadSession({ check, token }: SessionToken) {
+  return Boolean(token) && (check.status === "invalid" || check.status === "expired");
+}
+
+/** The same session as seen by the rest of this read: dead ones identify nobody. */
+function liveSession(session: SessionToken): SessionCheck {
+  return deadSession(session) ? { status: "invalid" } : session.check;
+}
+
+// Cookies only identify the intended journey. The backend verifies every resource and permission.
+export async function adminOrganization(): Promise<ActionResult<Organization>> {
+  const session = await currentSession("dashboard");
+  if (session.status !== "valid") return { ok: false, error: "Tu sesión terminó. Volvé a ingresar a tu negocio.", status: 401 };
+  if (session.payload.role !== "ADMIN") return { ok: false, error: "Ingresá con la cuenta que administra el negocio.", status: 403 };
+  const organization = await dashboardRequest<Organization>("/organization", { cache: "no-store" });
+  if (!organization.ok) return organization;
+  const progress = await readProgress();
+  const customer = await customerSession();
+  if (customer.status === "valid" && customer.payload.sub !== session.payload.sub) return { ok: false, error: "Hay dos cuentas abiertas. Volvé a ingresar con la cuenta de este negocio.", status: 401 };
+  if (progress && (progress.owner !== session.payload.sub || progress.organizationId !== organization.data.id)) return { ok: false, error: "Ingresá como administrador del negocio de este recorrido.", status: 401 };
+  return organization;
+}
+
+export async function loadOnboarding(): Promise<OnboardingState> {
+  const progress = await readProgress();
+  const tokens = await sessionTokens();
+  const sessionReset = deadSession(tokens.customer) || deadSession(tokens.dashboard);
+  const session = liveSession(tokens.customer);
+  const admin = liveSession(tokens.dashboard);
+  const me = session.status === "valid" ? await request<{ id: string }>("/users/me", { cache: "no-store" }) : null;
+  const customer = session.status === "valid" && me?.ok === true && me.data.id === session.payload.sub;
+  const userId = customer && session.status === "valid" ? session.payload.sub : null;
+  const adminId = admin.status === "valid" && admin.payload.role === "ADMIN" ? admin.payload.sub : null;
+  // Two different people across the two areas: no identity is assumed, so no
+  // progress is read until the journey is resumed with a single account.
+  const identity = adminId && userId && adminId !== userId ? null : adminId ?? userId;
+  // Without a verified identity this skips the request instead of letting the
+  // endpoint answer 403 to a session it never had.
+  const recorded = await readOnboardingProgress(tokens, identity);
+  const backendStep = recorded.status === "ok" ? recorded.step : null;
+  const state: OnboardingState = { userId, customer, organizationId: userId && progress?.owner === userId ? progress.organizationId : null, organization: null, storefronts: [], programs: [], backendStep, sessionReset };
+  // A rejected customer session must not silently switch to another dashboard identity.
+  if (session.status === "valid" && !customer) return { ...state, error: "No pudimos verificar tu cuenta. Volvé a ingresar." };
+  // No dashboard session is normal before the first administrator login, even
+  // after creating an organization. A progress hint alone does not imply expiry.
+  if (admin.status !== "valid") {
+    if (admin.status === "unavailable") return { ...state, error: "No pudimos comprobar tu ingreso. Probá de nuevo." };
+    if (session.status === "unavailable") return { ...state, error: "No pudimos verificar tu sesión. Probá de nuevo." };
+    // A dead session is reported once, with its own message, so the client can
+    // have the cookies deleted and restart at the first step.
+    if (sessionReset) return { ...state, error: SESSION_RESET_ERROR };
+    return state;
+  }
+  const org = await adminOrganization();
+  if (!org.ok) return { ...state, error: org.error };
+  state.userId = admin.payload.sub;
+  state.organizationId = org.data.id;
+  // Progress recorded for another business is not this journey's progress.
+  if (recorded.status === "ok" && recorded.organizationId && recorded.organizationId !== org.data.id) state.backendStep = null;
+  const [storefronts, programs] = await Promise.all([
+    dashboardRequest<Storefront[]>("/storefronts", { cache: "no-store" }),
+    dashboardRequest<PointProgram[]>("/point-programs", { cache: "no-store" }),
+  ]);
+  if (!storefronts.ok || !programs.ok) return { ...state, error: !storefronts.ok ? storefronts.error : !programs.ok ? programs.error : undefined };
+  return { ...state, organization: org.data, storefronts: storefronts.data.filter(s => s.active), programs: programs.data.filter(p => p.active) };
+}

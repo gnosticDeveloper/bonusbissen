@@ -1,23 +1,55 @@
 "use client";
 
-import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { animate, motion, MotionConfig, stagger, useMotionValue, useReducedMotion, type PanInfo, type Transition, type Variants } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/helpers/utils";
 
 interface CarouselProps<T> {
   items: T[] | null;
   mainCard?: ReactNode | null;
   renderItem: (item: T, index: number) => ReactNode;
-  fallback?: ReactNode;
-  className?: string;
-  autoSlideInterval?: number;
 }
 
-export function Carousel<T>({ items, mainCard = null, renderItem, fallback, className = "", autoSlideInterval = 5000 }: CarouselProps<T>) {
-  const [slide, setSlide] = useState(0);
-  const [direction, setDirection] = useState<"left" | "right">("right");
-  const [isAnimating, setIsAnimating] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+const MOBILE_QUERY = "(max-width: 767px)";
 
+function subscribeToMobile(onChange: () => void) {
+  const query = window.matchMedia(MOBILE_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+const getIsMobile = () => window.matchMedia(MOBILE_QUERY).matches;
+const getIsMobileOnServer = () => false;
+
+const SLIDE_SPRING: Transition = { type: "spring", visualDuration: 0.35, bounce: 0.08 };
+const DOT_SPRING: Transition = { type: "spring", visualDuration: 0.25, bounce: 0.15 };
+const SWIPE_THRESHOLD = 0.2;
+const SWIPE_VELOCITY_PROJECTION = 0.2;
+
+const slideVariants: Variants = {
+  inactive: {},
+  active: { transition: { delayChildren: stagger(0.05, { startDelay: 0.08 }) } },
+};
+
+const revealVariants: Variants = {
+  inactive: { opacity: 0, y: 10, transition: { duration: 0.12 } },
+  active: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } },
+};
+
+/**
+ * Wraps the text of a slide so it fades in upwards every time its slide becomes active.
+ * Siblings are staggered in render order. Outside a carousel it renders as a plain block.
+ */
+export function CarouselReveal({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <motion.div variants={revealVariants} className={className}>
+      {children}
+    </motion.div>
+  );
+}
+
+export function Carousel<T>({ items, mainCard = null, renderItem }: CarouselProps<T>) {
   const slides: ReactNode[] = [];
 
   if (mainCard) {
@@ -28,159 +60,181 @@ export function Carousel<T>({ items, mainCard = null, renderItem, fallback, clas
     slides.push(...items.map((item, index) => renderItem(item, index)));
   }
 
-  const resetTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    if (slides.length > 1 && autoSlideInterval > 0) {
-      timerRef.current = setInterval(() => {
-        goTo(1, true);
-      }, autoSlideInterval);
-    }
-  }, [slides.length, autoSlideInterval]);
+  if (slides.length === 0) return null;
+
+  return (
+    <MotionConfig reducedMotion="user">
+      {slides.length === 1 ? (
+        <motion.div initial="inactive" animate="active" variants={slideVariants}>
+          {slides[0]}
+        </motion.div>
+      ) : (
+        <SlideDeck slides={slides} />
+      )}
+    </MotionConfig>
+  );
+}
+
+function SlideDeck({ slides }: { slides: ReactNode[] }) {
+  const count = slides.length;
+  const [index, setIndex] = useState(0);
+  const [width, setWidth] = useState(0);
+  const indexRef = useRef(0);
+  const widthRef = useRef(0);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const x = useMotionValue(0);
+  const prefersReducedMotion = useReducedMotion();
+  const isMobile = useSyncExternalStore(subscribeToMobile, getIsMobile, getIsMobileOnServer);
 
   const goTo = useCallback(
-    (dir: number, isAuto = false) => {
-      if (isAnimating || slides.length <= 1) return;
-      setDirection(dir > 0 ? "right" : "left");
-      setIsAnimating(true);
-      setSlide((prev) => (prev + dir + slides.length) % slides.length);
-      if (!isAuto) resetTimer();
-      setTimeout(() => setIsAnimating(false), 300);
-    },
-    [isAnimating, slides.length, resetTimer],
-  );
+    (next: number) => {
+      const target = Math.max(0, Math.min(count - 1, next));
+      const offset = -target * widthRef.current;
 
-  const goToIndex = useCallback(
-    (index: number) => {
-      if (isAnimating || index === slide || slides.length <= 1) return;
-      setDirection(index > slide ? "right" : "left");
-      setIsAnimating(true);
-      setSlide(index);
-      resetTimer();
-      setTimeout(() => setIsAnimating(false), 300);
+      if (target !== indexRef.current) {
+        indexRef.current = target;
+        setIndex(target);
+      }
+
+      if (prefersReducedMotion) {
+        x.jump(offset);
+      } else {
+        animate(x, offset, SLIDE_SPRING);
+      }
     },
-    [isAnimating, slide, slides.length, resetTimer],
+    [count, prefersReducedMotion, x],
   );
 
   useEffect(() => {
-    resetTimer();
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [resetTimer]);
+    const viewport = viewportRef.current;
+    if (!viewport) return;
 
-  // Case 5: Both null, return null or fallback
-  if (!mainCard && (!items || items.length === 0)) {
-    return fallback ? <>{fallback}</> : null;
-  }
+    const observer = new ResizeObserver(([entry]) => {
+      const nextWidth = entry.contentRect.width;
+      if (nextWidth === widthRef.current) return;
 
-  // Case 4: Only one slide, no controls
-  if (slides.length === 1) {
-    return <div className={className}>{slides[0]}</div>;
-  }
+      widthRef.current = nextWidth;
+      setWidth(nextWidth);
+      x.jump(-indexRef.current * nextWidth);
+    });
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [x]);
+
+  useEffect(() => {
+    if (indexRef.current > count - 1) goTo(count - 1);
+  }, [count, goTo]);
+
+  const handleDragEnd = (_event: unknown, info: PanInfo) => {
+    const slideWidth = widthRef.current;
+    if (slideWidth === 0) return;
+
+    const projected = (info.offset.x + info.velocity.x * SWIPE_VELOCITY_PROJECTION) / slideWidth;
+    const current = indexRef.current;
+
+    if (projected < -SWIPE_THRESHOLD) goTo(current + 1);
+    else if (projected > SWIPE_THRESHOLD) goTo(current - 1);
+    else goTo(current);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      goTo(indexRef.current + 1);
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      goTo(indexRef.current - 1);
+    }
+  };
 
   return (
-    <section className={`relative min-w-0 ${className}`} aria-label="Carousel">
-      {/* Slides container with animation */}
-      <div className="relative overflow-hidden w-full">
-        <div
-          className="flex transition-transform duration-300 ease-out w-full"
-          style={{
-            transform: `translateX(-${slide * 100}%)`,
-          }}
+    <section className="relative min-w-0" aria-roledescription="carrusel" aria-label="Carrusel" onKeyDown={handleKeyDown}>
+      <div ref={viewportRef} className="relative w-full overflow-hidden">
+        <motion.div
+          className={cn("flex", isMobile && "cursor-grab select-none active:cursor-grabbing")}
+          style={{ x, width: `${count * 100}%`, willChange: "transform" }}
+          drag={isMobile ? "x" : false}
+          dragConstraints={{ left: -(count - 1) * width, right: 0 }}
+          dragElastic={0.18}
+          dragMomentum={false}
+          onDragEnd={handleDragEnd}
+          aria-live="polite"
         >
-          {slides.map((content, index) => (
-            <div
-              key={index}
-              className={`w-full min-w-0 shrink-0 ${index === slide ? "carousel-slide-active" : ""}`}
-              style={{
-                animation: index === slide ? `slideIn${direction === "right" ? "Right" : "Left"} 0.3s ease-out` : undefined,
-              }}
-            >
-              {content}
-            </div>
-          ))}
-        </div>
+          {slides.map((content, slideIndex) => {
+            const isActive = slideIndex === index;
+
+            return (
+              <motion.div
+                key={slideIndex}
+                role="group"
+                aria-roledescription="diapositiva"
+                aria-label={`${slideIndex + 1} de ${count}`}
+                inert={!isActive}
+                className="min-w-0"
+                style={{ flex: `0 0 ${100 / count}%` }}
+                variants={slideVariants}
+                initial="inactive"
+                animate={isActive ? "active" : "inactive"}
+              >
+                {content}
+              </motion.div>
+            );
+          })}
+        </motion.div>
       </div>
 
-      {/* Controls below the card */}
       <div className="mt-3 flex items-center justify-center gap-3">
-        <button
-          aria-label="Anterior"
-          onClick={() => goTo(-1)}
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-foreground/10"
-        >
+        <ArrowButton label="Anterior" disabled={index === 0} onClick={() => goTo(index - 1)}>
           <ChevronLeft size={16} />
-        </button>
+        </ArrowButton>
 
-        {/* Dots */}
-        <div className="flex items-center gap-1.25">
-          {slides.map((_, index) => (
-            <button
-              key={index}
-              aria-label={`Ir a slide ${index + 1}`}
-              onClick={() => goToIndex(index)}
-              className={`h-1.25 rounded-full transition-all duration-180 ${
-                index === slide ? "w-4.25 bg-primary" : "w-1.25 bg-foreground/40 hover:bg-foreground/70"
-              }`}
-            />
-          ))}
+        <div className="flex items-center">
+          {slides.map((_, dotIndex) => {
+            const isActive = dotIndex === index;
+
+            return (
+              <button
+                key={dotIndex}
+                type="button"
+                aria-label={`Ir a la diapositiva ${dotIndex + 1}`}
+                aria-current={isActive ? "true" : undefined}
+                onClick={() => goTo(dotIndex)}
+                className="group grid place-items-center rounded-full px-0.5 py-2 outline-none focus-visible:ring-2 focus-visible:ring-foreground/70"
+              >
+                <motion.span
+                  layout
+                  layoutDependency={index}
+                  transition={DOT_SPRING}
+                  className={cn(
+                    "block h-1.25 transition-colors duration-200",
+                    isActive ? "w-4.25 bg-primary" : "w-1.25 bg-foreground/40 group-hover:bg-foreground/70",
+                  )}
+                  style={{ borderRadius: 3 }}
+                />
+              </button>
+            );
+          })}
         </div>
 
-        <button
-          aria-label="Siguiente"
-          onClick={() => goTo(1)}
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-foreground/10"
-        >
+        <ArrowButton label="Siguiente" disabled={index === count - 1} onClick={() => goTo(index + 1)}>
           <ChevronRight size={16} />
-        </button>
+        </ArrowButton>
       </div>
-
-      {/* CSS animations */}
-      <style>{`
-        @keyframes slideInRight {
-          from {
-            opacity: 0;
-            transform: translateX(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        @keyframes slideInLeft {
-          from {
-            opacity: 0;
-            transform: translateX(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-
-        .carousel-slide-active > * {
-          animation: rewardInfoFade 420ms ease-out 300ms both;
-        }
-
-        @keyframes rewardInfoFade {
-          from {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .carousel-slide-active > * {
-            animation: none;
-          }
-        }
-      `}</style>
     </section>
+  );
+}
+
+function ArrowButton({ label, disabled, onClick, children }: { label: string; disabled: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <motion.button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      whileTap={disabled ? undefined : { scale: 0.9 }}
+      className="hidden h-7 w-7 shrink-0 place-items-center rounded-full border border-border bg-card text-foreground transition-[background-color,opacity] outline-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-foreground/70 disabled:pointer-events-none disabled:opacity-40 md:grid"
+    >
+      {children}
+    </motion.button>
   );
 }

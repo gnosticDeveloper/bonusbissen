@@ -1,0 +1,37 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: email-ops
+    receivers:
+      - uid: email-ops
+        type: email
+        settings:
+          # Comma or semicolon separated list.
+          addresses: $__env{GRAFANA_ALERT_EMAIL}
+          singleEmail: true
+          subject: '{{ template "bb.subject" . }}'
+          message: '{{ template "bb.message" . }}'
+
+templates:
+  - orgId: 1
+    name: bonusbissen-es
+    template: |
+      {{ define "bb.subject" -}}
+      [{{ if eq .Status "firing" }}ALERTA{{ else }}RESUELTO{{ end }}] {{ .CommonLabels.alertname }}
+      {{- end }}
+      {{ define "bb.message" -}}
+      {{ range .Alerts.Firing }}EN ALERTA: {{ .Annotations.summary }} (severidad: {{ .Labels.severity }})
+      {{ .Annotations.description }}
+      {{ end }}
+      {{ range .Alerts.Resolved }}RESUELTO: {{ .Annotations.summary }}
+      {{ end }}
+      {{- end }}
+
+policies:
+  - orgId: 1
+    receiver: email-ops
+    group_by: ["alertname"]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h

@@ -1,10 +1,10 @@
 import { Spinner } from "@/components/spinner";
-import { Business } from "@/lib/definitions";
+import { Business } from "@/lib/types/business";
 import { RewardCard } from "./reward-card";
-import { formatPoints } from "@/lib/helpers/format";
 import { resolveAssetUrl } from "@/lib/helpers/assets";
 import { Carousel } from "./carousel";
 import Link from "next/link";
+import { formatNumber } from "@/lib/helpers/format";
 
 interface BusinessListProps {
   businesses: Business[];
@@ -64,8 +64,6 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
             </header>
 
             <Carousel
-              autoSlideInterval={30000}
-              className="w-full"
               items={storefront.rewards}
               renderItem={(reward) => <RewardCard reward={reward} pointsLabel={storefront.pointLabel} color={storefront.color} />}
             />
@@ -76,7 +74,7 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
               <div className="mt-3 flex items-center justify-between gap-3 text-[11px]">
                 <span className="truncate text-foreground/80">{storefront.category}</span>
                 <strong className="shrink-0 font-semibold text-foreground underline decoration-primary underline-offset-2">
-                  {formatPoints(storefront.points)} {storefront.pointLabel}
+                  {formatNumber(storefront.points)} {storefront.pointLabel}
                 </strong>
               </div>
             </div>
@@ -89,8 +87,8 @@ export function BusinessList({ businesses, loading, error, emptyMessage = "Parec
           <span className="text-foreground/80 relative text-xs text-center bg-background z-30 text-shadow-lg shadow-black">
             llegaste al final de la lista (￣o￣) . z Z
           </span>
-          <div className="absolute -top-1.75 h-25 overflow-hidden">
-            <img src="/final.webp" alt="little sleepy cat" className="h-50 w-auto grayscale select-none pointer-events-none" />
+          <div className="absolute top-6 h-20 overflow-hidden">
+            <img src="/cat.avif" alt="little sleepy cat" className="w-36 h-auto grayscale select-none pointer-events-none" />
           </div>
         </footer>
       ) : null}

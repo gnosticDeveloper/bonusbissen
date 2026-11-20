@@ -1,7 +1,6 @@
 "use server";
 
-import { ActionResult } from "@/lib/action-result";
-import { publicRequest, request } from "@/lib/api";
+import { ActionResult, publicRequest, request } from "@/lib/api";
 import { StorefrontDiscoverInfo } from "@/lib/types/storefront";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";

@@ -10,6 +10,7 @@ scripts/**
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+.mcp.json
 
 ### STS ###
 .apt_generated
@@ -40,3 +41,6 @@ build/
 .vscode/
 
 .bonusbissen/
+
+# Local image uploads when running with SPRING_PROFILES_ACTIVE=dev
+/.dev-uploads/

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { auditDetailLines, auditQuery, auditReferences, sortAuditRecords } from "./traceability";
+import { auditDetailLines, auditQuery, sortAuditRecords } from "./traceability";
 import type { AuditRecord } from "../types/traceability";
 
 const base = {
@@ -31,7 +31,6 @@ test("corrections describe delta and retain both transaction references", () => 
   const transaction = { id: "correction", program: null, storefront: null, reward: null };
   const record: AuditRecord = { ...base, operationType: "POINTS_CORRECTION", details: { points: -60, note: "Error de carga", transaction, correctedTransaction: { ...transaction, id: "original" } } };
   assert.match(auditDetailLines(record)[0], /-60 puntos \(no es el saldo final\)/);
-  assert.deepEqual(auditReferences(record).map((reference) => reference.id), ["operation-1", "correction", "original"]);
 });
 
 test("staff cancellations distinguish refunds from redemption cost", () => {
@@ -49,7 +48,6 @@ test("verification and approval never imply newly awarded points", () => {
 test("missing reward names and optional summaries are handled", () => {
   assert.match(auditDetailLines({ ...base, operationType: "REWARD_CLAIM", details: { reward: null, program: null, costPoints: 100 } })[0], /Nombre no disponible/);
   assert.equal(auditDetailLines({ ...base, operationType: "STAFF_CREATE", details: { role: "CASHIER", organization: null, storefront: null } }).length, 1);
-  assert.deepEqual(auditReferences({ ...base, operationType: "SESSION_REVOKE", details: {} }), [{ label: "Operación", id: "operation-1" }]);
 });
 
 test("records sort newest first across offsets without mutating input", () => {

@@ -1,6 +1,7 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
 import java.io.IOException;
+import java.time.OffsetDateTime;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RewardCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RewardUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UnclaimedRewardResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
@@ -33,6 +35,9 @@ import studio.gnosticdeveloper.bonusbissen.storage.StorageService;
 public class RewardService {
 
     private static final Logger log = LoggerFactory.getLogger(RewardService.class);
+
+    /** Ranking size of the dashboard home's "Top recompensas". */
+    static final int TOP_REWARDS_LIMIT = 6;
 
     private final RewardRepository rewardRepository;
     private final PointProgramRepository pointProgramRepository;
@@ -93,10 +98,32 @@ public class RewardService {
             .orElseThrow(() -> new NotFoundException("Reward not found: " + id, "No pudimos encontrar la recompensa seleccionada."));
     }
 
+    /**
+     * Top {@value #TOP_REWARDS_LIMIT} rewards of the selected storefront's program by claims in the
+     * dashboard window ({@link DashboardWindow}); empty when the storefront has no program.
+     */
     @Transactional(readOnly = true)
-    public List<TopRewardResponse> getTopRewards(UUID organizationId) {
-        Pageable topTen = PageRequest.of(0, 10);
-        return rewardRepository.getTopRewards(organizationId, topTen);
+    public List<TopRewardResponse> getTopRewards(UUID organizationId, UUID storefrontId) {
+        Pageable top = PageRequest.of(0, TOP_REWARDS_LIMIT);
+        return storefrontRepository
+            .findSelectedProgram(storefrontId, organizationId)
+            .map(program -> rewardRepository.getTopRewards(program.getId(), DashboardWindow.start(OffsetDateTime.now()), top))
+            .orElse(List.of());
+    }
+
+    /**
+     * Rewards of the selected storefront's program nobody claimed in the dashboard window -- see
+     * {@link RewardRepository#findUnclaimedSince}; empty when the storefront has no program.
+     */
+    @Transactional(readOnly = true)
+    public List<UnclaimedRewardResponse> getUnclaimedRewards(UUID organizationId, UUID storefrontId) {
+        return storefrontRepository
+            .findSelectedProgram(storefrontId, organizationId)
+            .map(program -> rewardRepository.findUnclaimedSince(program.getId(), DashboardWindow.start(OffsetDateTime.now())))
+            .orElse(List.of())
+            .stream()
+            .map(UnclaimedRewardResponse::from)
+            .toList();
     }
 
     @Transactional

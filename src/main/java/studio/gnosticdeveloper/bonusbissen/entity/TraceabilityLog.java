@@ -9,6 +9,7 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -38,6 +39,12 @@ public class TraceabilityLog {
     @JoinColumn(name = "originating_user_id", nullable = false)
     private User originatingUser;
 
+    /** The organization the operation belongs to; null for self-registration and a user's own account changes. */
+    @Column(name = "organization_id")
+    private UUID organizationId;
+
+    // EAGER, but batched: loading a list of logs costs one extra query per 100, not one per log.
+    @BatchSize(size = 100)
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "traceability_log_affected_users", joinColumns = @JoinColumn(name = "operation_id"))
     @Column(name = "affected_user_id")

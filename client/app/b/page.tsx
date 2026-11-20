@@ -4,37 +4,47 @@ import { useEffect, useState } from "react";
 import { PointsCard } from "@/components/points-card";
 import { BusinessList } from "@/components/business-list";
 
-import { PointsResponse } from "@/lib/definitions";
+import { PointsResponse } from "@/lib/types/customer";
 import { getPoints } from "@/app/b/actions";
 import { CitySelect } from "@/components/city-select";
 import { useBusinesses } from "@/hooks/use-businesses";
-import { useSelectedCity } from "@/lib/preference-store";
+import { useSelectedCity } from "@/lib/preferences/city-store";
 import { CustomerHeader } from "@/components/customer-header";
 
 export default function MainHomePage() {
   const [points, setPoints] = useState<PointsResponse | null>(null);
   const [pointsError, setPointsError] = useState(false);
+  const [pointsAttempt, setPointsAttempt] = useState(0);
   const selectedCity = useSelectedCity();
 
   const { businesses, loading, error } = useBusinesses({ size: 3, city: selectedCity, page: 0 });
 
   useEffect(() => {
     let active = true;
-    getPoints().then((result) => {
-      if (!active) return;
-      if (result.ok) setPoints(result.data);
-      else setPointsError(true);
-    });
+    getPoints()
+      .then((result) => {
+        if (!active) return;
+        if (result.ok) setPoints(result.data);
+        else setPointsError(true);
+      })
+      .catch(() => {
+        if (active) setPointsError(true);
+      });
     return () => {
       active = false;
     };
-  }, []);
+  }, [pointsAttempt]);
+
+  function retryPoints() {
+    setPointsError(false);
+    setPointsAttempt((attempt) => attempt + 1);
+  }
 
   return (
-    <main className="relative mx-auto min-h-screen w-full max-w-107.5 overflow-hidden bg-background transition-colors duration-200 sm:border-x sm:border-border">
+    <main className="relative mx-auto min-h-screen w-full max-w-107.5 overflow-hidden bg-background sm:border-x sm:border-border">
       <CustomerHeader />
 
-      <PointsCard points={pointsError ? null : points} />
+      <PointsCard points={points} error={pointsError} onRetry={retryPoints} />
 
       <section className="relative px-5 mb-3.75 flex items-center justify-between gap-3">
         <div className="min-w-0">

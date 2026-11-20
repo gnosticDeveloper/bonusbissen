@@ -1,6 +1,4 @@
-import type { PointProgramUpdateRequest } from "../types/point-program";
-
-export const POINT_EXPIRATION_MONTHS = [3, 6, 9, 12] as const;
+import { POINT_EXPIRATION_MONTHS, type PointProgramUpdateRequest } from "../types/point-program";
 
 type UpdatePayloadResult =
   | { ok: true; data: PointProgramUpdateRequest }

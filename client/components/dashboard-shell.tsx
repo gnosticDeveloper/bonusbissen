@@ -1,16 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, ChevronDown, Menu, X } from "lucide-react";
-import { selectStorefront, type StorefrontSummary } from "@/app/d/sign-in/actions";
-import type { AdminUserInfo, UserRole } from "@/lib/definitions";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Building2, ChevronDown, ChevronLeft, Menu, X } from "lucide-react";
+import { selectStorefront } from "@/app/d/sign-in/actions";
+import type { StorefrontSummary } from "@/lib/types/point-program";
+import type { AdminUserInfo, UserRole } from "@/lib/types/user";
 import { cn } from "@/lib/helpers/utils";
 import { CARD_PALETTES, pickCardVariant } from "@/lib/helpers/color";
-import Sidebar, { NAV } from "./sidebar";
+import { persistSidebarCollapsed } from "@/lib/preferences/sidebar";
+import Sidebar, { getNavSections } from "./sidebar";
 import { UserMenu } from "./user-menu";
-import { BrandLockup } from "./brand";
-import { ThemeToggleButton } from "./theme-toggle";
+import { BrandLockup, BrandMark } from "./brand";
+import { GuideLayer } from "./guides/guide-layer";
+
+/** Anchos del `aside` de escritorio. El riel contraído deja 2.5rem útiles (la caja del icono). */
+const SIDEBAR_WIDTH = 256;
+const SIDEBAR_COLLAPSED_WIDTH = 72;
 
 type DashboardShellProps = {
   orgId: string;
@@ -19,10 +26,61 @@ type DashboardShellProps = {
   storefronts: StorefrontSummary[];
   activeStorefrontId?: string;
   activeColor?: string | null;
+  /** Preferencia leída de la cookie en el servidor: evita el parpadeo al recargar. */
+  defaultCollapsed?: boolean;
+  /** Open redemptions of the organization, shown on the "Validación de canjes" item; `null` when it couldn't be read. */
+  pendingExchangesCount?: number | null;
   children: React.ReactNode;
 };
 
-function StorefrontSwitcher({ storefronts, activeStorefrontId }: Pick<DashboardShellProps, "storefronts" | "activeStorefrontId">) {
+/**
+ * Scroll area of the navigation. The scrollbar is hidden because it would eat into the width of
+ * the links: in the 40px collapsed rail a 10px bar clips the icon and its badge. Edge fades show
+ * that there is more to scroll instead; wheel, touch and keyboard focus still scroll it.
+ * The 4px side padding (offset by the negative margin) keeps focus rings from being clipped.
+ */
+function NavScroller({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ top: false, bottom: false });
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const update = () => {
+      const top = element.scrollTop > 1;
+      const bottom = element.scrollTop + element.clientHeight < element.scrollHeight - 1;
+      setEdges((previous) => (previous.top === top && previous.bottom === bottom ? previous : { top, bottom }));
+    };
+    update();
+    // The container resizes with the window; the content, when the rail collapses or badges change.
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    if (element.firstElementChild) observer.observe(element.firstElementChild);
+    element.addEventListener("scroll", update, { passive: true });
+    return () => {
+      observer.disconnect();
+      element.removeEventListener("scroll", update);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      data-fade-top={edges.top || undefined}
+      data-fade-bottom={edges.bottom || undefined}
+      className="nav-scroller -mx-1 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1"
+    >
+      {children}
+    </div>
+  );
+}
+
+type StorefrontSwitcherProps = Pick<DashboardShellProps, "storefronts" | "activeStorefrontId"> & {
+  collapsed?: boolean;
+  onExpand?: VoidFunction;
+};
+
+function StorefrontSwitcher({ storefronts, activeStorefrontId, collapsed = false, onExpand }: StorefrontSwitcherProps) {
   const router = useRouter();
   const [switching, setSwitching] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -54,7 +112,7 @@ function StorefrontSwitcher({ storefronts, activeStorefrontId }: Pick<DashboardS
     setError("");
     try {
       const result = await selectStorefront(storefrontId);
-      if (!result.success) {
+      if (!result.ok) {
         setError(result.error);
         return;
       }
@@ -67,8 +125,23 @@ function StorefrontSwitcher({ storefronts, activeStorefrontId }: Pick<DashboardS
     }
   }
 
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        onClick={onExpand}
+        title={active?.name ?? "Local no disponible"}
+        aria-label={`Local actual: ${active?.name ?? "no disponible"}. Expandir menú`}
+        data-guide="storefront-switcher"
+        className="flex size-10 shrink-0 items-center justify-center self-start rounded-xl border border-border bg-background text-foreground transition-colors hover:bg-foreground/10 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        <Building2 className="size-4" aria-hidden="true" />
+      </button>
+    );
+  }
+
   return (
-    <div className="rounded-xl border border-border bg-background p-3">
+    <div className="rounded-xl border border-border bg-background p-3" data-guide="storefront-switcher">
       <div className="flex items-center gap-2 text-xs font-medium text-foreground/80">
         <Building2 className="size-4 shrink-0" />
         Local actual
@@ -121,14 +194,38 @@ function StorefrontSwitcher({ storefronts, activeStorefrontId }: Pick<DashboardS
   );
 }
 
-export function DashboardShell({ orgId, role, children, currentUser, storefronts, activeStorefrontId, activeColor }: DashboardShellProps) {
+export function DashboardShell({
+  orgId,
+  role,
+  children,
+  currentUser,
+  storefronts,
+  activeStorefrontId,
+  activeColor,
+  defaultCollapsed = false,
+  pendingExchangesCount = null,
+}: DashboardShellProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  // El valor inicial viene del servidor, así que el primer render del cliente ya
+  // coincide con el HTML: no hay mismatch de hidratación ni animación de arranque.
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const reduceMotion = useReducedMotion();
   const color = activeColor && /^#[\da-f]{6}(?:[\da-f]{2})?$/i.test(activeColor) ? activeColor.slice(0, 7) : null;
   const primaryStyle = color
     ? ({ "--primary": color, "--primary-foreground": CARD_PALETTES[pickCardVariant(color)].text } as React.CSSProperties)
     : undefined;
 
-  const items = NAV.filter((item) => item.roles.includes(role));
+  const sections = getNavSections(role);
+  const badges = pendingExchangesCount ? { redemptions: pendingExchangesCount } : undefined;
+
+  const toggleCollapsed = useCallback(() => {
+    const next = !collapsed;
+    setCollapsed(next);
+    persistSidebarCollapsed(next);
+  }, [collapsed]);
+
+  const widthTransition = reduceMotion ? { duration: 0 } : ({ type: "spring", stiffness: 400, damping: 40, mass: 0.8 } as const);
+  const fade = reduceMotion ? { duration: 0 } : { duration: 0.15, ease: [0.4, 0, 0.2, 1] as const };
 
   useEffect(() => {
     if (!isDrawerOpen) return;
@@ -147,18 +244,86 @@ export function DashboardShell({ orgId, role, children, currentUser, storefronts
 
   return (
     <div className="flex h-svh flex-col lg:flex-row" style={primaryStyle}>
-      {/* Sidebar fija en desktop */}
-      <aside className="hidden w-64 shrink-0 flex-col gap-6 border-r border-border bg-card p-4 lg:flex">
-        <div className="flex items-center justify-between">
-          <BrandLockup />
-          <ThemeToggleButton />
+      {/* Sidebar fija en desktop (colapsable; en mobile se usa el drawer) */}
+      <motion.aside
+        initial={false}
+        animate={{ width: collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH }}
+        transition={widthTransition}
+        // El ancho también va por clase: si el render del servidor no emite el style
+        // inline de motion, el HTML inicial igual sale con el ancho correcto.
+        className={cn("relative hidden shrink-0 border-r border-border bg-card lg:block", collapsed ? "lg:w-18" : "lg:w-64")}
+      >
+        <div className="flex h-full flex-col gap-5 p-4">
+          <div className="flex h-10 items-center overflow-hidden">
+            {/* El logo no se mueve al contraer: solo se desvanece el texto de la marca. */}
+            <BrandMark className="shrink-0" />
+            <motion.div
+              initial={false}
+              animate={{ opacity: collapsed ? 0 : 1, x: collapsed ? -4 : 0 }}
+              transition={fade}
+              aria-hidden={collapsed}
+              className="ml-2.5 whitespace-nowrap text-base font-bold tracking-tight text-foreground"
+            >
+              Bonus Bissen
+            </motion.div>
+          </div>
+
+          <AnimatePresence initial={false} mode="wait">
+            <motion.div
+              key={collapsed ? "switcher-rail" : "switcher-full"}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={fade}
+            >
+              <StorefrontSwitcher
+                storefronts={storefronts}
+                activeStorefrontId={activeStorefrontId}
+                collapsed={collapsed}
+                onExpand={toggleCollapsed}
+              />
+            </motion.div>
+          </AnimatePresence>
+
+          <NavScroller>
+            <Sidebar orgId={orgId} sections={sections} badges={badges} onNavigate={() => {}} collapsed={collapsed} />
+          </NavScroller>
+
+          <div className={cn("mt-auto flex items-center", collapsed && "justify-center")}>
+            <AnimatePresence initial={false} mode="wait">
+              <motion.div
+                key={collapsed ? "user-rail" : "user-full"}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={fade}
+                className={cn(!collapsed && "min-w-0 flex-1")}
+              >
+                <UserMenu slug={orgId} user={currentUser} collapsed={collapsed} />
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
-        <StorefrontSwitcher storefronts={storefronts} activeStorefrontId={activeStorefrontId} />
-        <Sidebar orgId={orgId} items={items} onNavigate={() => {}} />
-        <div className="mt-auto">
-          <UserMenu slug={orgId} user={currentUser} />
-        </div>
-      </aside>
+
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
+          title={collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
+          data-guide="sidebar-toggle"
+          className="absolute -right-3 top-7 z-20 flex size-6 items-center justify-center rounded-full border border-border bg-card text-foreground/70 shadow-sm transition-colors hover:bg-foreground/10 hover:text-foreground motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          <motion.span
+            initial={false}
+            animate={{ rotate: collapsed ? 180 : 0 }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+            className="flex"
+          >
+            <ChevronLeft className="size-3.5" aria-hidden="true" />
+          </motion.span>
+        </button>
+      </motion.aside>
 
       {/* Header mobile */}
       <header className="flex items-center justify-between border-b border-border bg-card px-4 py-3 lg:hidden">
@@ -206,7 +371,9 @@ export function DashboardShell({ orgId, role, children, currentUser, storefronts
           </button>
         </div>
         <StorefrontSwitcher storefronts={storefronts} activeStorefrontId={activeStorefrontId} />
-        <Sidebar orgId={orgId} items={items} onNavigate={() => setIsDrawerOpen(false)} />
+        <NavScroller>
+          <Sidebar orgId={orgId} sections={sections} badges={badges} onNavigate={() => setIsDrawerOpen(false)} />
+        </NavScroller>
         <div className="mt-auto">
           <UserMenu slug={orgId} user={currentUser} />
         </div>
@@ -214,6 +381,9 @@ export function DashboardShell({ orgId, role, children, currentUser, storefronts
 
       {/* Contenido */}
       <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+
+      {/* Guías y consejos del panel: dentro del shell para heredar el color del local. */}
+      <GuideLayer role={role} color={color} />
     </div>
   );
 }

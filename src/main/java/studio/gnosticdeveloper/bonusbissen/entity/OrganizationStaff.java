@@ -7,6 +7,7 @@ import lombok.Setter;
 
 import java.time.OffsetDateTime;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -46,6 +47,14 @@ public class OrganizationStaff {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
+
+    /**
+     * The storefronts this person can work in. A cashier never gets a deactivated one; an admin
+     * still does, so a business whose only storefront was deactivated can sign in and reactivate it.
+     */
+    public List<Storefront> selectableStorefronts() {
+        return storefronts.stream().filter(s -> role != StaffRole.CASHIER || s.isActive()).toList();
+    }
 
     @PrePersist
     protected void onCreate() {

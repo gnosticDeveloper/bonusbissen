@@ -4,11 +4,19 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/${LOCAL_DB_NAME:bonusbissen}
     username: ${LOCAL_DB_USER:postgres}
-    password: ${LOCAL_DB_PASSWORD:local-dev-password}
+    # No default: a missing password fails startup instead of silently using a committed one.
+    # Deployments set SPRING_DATASOURCE_PASSWORD (docker-compose), which takes precedence.
+    password: ${LOCAL_DB_PASSWORD}
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+  task:
+    scheduling:
+      # Spring's default is one thread, so a stuck job (e.g. a hung backup) would stall
+      # expiration, invoicing and retention too.
+      pool:
+        size: ${SCHEDULING_POOL_SIZE:4}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -100,6 +108,8 @@ app:
     # S3Client bean constructible; the nightly job just fails harmlessly at
     # upload time instead, caught by DatabaseBackupService#runScheduledBackup.
     cron: ${DR_BACKUP_CRON:0 0 5 * * *}
+    # pg_dump is killed after this long, so a hung dump can't hold its scheduler thread forever.
+    pg-dump-timeout: ${DR_BACKUP_PG_DUMP_TIMEOUT:30m}
     s3:
       endpoint: ${DR_BACKUP_S3_ENDPOINT:localhost}
       bucket: ${DR_BACKUP_S3_BUCKET:unset}
@@ -111,3 +121,21 @@ app:
   points:
     expiration-cron: ${POINTS_EXPIRATION_CRON:0 30 4 * * *}
     expiration-batch-size: ${POINTS_EXPIRATION_BATCH_SIZE:500}
+  billing:
+    # Daily check for organizations whose billing cycle has come due (see
+    # InvoiceGenerationService / 9__billing.sql).
+    invoice-cron: ${BILLING_INVOICE_CRON:0 15 5 * * *}
+  mercadopago:
+    # Sandbox (TEST-...) or production access token for the bonusbissen-billing
+    # MP application (Subscriptions product). See MercadoPagoClient.
+    access-token: ${MERCADOPAGO_ACCESS_TOKEN:unset}
+    base-url: ${MERCADOPAGO_BASE_URL:https://api.mercadopago.com}
+    # Frontend page the payer is sent back to after authorizing (or
+    # cancelling) the subscription at MP's hosted checkout. MP rejects
+    # "localhost" outright -- needs something that at least looks like a real
+    # public domain, even in sandbox mode.
+    back-url: ${MERCADOPAGO_BACK_URL:https://bonusbissen.store/billing}
+    # Secret configured against the webhook in the MP dev panel (mcp
+    # save_webhook tool) -- used to verify the x-signature header on inbound
+    # notifications. Unset -> webhook rejects everything (fails closed).
+    webhook-secret: ${MERCADOPAGO_WEBHOOK_SECRET:unset}

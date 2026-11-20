@@ -1,22 +1,39 @@
 "use client";
 
-import { useTransition } from "react";
 import { MapPin, Globe, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Storefront } from "@/lib/types/storefront";
-import { useToast } from "@/components/toast";
 import { deactivateStorefront } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
+import { useModal } from "./modal";
+import { ActionsMenu } from "./actions-menu";
 
 export function StorefrontCard({ storefront, onEdit }: { storefront: Storefront; onEdit: () => void }) {
-  const [pending, startTransition] = useTransition();
-  const notify = useToast();
+  const { open, close, runWithStatus } = useModal();
+
+  // runWithStatus swaps the confirmation for a loading view, so the button
+  // can't be pressed twice, then shows the backend's answer.
+  const confirmDeactivation = () =>
+    runWithStatus(() => deactivateStorefront(storefront.id), {
+      loading: { title: "Desactivando sucursal", description: `Estamos desactivando "${storefront.name}".` },
+      success: { title: "Sucursal desactivada", description: `"${storefront.name}" ya no aparece para tus clientes.` },
+      errorTitle: "No pudimos desactivar la sucursal",
+    });
 
   const handleDeactivate = () => {
-    if (!confirm(`¿Desactivar "${storefront.name}"? Dejará de aparecer para tus clientes.`)) return;
-    startTransition(async () => {
-      await deactivateStorefront(storefront.id);
-      notify("Sucursal desactivada", "success");
-    });
+    open(
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <Button type="button" variant="outline" onClick={close}>
+          Cancelar
+        </Button>
+        <Button type="button" variant="destructive" onClick={() => void confirmDeactivation()}>
+          Desactivar sucursal
+        </Button>
+      </div>,
+      {
+        title: "¿Desactivar esta sucursal?",
+        description: `"${storefront.name}" va a dejar de aparecer para tus clientes. Podés volver a activarla desde Editar.`,
+      },
+    );
   };
 
   return (
@@ -33,13 +50,24 @@ export function StorefrontCard({ storefront, onEdit }: { storefront: Storefront;
           </p>
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-1">
-        <Button type="button" variant="ghost" onClick={onEdit} aria-label={`Editar ${storefront.name}`}>
+      {/* On phones the labelled buttons would squeeze the name; they move into a menu. */}
+      <ActionsMenu
+        label={`Acciones de ${storefront.name}`}
+        className="shrink-0 sm:hidden"
+        items={[
+          { label: "Editar", icon: <Pencil />, onSelect: onEdit },
+          ...(storefront.active ? [{ label: "Desactivar", icon: <Trash2 />, onSelect: handleDeactivate, destructive: true }] : []),
+        ]}
+      />
+      <div className="hidden shrink-0 items-center gap-1 sm:flex">
+        <Button type="button" variant="ghost" onClick={onEdit} aria-haspopup="dialog" aria-label={`Editar ${storefront.name}`}>
           <Pencil className="size-4" /> Editar
         </Button>
-        <Button type="button" variant="ghost" disabled={pending} onClick={handleDeactivate} aria-label={`Desactivar ${storefront.name}`}>
-          <Trash2 className="size-4" /> Borrar
-        </Button>
+        {storefront.active ? (
+          <Button type="button" variant="ghost" onClick={handleDeactivate} aria-haspopup="dialog" aria-label={`Desactivar ${storefront.name}`}>
+            <Trash2 className="size-4" /> Desactivar
+          </Button>
+        ) : null}
       </div>
     </div>
   );

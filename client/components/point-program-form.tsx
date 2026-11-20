@@ -1,15 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Save, X } from "lucide-react";
 import { Field, Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast";
-import { PointProgram } from "@/lib/types/point-program";
-import { POINT_EXPIRATION_MONTHS } from "@/lib/helpers/point-program-settings";
+import { POINT_EXPIRATION_MONTHS, PointProgram } from "@/lib/types/point-program";
 import { Storefront } from "@/lib/types/storefront";
-import { FormState } from "@/app/d/types";
+import { FormState } from "@/lib/types/dashboard";
 import { createPointProgram, updatePointProgram } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
 
 const initialState: FormState = { message: null, status: null };
@@ -32,6 +31,7 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
+/** Create or edit a point program. Rendered inside a modal (see PointProgramsSection), which supplies the surface. */
 export function PointProgramForm({
   pointProgram,
   pointPrograms,
@@ -46,17 +46,17 @@ export function PointProgramForm({
   const notify = useToast();
   const isEdit = !!pointProgram;
   const action = isEdit ? updatePointProgram.bind(null, pointProgram.id) : createPointProgram;
-  const [state, formAction] = useActionState(action, initialState);
+  const [, formAction] = useActionState(async (prev: FormState, formData: FormData) => {
+    const next = await action(prev, formData);
+    if (next.status === "success") onDone();
+    if (next.status) notify(next.message!, next.status);
+    return next;
+  }, initialState);
   const [active, setActive] = useState(pointProgram?.active ?? true);
 
   const originalIds = useMemo(() => pointProgram?.storefronts.map((s) => s.id) ?? [], [pointProgram]);
   const [selected, setSelected] = useState<Set<string>>(new Set(originalIds));
   const taken = useMemo(() => assignmentMap(pointPrograms, pointProgram?.id), [pointPrograms, pointProgram]);
-
-  useEffect(() => {
-    if (state.status === "success") onDone();
-    if (state.status) notify(state.message!, state.status);
-  }, [state, notify, onDone]);
 
   const toggle = (id: string) => {
     setSelected((prev) => {
@@ -67,7 +67,7 @@ export function PointProgramForm({
   };
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 rounded-2xl border border-border bg-background p-4" noValidate>
+    <form action={formAction} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="active" value={active ? "true" : "false"} />
       {isEdit && <input type="hidden" name="originalStorefrontIds" value={originalIds.join(",")} />}
 

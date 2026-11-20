@@ -8,4 +8,6 @@ export interface Reward {
   discountValue: number;
   active: boolean;
   createdAtFormatted: string;
+  /** Set only on create/update responses when the reward was saved but its image was not. */
+  imageError?: string | null;
 }

@@ -14,7 +14,3 @@ export function appendRewardFields(
     formData.set("image", image);
   }
 }
-
-export function isValidImage(file: File) {
-  return file.type.startsWith("image/");
-}

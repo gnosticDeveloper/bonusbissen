@@ -25,11 +25,13 @@ import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
+import studio.gnosticdeveloper.bonusbissen.entity.UserPointProgram;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.PointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.RewardRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.StorefrontRepository;
+import studio.gnosticdeveloper.bonusbissen.repository.UserPointProgramRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -37,6 +39,7 @@ import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 @TestPropertySource(properties = {
     "app.mail.enabled=false",
     "app.georef.enabled=false",
+    "LOCAL_DB_PASSWORD=unused-in-tests",
     // Test-only ECDSA (ES256, P-256) keypair, unrelated to any real deployment key.
     "app.jwt.private-key=MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgBkATsAsD99QCHwueU/Jm0O2kKf2igJWWRqcvfXgUrXKhRANCAAS8O08P7y+saePqODNaVbc1zixiENxg8NjkU4azUTC+p8ifQ68uWaZZzf8rhcT6V5Epm7mluccGYlAe3TYm3nRt",
     "app.jwt.public-key=MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEvDtPD+8vrGnj6jgzWlW3Nc4sYhDcYPDY5FOGs1EwvqfIn0OvLlmmWc3/K4XE+leRKZu5pbnHBmJQHt02Jt50bQ=="
@@ -72,6 +75,9 @@ public abstract class AbstractIntegrationTest {
 
     @Autowired
     protected UserRepository userRepository;
+
+    @Autowired
+    protected UserPointProgramRepository userPointProgramRepository;
 
     @Autowired
     protected RewardRepository rewardRepository;
@@ -173,6 +179,14 @@ public abstract class AbstractIntegrationTest {
      * and whose password is {@link #TEST_USER_PASSWORD}. Callers pass the same
      * key to {@link #loginUser(String)}.
      */
+    /** Test fixture: makes the user a member of the program, as the self-service join would. */
+    protected void joinProgram(UUID userId, PointProgram program) {
+        UserPointProgram membership = new UserPointProgram();
+        membership.setUser(userRepository.getReferenceById(userId));
+        membership.setPointProgram(program);
+        userPointProgramRepository.save(membership);
+    }
+
     protected User createUser(String usernameKey) {
         User user = new User();
         user.setUsername(usernameKey.toLowerCase());

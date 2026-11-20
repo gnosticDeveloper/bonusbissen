@@ -10,12 +10,14 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.ClaimRewardRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
-import studio.gnosticdeveloper.bonusbissen.dto.request.JoinPointProgramRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.UserUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsAwardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.UserPointsResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.entity.StaffRole;
+import studio.gnosticdeveloper.bonusbissen.entity.Organization;
+import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 
 import java.util.List;
@@ -38,12 +40,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
     }
 
     private void grant(String cashierToken, UUID userId, int points) {
-        restTemplate.exchange(
-            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
-            HttpMethod.POST,
-            authed(cashierToken, new JoinPointProgramRequest(userId)),
-            Void.class
-        );
+        joinProgram(userId, defaultProgram());
         ResponseEntity<UserPointsAwardResponse> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
             HttpMethod.POST,
@@ -98,6 +95,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
 
         User user = createUser("+5493462003003");
         String userToken = loginUser("+5493462003003");
+        joinProgram(user.getId(), defaultProgram());
 
         Reward reward = createReward("Expensive Reward", 1000);
 
@@ -317,13 +315,15 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 
-    // --- Employees are still allowed to look up any user (unlike
-    // users, who are restricted to themselves above). ---
+    // --- Staff can look up a customer who actually has a relationship with their
+    // organization (joined one of its programs) -- unlike users, who are
+    // restricted to themselves above. ---
     @Test
-    void employeeCanStillViewAnyUsersBalance() {
+    void employeeCanViewTheBalanceOfACustomerOfTheirOwnOrganization() {
         User cashier = createEmployee("cashier-view-any", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-view-any", "password123");
         User user = createUser("+5493462003015");
+        joinProgram(user.getId(), defaultProgram());
 
         ResponseEntity<UserPointsResponse> response = restTemplate.exchange(
             baseUrl() + "/users/" + user.getId(),
@@ -333,6 +333,166 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    /**
+     * Cross-organization IDOR regression: staff of one organization used to be able to pull
+     * ANY customer's PII (name, username, email) by user id alone, with no relationship to
+     * that org required -- fixed in UserService#getUserPointsById by requiring the target user
+     * to belong to at least one of the caller's organization's point programs first.
+     */
+    @Test
+    void employeeCannotViewTheBalanceOfACustomerWithNoRelationshipToTheirOrganization() {
+        Organization otherOrg = new Organization();
+        otherOrg.setName("Other Org IDOR");
+        otherOrg = organizationRepository.save(otherOrg);
+        PointProgram otherProgram = new PointProgram();
+        otherProgram.setOrganization(otherOrg);
+        otherProgram.setName("Other Org Points");
+        otherProgram = pointProgramRepository.save(otherProgram);
+        User cashierOther = createEmployee("cashier-other-org", "password123", StaffRole.CASHIER, otherOrg, null);
+        String cashierOtherToken = loginEmployee("cashier-other-org", "password123", otherOrg.getId());
+        User victim = createUser("+5493462003022");
+        joinProgram(victim.getId(), otherProgram);
+
+        User attackerCashier = createEmployee("cashier-attacker-org", "password123", StaffRole.CASHIER);
+        String attackerToken = loginEmployee("cashier-attacker-org", "password123");
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/users/" + victim.getId(),
+            HttpMethod.GET,
+            authed(attackerToken),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    /** A second business with its own program, for the B1 cross-organization user-management tests. */
+    private PointProgram otherOrganizationProgram(String name) {
+        Organization otherOrg = new Organization();
+        otherOrg.setName(name);
+        otherOrg = organizationRepository.save(otherOrg);
+        PointProgram program = new PointProgram();
+        program.setOrganization(otherOrg);
+        program.setName(name + " Points");
+        return pointProgramRepository.save(program);
+    }
+
+    /**
+     * B1 regression: PATCH /users/{id} had no organization check, so any admin could point any
+     * customer's email at an inbox they control, verify it and sign in as them with a login link.
+     */
+    @Test
+    void adminCannotEditACustomerWithNoRelationshipToTheirOrganization() {
+        PointProgram otherProgram = otherOrganizationProgram("Other Org B1 Edit");
+        User victim = createUser("+5493462003201");
+        joinProgram(victim.getId(), otherProgram);
+
+        createEmployee("admin-b1-edit", "password123", StaffRole.ADMIN);
+        String attackerToken = loginEmployee("admin-b1-edit", "password123");
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/users/" + victim.getId(),
+            HttpMethod.PATCH,
+            authed(attackerToken, new UserUpdateRequest("Hijacked", "attacker-b1@example.com")),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        User reloaded = userRepository.findById(victim.getId()).orElseThrow();
+        assertThat(reloaded.getEmail()).isNull();
+        assertThat(reloaded.getName()).isEqualTo(victim.getName());
+    }
+
+    /** B1: a user who never joined any program has no relationship to anyone's organization. */
+    @Test
+    void adminCannotEditAUserWhoNeverJoinedTheirOrganization() {
+        User stranger = createUser("+5493462003202");
+
+        createEmployee("admin-b1-stranger", "password123", StaffRole.ADMIN);
+        String token = loginEmployee("admin-b1-stranger", "password123");
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/users/" + stranger.getId(),
+            HttpMethod.PATCH,
+            authed(token, new UserUpdateRequest("Renamed", null)),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    /** B1: DELETE /users/{id} deactivated any user on the platform, including other businesses' admins. */
+    @Test
+    void adminCannotDeactivateAnotherOrganizationsCustomerOrStaff() {
+        PointProgram otherProgram = otherOrganizationProgram("Other Org B1 Delete");
+        User customer = createUser("+5493462003203");
+        joinProgram(customer.getId(), otherProgram);
+        User otherAdmin = createEmployee("admin-b1-other-org", "password123", StaffRole.ADMIN, otherProgram.getOrganization(), null);
+
+        createEmployee("admin-b1-delete", "password123", StaffRole.ADMIN);
+        String attackerToken = loginEmployee("admin-b1-delete", "password123");
+
+        for (User target : List.of(customer, otherAdmin)) {
+            ResponseEntity<String> response = restTemplate.exchange(
+                baseUrl() + "/users/" + target.getId(),
+                HttpMethod.DELETE,
+                authed(attackerToken),
+                String.class
+            );
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+            assertThat(userRepository.findById(target.getId()).orElseThrow().isActive()).isTrue();
+        }
+    }
+
+    /** B1: PATCH /users/{id}/reactivate is open to cashiers too, and was not scoped at all. */
+    @Test
+    void cashierCannotReactivateAnotherOrganizationsCustomer() {
+        PointProgram otherProgram = otherOrganizationProgram("Other Org B1 Reactivate");
+        User customer = createInactiveUser("+5493462003204");
+        joinProgram(customer.getId(), otherProgram);
+
+        createEmployee("cashier-b1-reactivate", "password123", StaffRole.CASHIER);
+        String attackerToken = loginEmployee("cashier-b1-reactivate", "password123");
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl() + "/users/" + customer.getId() + "/reactivate",
+            HttpMethod.PATCH,
+            authed(attackerToken),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(userRepository.findById(customer.getId()).orElseThrow().isActive()).isFalse();
+    }
+
+    /** The B1 guard must still let staff manage their own organization's customers. */
+    @Test
+    void adminCanStillEditAndDeactivateTheirOwnOrganizationsCustomer() {
+        User customer = createUser("+5493462003205");
+        joinProgram(customer.getId(), defaultProgram());
+
+        createEmployee("admin-b1-own", "password123", StaffRole.ADMIN);
+        String token = loginEmployee("admin-b1-own", "password123");
+
+        ResponseEntity<String> edit = restTemplate.exchange(
+            baseUrl() + "/users/" + customer.getId(),
+            HttpMethod.PATCH,
+            authed(token, new UserUpdateRequest("Renamed By Own Admin", null)),
+            String.class
+        );
+        assertThat(edit.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(userRepository.findById(customer.getId()).orElseThrow().getName()).isEqualTo("Renamed By Own Admin");
+
+        ResponseEntity<String> delete = restTemplate.exchange(
+            baseUrl() + "/users/" + customer.getId(),
+            HttpMethod.DELETE,
+            authed(token),
+            String.class
+        );
+        assertThat(delete.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(userRepository.findById(customer.getId()).orElseThrow().isActive()).isFalse();
     }
 
     // --- Baseline: an unauthenticated request to a protected endpoint must
@@ -369,12 +529,7 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         User cashier = createEmployee("cashier-negative-grant", "password123", StaffRole.CASHIER);
         String cashierToken = loginEmployee("cashier-negative-grant", "password123");
         User user = createUser("+5493462003010");
-        restTemplate.exchange(
-            baseUrl() + "/point-programs/" + defaultProgram().getId() + "/members",
-            HttpMethod.POST,
-            authed(cashierToken, new JoinPointProgramRequest(user.getId())),
-            Void.class
-        );
+        joinProgram(user.getId(), defaultProgram());
 
         ResponseEntity<String> response = restTemplate.exchange(
             baseUrl() + "/users/grant",
@@ -436,6 +591,66 @@ class AdversarialIntegrationTest extends AbstractIntegrationTest {
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    /**
+     * Cross-organization IDOR regression: staff of one organization used to be able to read
+     * ANY customer's pending exchanges -- including the raw redemption code -- at ANY other
+     * organization, by user id alone. Fixed by scoping the lookup to the caller's own
+     * organization (PointTransactionRepository#findAllPendingByUserIdOrderByCreatedAtDescRaw);
+     * a staff member outside the org now sees an empty list, not the other org's data.
+     */
+    @Test
+    void employeeCannotViewAnotherOrganizationsCustomersPendingExchanges() {
+        studio.gnosticdeveloper.bonusbissen.entity.Organization otherOrg = new studio.gnosticdeveloper.bonusbissen.entity.Organization();
+        otherOrg.setName("Other Org Pending IDOR");
+        otherOrg = organizationRepository.save(otherOrg);
+        studio.gnosticdeveloper.bonusbissen.entity.PointProgram otherProgram = new studio.gnosticdeveloper.bonusbissen.entity.PointProgram();
+        otherProgram.setOrganization(otherOrg);
+        otherProgram.setName("Other Org Points Pending");
+        otherProgram = pointProgramRepository.save(otherProgram);
+        studio.gnosticdeveloper.bonusbissen.entity.Storefront otherStorefront = new studio.gnosticdeveloper.bonusbissen.entity.Storefront();
+        otherStorefront.setOrganization(otherOrg);
+        otherStorefront.setName("Other Org Storefront");
+        otherStorefront.setAddress("x");
+        otherStorefront.setPointProgram(otherProgram);
+        otherStorefront = storefrontRepository.save(otherStorefront);
+        User cashierOther = createEmployee("cashier-other-org-pending", "password123", StaffRole.CASHIER, otherOrg, otherStorefront);
+        String cashierOtherToken = loginEmployee("cashier-other-org-pending", "password123", otherOrg.getId());
+
+        User victim = createUser("+5493462003023");
+        joinProgram(victim.getId(), otherProgram);
+        restTemplate.exchange(
+            baseUrl() + "/users/grant",
+            HttpMethod.POST,
+            authed(cashierOtherToken, new GrantPointsRequest(victim.getId(), 100, null)),
+            UserPointsAwardResponse.class
+        );
+        Reward otherReward = new Reward();
+        otherReward.setPointProgram(otherProgram);
+        otherReward.setTitle("Other Org Reward");
+        otherReward.setCostPoints(30);
+        otherReward = rewardRepository.save(otherReward);
+        String victimToken = loginUser("+5493462003023");
+        restTemplate.exchange(
+            baseUrl() + "/users/claim-reward",
+            HttpMethod.POST,
+            authed(victimToken, new ClaimRewardRequest(victim.getId(), otherReward.getId())),
+            String.class
+        );
+
+        User attackerCashier = createEmployee("cashier-attacker-org-pending", "password123", StaffRole.CASHIER);
+        String attackerToken = loginEmployee("cashier-attacker-org-pending", "password123");
+
+        ResponseEntity<List<PendingExchangeResponse>> response = restTemplate.exchange(
+            baseUrl() + "/exchanges/pending/" + victim.getId(),
+            HttpMethod.GET,
+            authed(attackerToken),
+            new org.springframework.core.ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEmpty();
     }
 
     // --- A user requesting their own pending exchanges must still work

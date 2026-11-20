@@ -1,7 +1,7 @@
 "use server";
 
 import { dashboardRequest } from "@/lib/api";
-import { PagedResponse } from "@/lib/definitions";
+import { PagedResponse } from "@/lib/types/paging";
 import type { Reward } from "@/lib/types/reward";
 import { updateTag } from "next/cache";
 

@@ -13,11 +13,14 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.LoginLinkConsumeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RequestDashboardLoginLinkRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.RequestUserLoginLinkRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ResendVerificationRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.GrantPointsRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.SelectStorefrontRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.StaffSessionRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserLoginRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserRegisterRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.VerifyEmailRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.LoginResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.StorefrontSummary;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.OrganizationStaff;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
@@ -507,6 +510,67 @@ class AuthIntegrationTest extends AbstractIntegrationTest {
         assertThat(callSessionsEndpoint(firstToken).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 
+    private Storefront deactivatedSecondStorefrontFor(User staff) {
+        Storefront second = createSecondStorefrontFor(staff);
+        second.setActive(false);
+        return storefrontRepository.save(second);
+    }
+
+    private ResponseEntity<LoginResponse> signIn(String username) {
+        return restTemplate.postForEntity(
+            baseUrl() + "/auth/dashboard/sign-in",
+            new DashboardLoginRequest(username, "password123", defaultOrganization().getId()),
+            LoginResponse.class
+        );
+    }
+
+    private ResponseEntity<LoginResponse> selectStorefront(ResponseEntity<LoginResponse> login, UUID storefrontId) {
+        HttpHeaders headers = authHeaders(login.getBody().token());
+        headers.add(HttpHeaders.COOKIE, "bb_rt=" + extractRawCookie(login, "bb_rt"));
+        return restTemplate.exchange(
+            baseUrl() + "/auth/storefront", HttpMethod.POST,
+            new HttpEntity<>(new SelectStorefrontRequest(storefrontId), headers), LoginResponse.class);
+    }
+
+    @Test
+    void aCashierIsNeitherOfferedNorAllowedToSelectADeactivatedStorefront() {
+        User cashier = createEmployee("cashier-deactivated", "password123", StaffRole.CASHIER);
+        Storefront deactivated = deactivatedSecondStorefrontFor(cashier);
+
+        ResponseEntity<LoginResponse> login = signIn("cashier-deactivated");
+
+        assertThat(login.getBody().storefronts()).extracting(StorefrontSummary::id).doesNotContain(deactivated.getId());
+        assertThat(selectStorefront(login, deactivated.getId()).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void anAdminStillSeesADeactivatedStorefrontSoTheBusinessCanReactivateIt() {
+        User admin = createEmployee("admin-deactivated", "password123", StaffRole.ADMIN);
+        Storefront deactivated = deactivatedSecondStorefrontFor(admin);
+
+        ResponseEntity<LoginResponse> login = signIn("admin-deactivated");
+
+        assertThat(login.getBody().storefronts()).extracting(StorefrontSummary::id).contains(deactivated.getId());
+        assertThat(selectStorefront(login, deactivated.getId()).getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void aCashiersExistingTokenStopsBeingStorefrontScopedOnceTheStorefrontIsDeactivated() {
+        User cashier = createEmployee("cashier-live-token", "password123", StaffRole.CASHIER);
+        Storefront own = createSecondStorefrontFor(cashier);
+        ResponseEntity<LoginResponse> login = signIn("cashier-live-token");
+        String token = selectStorefront(login, own.getId()).getBody().token();
+
+        own.setActive(false);
+        storefrontRepository.save(own);
+
+        // The token still names the storefront, but the backend no longer honours it, so
+        // anything needing a storefront (granting points) is refused.
+        ResponseEntity<String> response = restTemplate.exchange(baseUrl() + "/users/grant", HttpMethod.POST,
+            authed(token, new GrantPointsRequest(cashier.getId(), 10, null)), String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
     private Storefront createSecondStorefrontFor(User staff) {
         PointProgram program = defaultProgram();
         Storefront storefront = new Storefront();
@@ -520,6 +584,72 @@ class AuthIntegrationTest extends AbstractIntegrationTest {
         organizationStaff.getStorefronts().add(storefront);
         organizationStaffRepository.save(organizationStaff);
         return storefront;
+    }
+
+    @Test
+    void dashboardSessionExchangeGivesAdminOfTheOrganizationAStaffToken() {
+        createEmployee("exchange-admin", TEST_USER_PASSWORD, StaffRole.ADMIN);
+        String userToken = loginUser("exchange-admin");
+
+        ResponseEntity<LoginResponse> response = restTemplate.exchange(
+            baseUrl() + "/auth/dashboard/session",
+            HttpMethod.POST,
+            authed(userToken, new StaffSessionRequest(defaultOrganization().getId())),
+            LoginResponse.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().token()).isNotBlank().isNotEqualTo(userToken);
+        assertThat(extractRawCookie(response, "bb_rt")).isNotBlank();
+
+        ResponseEntity<String> org = restTemplate.exchange(
+            baseUrl() + "/organization", HttpMethod.GET, authed(response.getBody().token()), String.class);
+        assertThat(org.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void dashboardSessionExchangeRejectsCashier() {
+        createEmployee("exchange-cashier", TEST_USER_PASSWORD, StaffRole.CASHIER);
+
+        assertThat(exchange(loginUser("exchange-cashier"), defaultOrganization().getId()).getStatusCode())
+            .isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void dashboardSessionExchangeRejectsAnotherOrganization() {
+        createEmployee("exchange-admin-other-org", TEST_USER_PASSWORD, StaffRole.ADMIN);
+
+        assertThat(exchange(loginUser("exchange-admin-other-org"), UUID.randomUUID()).getStatusCode())
+            .isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void dashboardSessionExchangeRejectsUserWhoIsNotStaff() {
+        createUser("exchange-plain-user");
+
+        assertThat(exchange(loginUser("exchange-plain-user"), defaultOrganization().getId()).getStatusCode())
+            .isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void dashboardSessionExchangeRejectsMissingToken() {
+        ResponseEntity<String> response = restTemplate.postForEntity(
+            baseUrl() + "/auth/dashboard/session", new StaffSessionRequest(defaultOrganization().getId()), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void dashboardSessionExchangeRejectsAnExistingStaffToken() {
+        createEmployee("exchange-already-staff", "password123", StaffRole.ADMIN);
+        String staffToken = loginEmployee("exchange-already-staff", "password123");
+
+        assertThat(exchange(staffToken, defaultOrganization().getId()).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    private ResponseEntity<String> exchange(String token, UUID organizationId) {
+        return restTemplate.exchange(
+            baseUrl() + "/auth/dashboard/session", HttpMethod.POST, authed(token, new StaffSessionRequest(organizationId)), String.class);
     }
 
     private ResponseEntity<Void> callSessionsEndpoint(String token) {

@@ -125,4 +125,32 @@ public class SmtpEmailSender implements EmailSender {
             Glaux labs
             """.formatted(name, link, ttlMinutes);
     }
+
+    @Async
+    @Override
+    public void sendInvoiceEmail(String toEmail, String toName, byte[] pdf, String fileName) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(from);
+            helper.setTo(toEmail);
+            helper.setSubject("Tu factura de bonusbissen");
+            helper.setText(buildInvoiceEmailBody(toName), false);
+            helper.addAttachment(fileName, new org.springframework.core.io.ByteArrayResource(pdf));
+            mailSender.send(message);
+            log.info("Sent invoice email to {}", toEmail);
+        } catch (Exception e) {
+            log.error("Failed to send invoice email to {}", toEmail, e);
+        }
+    }
+
+    private String buildInvoiceEmailBody(String name) {
+        return """
+            Hola %s,
+
+            Adjuntamos la factura correspondiente a tu ciclo de facturación en bonusbissen.
+
+            Glaux labs
+            """.formatted(name);
+    }
 }

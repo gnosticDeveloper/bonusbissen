@@ -1,17 +1,19 @@
 package studio.gnosticdeveloper.bonusbissen.controller;
 
 import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeRequest;
+import studio.gnosticdeveloper.bonusbissen.dto.request.ApproveExchangeWithCodeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.CancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.UserCancelExchangeRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.ExchangeVerifyRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.ExchangeResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeQueueResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PendingExchangeReviewResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PointsSummaryResponse;
-import studio.gnosticdeveloper.bonusbissen.entity.TransactionState;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
 import studio.gnosticdeveloper.bonusbissen.service.PointTransactionService;
 
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,6 +24,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -57,24 +60,41 @@ public class PointTransactionController {
         return pointTransactionService.getResolved(principal.organizationId(), pageable);
     }
 
+    /**
+     * A customer (role USER) may only ever ask for their own id and sees every pending exchange
+     * of theirs, at any business. Staff (ADMIN/CASHIER) may ask for any customer's id, but the
+     * result is scoped to their own organization's exchanges only -- see
+     * PointTransactionRepository#findAllPendingByUserIdOrderByCreatedAtDescRaw.
+     */
     @GetMapping("/pending/{id}")
     public List<PendingExchangeResponse> getAllPendingExchangesByUserId(@PathVariable UUID id, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        if ("USER".equals(principal.role()) && !principal.id().equals(id)) {
+        boolean isCustomer = "USER".equals(principal.role());
+        if (isCustomer && !principal.id().equals(id)) {
             throw new AccessDeniedException("No podés acceder a los canjes de otro cliente.");
         }
-        return pointTransactionService.getAllPendingExchangesById(id);
+        return pointTransactionService.getAllPendingExchangesById(id, isCustomer ? null : principal.organizationId());
     }
 
     @GetMapping("/pending")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     public List<PendingExchangeReviewResponse> getAllPendingExchanges(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return pointTransactionService.getAllByState(TransactionState.PENDING, principal.organizationId());
+        return pointTransactionService.getAllPending(principal.organizationId());
+    }
+
+    /** The oldest {@code limit} pending redemptions (1-100, default 6) of the selected storefront's program, plus that queue's total size. */
+    @GetMapping("/pending-queue")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
+    public PendingExchangeQueueResponse getPendingQueue(
+        @RequestParam(defaultValue = "6") int limit,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
+        return pointTransactionService.getPendingQueue(principal.organizationId(), principal.storefrontId(), limit);
     }
 
     @GetMapping("/pending-count")
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     public int getPendingExchangesCount(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return pointTransactionService.countByState(TransactionState.PENDING, principal.organizationId());
+        return pointTransactionService.countPending(principal.organizationId(), principal.storefrontId());
     }
 
     @PostMapping("/verify")
@@ -94,7 +114,18 @@ public class PointTransactionController {
     @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     @ResponseStatus(code = HttpStatus.OK)
     public void approveExchange(@RequestBody ApproveExchangeRequest request, @AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        pointTransactionService.approveExchange(request, principal.organizationId(), principal.id());
+        pointTransactionService.approveExchange(request, principal.organizationId(), principal.id(), principal.storefrontId());
+    }
+
+    /** Approves one chosen redemption only if the customer's code matches it (400 when it doesn't). */
+    @PostMapping("/approve-with-code")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
+    @ResponseStatus(code = HttpStatus.OK)
+    public void approveExchangeWithCode(
+        @Valid @RequestBody ApproveExchangeWithCodeRequest request,
+        @AuthenticationPrincipal AuthenticatedPrincipal principal
+    ) {
+        pointTransactionService.approveExchangeWithCode(request, principal.organizationId(), principal.id(), principal.storefrontId());
     }
 
     @PostMapping("/user-cancel")

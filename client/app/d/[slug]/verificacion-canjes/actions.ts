@@ -1,6 +1,7 @@
 "use server";
 
-import { dashboardRequest } from "@/lib/api";
+import { ActionResult, dashboardRequest } from "@/lib/api";
+import { ExchangeState } from "@/lib/types/exchange";
 
 export interface ExchangeResponse {
   id: string;
@@ -14,31 +15,24 @@ export interface ExchangeResponse {
   rewardImageUrl: string;
   rewardDiscountValue: number;
   rewardCostPoints: number;
-  state: "pending" | "delivered" | "cancelled";
+  state: ExchangeState;
   points: number;
   formattedCreatedAt: string;
 }
 
-export async function getResolvedExchanges() {
-  const res = await dashboardRequest<ExchangeResponse[]>("/exchanges/resolved");
-
-  if (!res.ok) return [];
-
-  return res.data;
+export async function getResolvedExchanges(): Promise<ActionResult<ExchangeResponse[]>> {
+  return dashboardRequest<ExchangeResponse[]>("/exchanges/resolved");
 }
 
-export async function validateCode(code: string) {
-  const res = await dashboardRequest<ExchangeResponse>("/exchanges/verify", {
+/** A 404 means the code doesn't exist; any other failure is a real error. */
+export async function validateCode(code: string): Promise<ActionResult<ExchangeResponse>> {
+  return dashboardRequest<ExchangeResponse>("/exchanges/verify", {
     method: "POST",
     body: JSON.stringify({ code }),
     headers: {
       "Content-Type": "application/json",
     },
   });
-
-  if (!res.ok) return null;
-
-  return res.data;
 }
 
 export async function confirmRedemption(id: string) {

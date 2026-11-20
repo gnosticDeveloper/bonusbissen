@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { CreateRewardButton } from "@/components/create-reward-button";
-import { RewardViewToggle, type RewardView } from "@/components/reward-view-toggle";
+import { RewardViewToggle } from "@/components/reward-view-toggle";
+import type { RewardView } from "@/lib/preferences/reward-view";
 import RewardsList from "@/components/rewards-list";
 import { SearchParamsPaginationControls } from "@/components/search-params-pagination-controls";
 import type { Reward } from "@/lib/types/reward";
@@ -37,7 +38,7 @@ export function RewardsView({ initialView, isAdmin, page, rewards, totalPages }:
         </div>
       </div>
 
-      {totalPages > 1 ? <SearchParamsPaginationControls page={page} totalPages={totalPages} /> : null}
+      {totalPages > 1 ? <SearchParamsPaginationControls page={page} totalPages={totalPages} className="mx-auto mt-6 w-full max-w-xs" /> : null}
 
       <RewardsList rewards={rewards} isAdmin={isAdmin} view={view} />
     </div>

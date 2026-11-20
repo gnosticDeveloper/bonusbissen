@@ -5,7 +5,7 @@ import { BusinessList } from "@/components/business-list";
 import { PaginationControls } from "@/components/pagination-controls";
 import { useBusinesses } from "@/hooks/use-businesses";
 import { useRef, useState } from "react";
-import { useSelectedCity } from "@/lib/preference-store";
+import { useSelectedCity } from "@/lib/preferences/city-store";
 
 const PAGE_SIZE = 10;
 
@@ -48,7 +48,7 @@ export default function DescubrirPage() {
 
       {totalPages > 1 && (
         <div className="px-5 pb-5">
-          <PaginationControls page={page} totalPages={totalPages} onPageChange={handlePageChange} disabled={loading} />
+          <PaginationControls page={page} totalPages={totalPages} onPageChange={handlePageChange} disabled={loading} label="Paginación de negocios" />
         </div>
       )}
 
@@ -61,7 +61,7 @@ export default function DescubrirPage() {
 
       {totalPages > 1 && (
         <div className="px-5 pt-6">
-          <PaginationControls page={page} totalPages={totalPages} onPageChange={handlePageChange} disabled={loading} />
+          <PaginationControls page={page} totalPages={totalPages} onPageChange={handlePageChange} disabled={loading} label="Paginación de negocios" />
         </div>
       )}
     </main>

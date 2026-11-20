@@ -1,13 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { MapPin, Globe, Save, X } from "lucide-react";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast";
 import { Storefront } from "@/lib/types/storefront";
-import { FormState } from "@/app/d/types";
+import { FormState } from "@/lib/types/dashboard";
 import { createStorefront, updateStorefront } from "@/app/d/[slug]/(admin-only)/mi-negocio/actions";
 import { AddressSelector } from "./address-selector";
 
@@ -22,21 +22,22 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
+/** Create or edit a storefront. Rendered inside a modal (see StorefrontsSection), which supplies the surface. */
 export function StorefrontForm({ storefront, onDone }: { storefront?: Storefront; onDone: () => void }) {
   const notify = useToast();
   const isEdit = !!storefront;
   const action = isEdit ? updateStorefront.bind(null, storefront.id) : createStorefront;
-  const [state, formAction] = useActionState(action, initialState);
+  const [, formAction] = useActionState(async (prev: FormState, formData: FormData) => {
+    const next = await action(prev, formData);
+    if (next.status === "success") onDone();
+    if (next.status) notify(next.message!, next.status);
+    return next;
+  }, initialState);
   const [online, setOnline] = useState(storefront?.online ?? false);
   const [active, setActive] = useState(storefront?.active ?? true);
 
-  useEffect(() => {
-    if (state.status === "success") onDone();
-    if (state.status) notify(state.message!, state.status);
-  }, [state, notify, onDone]);
-
   return (
-    <form action={formAction} className="flex flex-col gap-4 rounded-2xl border border-border bg-background p-4" noValidate>
+    <form action={formAction} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="online" value={online ? "true" : "false"} />
       <input type="hidden" name="active" value={active ? "true" : "false"} />
 
@@ -103,7 +104,7 @@ export function StorefrontForm({ storefront, onDone }: { storefront?: Storefront
       {isEdit && (
         <label className="flex items-center gap-2 text-sm w-fit">
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="size-4 accent-primary" />
-          Sucursal activa
+          Visibilidad ({active ? "listada" : "no listada"})
         </label>
       )}
 

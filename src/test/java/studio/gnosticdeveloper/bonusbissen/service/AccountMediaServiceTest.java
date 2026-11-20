@@ -66,7 +66,7 @@ class AccountMediaServiceTest {
     void organizationLogoAndBannerAreIndependent() {
         organization.setLogoPath("rewards/logo-old");
         organization.setBannerPath("rewards/banner-old");
-        when(organizations.findById(organization.getId())).thenReturn(Optional.of(organization));
+        when(organizations.findByIdWithBillingPlan(organization.getId())).thenReturn(Optional.of(organization));
         when(organizations.save(organization)).thenReturn(organization);
         when(images.store(file, StorageFolder.LOGOS)).thenReturn("logos/logo-new");
                 when(images.store(file, StorageFolder.BANNERS)).thenReturn("banners/banner-new");

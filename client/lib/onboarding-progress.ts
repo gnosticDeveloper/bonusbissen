@@ -1,0 +1,159 @@
+import type { ActionResult } from "./api";
+import type { OnboardingBackendStep } from "./types/onboarding";
+
+type OnboardingProgress = {
+  version: 3;
+  userId: string;
+  organizationId: string | null;
+  step: number;
+};
+
+/** Storage is replaceable; callers must await operations in navigation order. */
+export interface OnboardingProgressStore {
+  load(userId: string): Promise<OnboardingProgress | null>;
+  save(userId: string, progress: OnboardingProgress): Promise<void>;
+  clear(userId: string): Promise<void>;
+}
+
+type VerifiedState = {
+  userId: string | null;
+  organizationId: string | null;
+  organization: { id: string; billingPlanName?: string | null; mercadoPagoSubscriptionStatus?: string | null } | null;
+  storefronts: readonly unknown[];
+  /** First unfinished step recorded by the backend, when it could be read. */
+  backendStep?: OnboardingBackendStep | null;
+};
+
+export function availableStep(state: VerifiedState) {
+  return !state.organization ? 0 : !state.organization.billingPlanName ? 1 : state.organization.mercadoPagoSubscriptionStatus !== "authorized" ? 2 : !state.storefronts.length ? 3 : 4;
+}
+
+/**
+ * Slide for the step the backend recorded, or `null` when it is unknown. `PAY`
+ * covers both choosing a plan and authorizing Mercado Pago, which are separate
+ * slides here, so the verified plan name splits it. The result is a resume
+ * position only: it is always clamped by the resources the backend verified, so
+ * recorded progress can neither open a stage nor hold a finished one back.
+ */
+export function backendStepSlide(state: VerifiedState): number | null {
+  switch (state.backendStep ?? null) {
+    case "CREATE_ORGANIZATION": return 0;
+    case "PAY": return state.organization?.billingPlanName ? 2 : 1;
+    case "CREATE_STOREFRONT": return 3;
+    case "CREATE_POINT_PROGRAM": return 4;
+    case "COMPLETED": return 4;
+    default: return null;
+  }
+}
+
+/** Where the journey resumes when this browser has no step of its own. */
+export function resumeStep(state: VerifiedState) {
+  const recorded = backendStepSlide(state);
+  return recorded === null ? availableStep(state) : clampOnboardingStep(state, recorded);
+}
+
+export function restoreStep(state: VerifiedState, saved: OnboardingProgress | null) {
+  if (!saved || !state.userId || saved.userId !== state.userId || saved.organizationId !== state.organizationId) return resumeStep(state);
+  return clampOnboardingStep(state, saved.step);
+}
+
+export function onboardingProgressContext(state: Pick<VerifiedState, "userId" | "organizationId">) {
+  return JSON.stringify([state.userId, state.organizationId]);
+}
+
+export function minimumStep(state: VerifiedState) {
+  if (!state.organization) return 0;
+  // Missing plan wins even when authorization or storefronts already exist.
+  if (!state.organization.billingPlanName || state.organization.mercadoPagoSubscriptionStatus !== "authorized") return 1;
+  return state.storefronts.length ? 4 : 3;
+}
+
+export function clampOnboardingStep(state: VerifiedState, step: number) {
+  return Math.max(minimumStep(state), Math.min(step, availableStep(state)));
+}
+
+type NavigationSnapshot = { state: VerifiedState; step: number; revision: number };
+
+/** A slow restore must not overwrite navigation or backend results received meanwhile. */
+export async function restoreOnboardingNavigation(
+  store: OnboardingProgressStore,
+  initial: NavigationSnapshot,
+  current: () => NavigationSnapshot,
+): Promise<{ step: number; storageFailed: boolean } | null> {
+  if (!initial.state.userId) return null;
+  let saved: OnboardingProgress | null = null;
+  let storageFailed = false;
+  try { saved = await store.load(initial.state.userId); }
+  catch { storageFailed = true; }
+  const latest = current();
+  if (onboardingProgressContext(initial.state) !== onboardingProgressContext(latest.state)) return null;
+  return {
+    step: latest.revision === initial.revision ? restoreStep(latest.state, saved) : clampOnboardingStep(latest.state, latest.step),
+    storageFailed,
+  };
+}
+
+/** The default implementation is selected here, never by the UI. */
+export function createOnboardingProgressStore(adapter?: OnboardingProgressStore): OnboardingProgressStore {
+  return orderedOnboardingProgressStore(adapter ?? createLocalOnboardingProgressStore());
+}
+
+export function createLocalOnboardingProgressStore(
+  storage: () => Pick<Storage, "getItem" | "setItem" | "removeItem"> = () => window.localStorage,
+): OnboardingProgressStore {
+  const key = (userId: string) => `onboarding-progress:v3:${encodeURIComponent(userId)}`;
+  const previousKey = (userId: string) => `onboarding-progress:v2:${encodeURIComponent(userId)}`;
+  const legacyKey = (userId: string) => `onboarding-progress:v1:${encodeURIComponent(userId)}`;
+  return {
+    async load(userId) {
+      const raw = storage().getItem(key(userId)) ?? storage().getItem(previousKey(userId)) ?? storage().getItem(legacyKey(userId));
+      if (!raw) return null;
+      try {
+        const value = JSON.parse(raw);
+        if (![1, 2, 3].includes(value.version) || value.userId !== userId || !(value.organizationId === null || typeof value.organizationId === "string") || !Number.isInteger(value.step) || value.step < 0 || value.step > (value.version === 1 ? 2 : value.version === 2 ? 3 : 4)) return null;
+        const shift = value.version === 1 ? 2 : value.version === 2 ? 1 : 0;
+        return { version: 3, userId, organizationId: value.organizationId, step: value.step > 0 ? value.step + shift : 0 };
+      } catch { return null; }
+    },
+    async save(userId, progress) {
+      if (!userId || progress.userId !== userId || !Number.isInteger(progress.step) || progress.step < 0 || progress.step > 4 || progress.version !== 3) throw new Error("Invalid onboarding progress");
+      // Explicit allowlist: never serialize form fields, credentials or payment data.
+      storage().setItem(key(userId), JSON.stringify({ version: 3, userId, organizationId: progress.organizationId, step: progress.step }));
+      storage().removeItem(previousKey(userId));
+      storage().removeItem(legacyKey(userId));
+    },
+    async clear(userId) { storage().removeItem(key(userId)); storage().removeItem(previousKey(userId)); storage().removeItem(legacyKey(userId)); },
+  };
+}
+
+/** Serialize async adapters too, so a late save cannot resurrect cleared progress. */
+export function orderedOnboardingProgressStore(store: OnboardingProgressStore): OnboardingProgressStore {
+  let pending: Promise<unknown> = Promise.resolve();
+  function enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const result = pending.then(operation);
+    pending = result.catch(() => undefined);
+    return result;
+  }
+  return {
+    load: userId => enqueue(() => store.load(userId)),
+    save: (userId, progress) => enqueue(() => store.save(userId, progress)),
+    clear: userId => enqueue(() => store.clear(userId)),
+  };
+}
+
+export async function completeOnboardingNavigation(
+  result: ActionResult<{ userId: string; destination: string }>,
+  store: OnboardingProgressStore,
+  navigate: (destination: string) => void,
+  onClearError: (error: unknown) => void = () => {},
+) {
+  if (!result.ok || !result.data.userId || !result.data.destination) return false;
+  try {
+    await store.clear(result.data.userId);
+  } catch (error) {
+    // Browser storage is optional, not a prerequisite for backend completion.
+    onClearError(error);
+  }
+  navigate(result.data.destination);
+  return true;
+}

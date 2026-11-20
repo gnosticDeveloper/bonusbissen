@@ -7,11 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "bun scripts/test-each.ts",
     "audit:unused": "knip --include files,exports,types"
   },
   "dependencies": {
-    "@base-ui/react": "^1.8.0",
-    "class-variance-authority": "^0.7.1",
     "jose": "^6.2.12",
     "lucide-react": "^1.41.0",
     "motion": "^14.0.0",
@@ -24,12 +23,14 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
+    "@types/bun": "^1.4.4",
     "@types/node": "^20.19.43",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
-    "eslint": "10.10.0",
+    "eslint": "9.39.5",
     "eslint-config-next": "16.3.4",
     "knip": "^6.37.0",
+    "server-only": "^0.0.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3"
   },
