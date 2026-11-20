@@ -50,8 +50,9 @@ function createParticles(seedKey: string) {
 /**
  * Glow plus rising embers along the bottom of the nearest positioned ancestor.
  * `seed` keeps the layout deterministic between server and client; `color` defaults to the theme primary.
+ * `glow={false}` keeps only the embers, for sections whose neighbor paints its own blend.
  */
-export function LandingParticles({ color, seed = "bonusbissen" }: { color?: string; seed?: string }) {
+export function LandingParticles({ color, seed = "bonusbissen", glow = true }: { color?: string; seed?: string; glow?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref);
   const particles = useMemo(() => createParticles(seed), [seed]);
@@ -64,7 +65,7 @@ export function LandingParticles({ color, seed = "bonusbissen" }: { color?: stri
       className={`pointer-events-none absolute inset-0 ${styles.root}`}
       style={color ? ({ "--particles-color": color } as CSSProperties) : undefined}
     >
-      <div className={styles.glow} />
+      {glow ? <div className={styles.glow} /> : null}
       <div className={styles.field}>
         {particles.map((style, index) => (
           <span key={index} className={styles.particle} style={style} />

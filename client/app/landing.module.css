@@ -3,6 +3,62 @@
     color: var(--foreground);
 }
 
+/*
+ * Primary band below the hero. The blend starts `--rise` inside the hero (painted
+ * behind it, so the particles and text stay on top) and finishes `--fade` into this
+ * section, where the solid primary takes over. Opaque oklab mixes on a smoothstep
+ * curve avoid the muddy sRGB mid-tones and the hard edges a linear ramp gives.
+ */
+.primaryBand {
+    --rise: 13rem;
+    --fade: 6rem;
+    position: relative;
+    padding-top: var(--fade);
+    /* Solid underneath the (opaque) fade, so subpixel rounding at the seam never shows the page background. */
+    background: var(--primary);
+}
+
+.primaryBand::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    inset-inline: 0;
+    top: calc(-1 * var(--rise));
+    height: calc(var(--rise) + var(--fade) + 1px);
+    pointer-events: none;
+    background: linear-gradient(
+        to bottom,
+        var(--background) 0%,
+        color-mix(in oklab, var(--primary) 2.8%, var(--background)) 10%,
+        color-mix(in oklab, var(--primary) 10.4%, var(--background)) 20%,
+        color-mix(in oklab, var(--primary) 21.6%, var(--background)) 30%,
+        color-mix(in oklab, var(--primary) 35.2%, var(--background)) 40%,
+        color-mix(in oklab, var(--primary) 50%, var(--background)) 50%,
+        color-mix(in oklab, var(--primary) 64.8%, var(--background)) 60%,
+        color-mix(in oklab, var(--primary) 78.4%, var(--background)) 70%,
+        color-mix(in oklab, var(--primary) 89.6%, var(--background)) 80%,
+        color-mix(in oklab, var(--primary) 97.2%, var(--background)) 90%,
+        var(--primary) 100%
+    );
+}
+
+.primaryBand > * {
+    position: relative;
+    z-index: 1;
+}
+
+@media (min-width: 40rem) {
+    .primaryBand {
+        --rise: 22rem;
+        --fade: 10rem;
+    }
+}
+
+.primaryBand ::selection {
+    background: var(--background);
+    color: var(--primary);
+}
+
 .lower {
     background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / 0.055), transparent 65%), linear-gradient(160deg, #191b1d, #0b0d0f);
 }

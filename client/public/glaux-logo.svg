@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Glaux Labs: isotipo (búho), redibujado como vector a partir del logo de referencia.
+  Se usa como favicon, por eso el lienzo es cuadrado y el fondo transparente.
+
+  Un SVG independiente no puede leer las variables CSS del sitio, así que los
+  colores están escritos acá. Si cambiás la paleta en src/styles/global.css,
+  actualizá también estos valores:
+    azul marino #092032, azul #49c0e0, magenta #9b2b99
+  La versión que se ve dentro de las páginas (src/components/OwlLogo.astro)
+  sí toma los colores de las variables.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-256 -134 512 512" role="img" aria-labelledby="glaux-logo-titulo">
+  <title id="glaux-logo-titulo">Glaux Labs</title>
+  <defs>
+    <linearGradient id="ceja" gradientUnits="userSpaceOnUse" x1="-244" y1="0" x2="244" y2="0">
+      <stop offset="0" stop-color="#49c0e0"/>
+      <stop offset="0.32" stop-color="#092032"/>
+      <stop offset="0.68" stop-color="#092032"/>
+      <stop offset="1" stop-color="#9b2b99"/>
+    </linearGradient>
+    <radialGradient id="parpado-izq" gradientUnits="userSpaceOnUse" cx="-160" cy="210" r="118">
+      <stop offset="0.35" stop-color="#49c0e0"/>
+      <stop offset="0.95" stop-color="#092032"/>
+    </radialGradient>
+    <radialGradient id="parpado-der" gradientUnits="userSpaceOnUse" cx="160" cy="210" r="118">
+      <stop offset="0.35" stop-color="#9b2b99"/>
+      <stop offset="0.95" stop-color="#092032"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Cejas / alas y puente de la nariz -->
+  <path fill="url(#ceja)" d="M-244 0C-190 26-140 40-111 55C-60 80-22 115 0 158C22 115 60 80 111 55C140 40 190 26 244 0L204 58C150 80 100 100 71 115C40 135 15 175 0 207C-15 175-40 135-71 115C-100 100-150 80-204 58Z"/>
+  <!-- Puntas de las alas -->
+  <path fill="#49c0e0" d="M-244 0C-217 13-191 23-168 31.6L-204 58Z"/>
+  <path fill="#9b2b99" d="M244 0C217 13 191 23 168 31.6L204 58Z"/>
+  <!-- Párpados inferiores -->
+  <path fill="url(#parpado-izq)" d="M-194 86L-151 105C-148 150-110 192-39 197C-55 212-85 220-110 208C-150 190-178 140-194 86Z"/>
+  <path fill="url(#parpado-der)" d="M194 86L151 105C148 150 110 192 39 197C55 212 85 220 110 208C150 190 178 140 194 86Z"/>
+  <!-- Iris -->
+  <path fill="#49c0e0" d="M-119 118L-56 157A40 40 0 0 1-119 118Z"/>
+  <path fill="#9b2b99" d="M119 118L56 157A40 40 0 0 0 119 118Z"/>
+  <!-- Pupilas -->
+  <path fill="#092032" d="M-101.1 129.1L-73.9 145.9A16 16 0 0 1-101.1 129.1Z"/>
+  <path fill="#092032" d="M101.1 129.1L73.9 145.9A16 16 0 0 0 101.1 129.1Z"/>
+  <!-- Pico -->
+  <path fill="#092032" d="M-9 214L0 220L9 214L0 244Z"/>
+</svg>
