@@ -1,4 +1,5 @@
 import "server-only"
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { z } from "zod";
 import { backendUrl } from "./backend-url";
@@ -24,6 +25,12 @@ export type BackendFetchOptions<T> = {
   schema?: z.ZodType<T>;
   /** Gives up after this many milliseconds; a timeout counts as "unavailable". */
   timeoutMs?: number;
+  /**
+   * Forwards the browser's `User-Agent` and Client Hints from the incoming request.
+   * Use on calls that create a backend session, so it is labelled with the user's
+   * device instead of this server's runtime ("Bun/…").
+   */
+  forwardDevice?: boolean;
   /** User-facing copy that replaces the defaults. */
   messages?: {
     /** A fixed message for specific HTTP statuses, e.g. `{ 401: "…" }`. */
@@ -47,12 +54,14 @@ export async function backendFetchWithResponse<T>(
   init?: RequestInit,
   options: BackendFetchOptions<T> = {},
 ): Promise<ResponseResult<T>> {
-  const { token, schema, timeoutMs, messages = {} } = options;
+  const { token, schema, timeoutMs, messages = {}, forwardDevice } = options;
 
   try {
+    const device = forwardDevice ? await clientDeviceHeaders() : {};
     const response = await fetch(backendUrl(path), {
       ...init,
       headers: {
+        ...device,
         ...init?.headers,
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
@@ -72,6 +81,27 @@ export async function backendFetchWithResponse<T>(
     return { ok: true, data: parsed.data, response };
   } catch {
     return { ok: false, error: messages.unavailable ?? SERVICE_UNAVAILABLE_MESSAGE };
+  }
+}
+
+const FORWARDED_DEVICE_HEADERS = ["user-agent", "sec-ch-ua", "sec-ch-ua-platform", "sec-ch-ua-mobile"] as const;
+const MAX_FORWARDED_HEADER_LENGTH = 512;
+
+/**
+ * The incoming browser request's device headers. Only a display label for the
+ * session list: these headers are client-controlled and grant nothing.
+ */
+async function clientDeviceHeaders(): Promise<Record<string, string>> {
+  try {
+    const incoming = await headers();
+    const out: Record<string, string> = {};
+    for (const name of FORWARDED_DEVICE_HEADERS) {
+      const value = incoming.get(name);
+      if (value) out[name] = value.slice(0, MAX_FORWARDED_HEADER_LENGTH);
+    }
+    return out;
+  } catch {
+    return {}; // outside a request scope; the backend falls back to "Dispositivo desconocido"
   }
 }
 

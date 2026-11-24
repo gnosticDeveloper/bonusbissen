@@ -83,6 +83,10 @@ public class PointTransaction {
     @Column(name = "voided_at")
     private OffsetDateTime voidedAt;
 
+    /** Points a negative correction took off this lot (see migration 19); the row's own points never change. */
+    @Column(name = "reduced_points", nullable = false)
+    private int reducedPoints;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
@@ -93,8 +97,26 @@ public class PointTransaction {
         }
     }
 
+    /**
+     * Lots are the rows FIFO consumption draws from and the expiration job expires: earn rows and
+     * the positive adjust rows a correction adds to a grant. Standalone adjustments are always
+     * negative, so a positive row is always a lot.
+     */
+    public boolean isLot() {
+        return points > 0;
+    }
+
+    /** What this lot can still contribute in total: nothing once voided, otherwise its points minus what corrections took off. */
+    public int getLotPoints() {
+        if (!isLot() || voidedAt != null) {
+            return 0;
+        }
+        return Math.max(0, points - reducedPoints);
+    }
+
     public boolean isExpirationApplicable() {
         return voidedAt == null && (transactionType == TransactionType.EARN
+            || (transactionType == TransactionType.ADJUST && isLot())
             || (transactionType == TransactionType.EXPIRE && expiredTransaction != null));
     }
 

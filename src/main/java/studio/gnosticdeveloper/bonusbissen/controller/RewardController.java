@@ -17,6 +17,7 @@ import studio.gnosticdeveloper.bonusbissen.dto.request.RewardUpdateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.response.PagedResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.RewardResponse;
 import studio.gnosticdeveloper.bonusbissen.dto.response.TopRewardResponse;
+import studio.gnosticdeveloper.bonusbissen.dto.response.UnclaimedRewardResponse;
 import studio.gnosticdeveloper.bonusbissen.entity.Reward;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
 import studio.gnosticdeveloper.bonusbissen.service.RewardResponseMapper;
@@ -55,7 +56,13 @@ public class RewardController {
     @GetMapping("/top")
     @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
     public List<TopRewardResponse> getTopRewards(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        return rewardService.getTopRewards(principal.organizationId());
+        return rewardService.getTopRewards(principal.organizationId(), principal.storefrontId());
+    }
+
+    @GetMapping("/unclaimed")
+    @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN')")
+    public List<UnclaimedRewardResponse> getUnclaimedRewards(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
+        return rewardService.getUnclaimedRewards(principal.organizationId(), principal.storefrontId());
     }
 
     @PostMapping(consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })

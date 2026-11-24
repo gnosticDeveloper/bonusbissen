@@ -20,6 +20,15 @@ const nextConfig: NextConfig = {
   //   turbopackRustReactCompiler: true,
   // },
   allowedDevOrigins: ['192.168.1.223'],
+  // DEV ONLY: proxy uploaded images to the backend (DevUploadsConfig) so they
+  // load from the same origin as the page. With the dev profile's relative
+  // assets URL ("/uploads/"), images then work from any device on the LAN,
+  // not just from localhost. In production nginx / Cloudinary serve them.
+  async rewrites() {
+    if (process.env.NODE_ENV !== "development") return [];
+    const backend = process.env.BACKEND_URL ?? "http://localhost:8080";
+    return [{ source: "/uploads/:path*", destination: `${backend}/uploads/:path*` }];
+  },
 };
 
 export default nextConfig;

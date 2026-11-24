@@ -1,0 +1,100 @@
+import Link from "next/link";
+import { Spinner } from "@/components/spinner";
+import type { Business } from "@/lib/demo/actions";
+import { RewardCard } from "./reward-card";
+import { Carousel } from "./carousel";
+import { formatNumber } from "@/lib/helpers/format";
+
+interface BusinessListProps {
+  businesses: Business[];
+  loading: boolean;
+  error: boolean;
+  emptyMessage?: string;
+}
+
+export function BusinessList({ businesses, loading, error, emptyMessage = "Parece que no hay negocios cerca :(" }: BusinessListProps) {
+  if (loading) {
+    return (
+      <section className="flex min-h-28 items-center justify-center gap-2.5 text-xs text-foreground/80">
+        <Spinner />
+        <span>Buscando negocios...</span>
+      </section>
+    );
+  }
+
+  if (error || businesses.length === 0) {
+    return <section className="mx-5 rounded-2xl border border-dashed border-border px-3 py-5 text-center text-xs text-foreground/80">{emptyMessage}</section>;
+  }
+
+  return (
+    <section className="grid gap-7">
+      {businesses.map((storefront, index) => {
+        const logoUrl = storefront.orgLogoUrl;
+        return (
+          <article key={storefront.id} className="overflow-hidden border-b border-border bg-background pb-7" data-tour={index === 0 ? "business-card" : undefined}>
+            <header className="flex items-center gap-3 px-5 pb-3">
+              <div
+                className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-card text-base font-semibold text-foreground"
+                style={{ borderColor: `${storefront.color}55` }}
+              >
+                {logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoUrl} alt="" className="size-full object-cover" />
+                ) : (
+                  storefront.orgName.charAt(0).toUpperCase()
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate text-sm font-semibold tracking-[-0.02em] text-foreground">
+                  {storefront.orgName} • {storefront.name}
+                </h3>
+                <p className="truncate text-[11px] text-foreground/80">
+                  {storefront.address.street} • {storefront.address.city}
+                </p>
+              </div>
+
+              <Link
+                href={`/s/afiliarse?local=${encodeURIComponent(storefront.id)}`}
+                className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-semibold text-foreground transition-colors hover:border-primary hover:text-foreground"
+                data-tour={index === 0 ? "business-join" : undefined}
+              >
+                Unirse
+              </Link>
+            </header>
+
+            <div data-tour={index === 0 ? "rewards-carousel" : undefined}>
+              <Carousel
+                items={storefront.rewards}
+                renderItem={(reward) => <RewardCard reward={reward} pointsLabel={storefront.pointLabel} color={storefront.color} />}
+              />
+            </div>
+
+            <div className="px-5 pt-3">
+              <p className="line-clamp-2 text-xs leading-5 text-foreground/80">{storefront.description}</p>
+
+              <div className="mt-3 flex items-center justify-between gap-3 text-[11px]">
+                <span className="truncate text-foreground/80">{storefront.category}</span>
+                <strong className="shrink-0 font-semibold text-foreground underline decoration-primary underline-offset-2">
+                  {formatNumber(storefront.points)} {storefront.pointLabel}
+                </strong>
+              </div>
+            </div>
+          </article>
+        );
+      })}
+
+      {businesses.length >= 1 && businesses.length <= 9 ? (
+        <footer className="w-full flex flex-col items-center relative pt-20">
+          <span className="text-foreground/80 relative text-xs text-center bg-background z-30 text-shadow-lg shadow-black">
+            llegaste al final de la lista (￣o￣) . z Z
+          </span>
+          <div className="absolute top-6 h-20 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/cat.avif" alt="little sleepy cat" className="w-36 h-auto grayscale select-none pointer-events-none" />
+          </div>
+        </footer>
+      ) : null}
+    </section>
+  );
+}

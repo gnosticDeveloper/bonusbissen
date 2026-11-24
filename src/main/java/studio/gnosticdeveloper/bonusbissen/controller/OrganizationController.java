@@ -78,7 +78,7 @@ public class OrganizationController {
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal AuthenticatedPrincipal principal) {
-        organizationService.deactivate(principal.organizationId());
+        organizationService.deactivate(principal.organizationId(), principal.id());
     }
 
     @PostMapping(path = "/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

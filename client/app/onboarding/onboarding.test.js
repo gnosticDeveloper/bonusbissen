@@ -53,7 +53,7 @@ const dashboardSignIn = mock(async form => {
 });
 
 mock.module("server-only", () => ({}));
-mock.module("next/headers", () => ({ cookies: async () => cookieStore }));
+mock.module("next/headers", () => ({ headers: async () => new Headers(), cookies: async () => cookieStore }));
 mock.module("next/navigation", () => ({ redirect }));
 const sessionModule = {
   getSessionToken: async () => jar.get("access_token"),

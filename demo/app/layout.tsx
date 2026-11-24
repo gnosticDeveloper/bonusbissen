@@ -1,55 +1,56 @@
-import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
+import { Sofia_Sans } from "next/font/google";
 import "./globals.css";
-import Script from "next/script";
 import { ToastProvider } from "@/components/toast";
+import { ModalProvider } from "@/components/modal";
+import { ThemeProvider } from "@/providers/theme-provider";
 
-const jakarta = Plus_Jakarta_Sans({
+const sofiaSans = Sofia_Sans({
   subsets: ["latin"],
-  variable: "--font-sans",
+  variable: "--font-sofia-sans",
   display: "swap",
-});
-
-const geistMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-  display: "swap",
+  weight: "variable",
 });
 
 export const metadata: Metadata = {
   title: "Demo • Bonus Bissen • Sistema de fidelización de clientes",
-  description: "Sistema de fidelización de puntos y recompensas para tu negocio. Demo funcional de Bonus Bissen.",
-  generator: "v0.app",
+  description: "Probá Bonus Bissen con datos de ejemplo: sumá puntos, canjeá recompensas y administrá tu programa de fidelización.",
+  robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {
   colorScheme: "light dark",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f2ead9" },
-    { media: "(prefers-color-scheme: dark)", color: "#2a251f" },
+    { media: "(prefers-color-scheme: light)", color: "white" },
+    { media: "(prefers-color-scheme: dark)", color: "black" },
   ],
-  width: "device-width",
-  initialScale: 1,
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+// Same pre-paint theme script as the main app: reads the `theme` cookie before the first paint.
+const THEME_INIT_SCRIPT = `
+(function () {
+  try {
+    var m = document.cookie.match(/(?:^|; )theme=([^;]*)/);
+    var theme = m ? decodeURIComponent(m[1]) : null;
+    if (theme === "light" || theme === "dark" || theme === "abismo") {
+      document.documentElement.setAttribute("data-theme", theme);
+    }
+  } catch (e) {}
+})();
+`;
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" suppressHydrationWarning>
+    <html lang="es" className={sofiaSans.variable} suppressHydrationWarning>
       <head>
-        <meta name="robots" content="noindex, nofollow" />
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body className={`${jakarta.variable} ${geistMono.variable} font-sans antialiased bg-background text-foreground`}>
-        {/* Apply persisted theme before paint to avoid flash */}
-        <Script id="theme-init" strategy="beforeInteractive">
-          {`(function(){try{var t=sessionStorage.getItem('bb_theme');if(t==='dark'){document.documentElement.classList.add('dark')}}catch(e){}})();`}
-        </Script>
-        <ToastProvider>{children}</ToastProvider>
-        {process.env.NODE_ENV === "production" && <Analytics />}
+      <body className="font-sans antialiased">
+        <ThemeProvider>
+          <ModalProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </ModalProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

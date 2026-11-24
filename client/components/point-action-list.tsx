@@ -63,7 +63,7 @@ export default function PointActionList({
   const reload = () => setHistoryRefresh((key) => key + 1);
 
   return (
-    <div className="min-h-0 lg:col-span-3">
+    <div className="min-h-0 lg:col-span-3" data-guide="points-history">
       <Card className="flex max-h-[calc(100dvh-12rem)] min-h-0 flex-col overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)] sm:max-h-[calc(100dvh-10rem)]">
         <CardHeader className="border-b border-border px-5 py-5 sm:px-6">
           <div className="flex items-start justify-between gap-4">
@@ -177,7 +177,7 @@ export default function PointActionList({
                     </div>
 
                     {!a.correctedTransaction && (
-                      <div className="flex shrink-0 gap-1 rounded-xl border border-border bg-card p-1 opacity-70 transition-opacity group-hover:opacity-100">
+                      <div className="flex shrink-0 gap-1 rounded-xl border border-border bg-card p-1 opacity-70 transition-opacity group-hover:opacity-100" data-guide="points-edit">
                         <Button
                           variant="ghost"
                           size="icon-sm"

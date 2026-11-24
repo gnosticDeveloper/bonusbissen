@@ -5,6 +5,7 @@ public sealed interface TraceabilityDetails
     permits
         SessionRevokeDetails,
         StaffCreateDetails,
+        StaffRoleUpdateDetails,
         UserCreateDetails,
         PointsGrantDetails,
         OnlinePurchaseGrantDetails,
@@ -13,4 +14,13 @@ public sealed interface TraceabilityDetails
         ExchangeVerifyDetails,
         ExchangeApproveDetails,
         ExchangeCancelDetails,
-        ExchangeUserCancelDetails {}
+        ExchangeUserCancelDetails,
+        StaffDeactivateDetails,
+        StaffStorefrontsUpdateDetails,
+        UserUpdateDetails,
+        UserDeactivateDetails,
+        UserReactivateDetails,
+        PasswordChangeDetails,
+        PointProgramUpdateDetails,
+        ProgramStorefrontsUpdateDetails,
+        OrganizationDeactivateDetails {}

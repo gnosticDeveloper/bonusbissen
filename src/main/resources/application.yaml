@@ -4,11 +4,19 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/${LOCAL_DB_NAME:bonusbissen}
     username: ${LOCAL_DB_USER:postgres}
-    password: ${LOCAL_DB_PASSWORD:local-dev-password}
+    # No default: a missing password fails startup instead of silently using a committed one.
+    # Deployments set SPRING_DATASOURCE_PASSWORD (docker-compose), which takes precedence.
+    password: ${LOCAL_DB_PASSWORD}
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+  task:
+    scheduling:
+      # Spring's default is one thread, so a stuck job (e.g. a hung backup) would stall
+      # expiration, invoicing and retention too.
+      pool:
+        size: ${SCHEDULING_POOL_SIZE:4}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -100,6 +108,8 @@ app:
     # S3Client bean constructible; the nightly job just fails harmlessly at
     # upload time instead, caught by DatabaseBackupService#runScheduledBackup.
     cron: ${DR_BACKUP_CRON:0 0 5 * * *}
+    # pg_dump is killed after this long, so a hung dump can't hold its scheduler thread forever.
+    pg-dump-timeout: ${DR_BACKUP_PG_DUMP_TIMEOUT:30m}
     s3:
       endpoint: ${DR_BACKUP_S3_ENDPOINT:localhost}
       bucket: ${DR_BACKUP_S3_BUCKET:unset}

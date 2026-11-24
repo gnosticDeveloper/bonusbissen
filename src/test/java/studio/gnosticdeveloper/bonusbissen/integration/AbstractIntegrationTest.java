@@ -39,6 +39,7 @@ import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
 @TestPropertySource(properties = {
     "app.mail.enabled=false",
     "app.georef.enabled=false",
+    "LOCAL_DB_PASSWORD=unused-in-tests",
     // Test-only ECDSA (ES256, P-256) keypair, unrelated to any real deployment key.
     "app.jwt.private-key=MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgBkATsAsD99QCHwueU/Jm0O2kKf2igJWWRqcvfXgUrXKhRANCAAS8O08P7y+saePqODNaVbc1zixiENxg8NjkU4azUTC+p8ifQ68uWaZZzf8rhcT6V5Epm7mluccGYlAe3TYm3nRt",
     "app.jwt.public-key=MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEvDtPD+8vrGnj6jgzWlW3Nc4sYhDcYPDY5FOGs1EwvqfIn0OvLlmmWc3/K4XE+leRKZu5pbnHBmJQHt02Jt50bQ=="

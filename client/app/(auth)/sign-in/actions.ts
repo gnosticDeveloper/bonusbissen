@@ -24,7 +24,7 @@ export async function signIn(formData: FormData): Promise<ActionResult<SignInUse
   const result = await backendFetchWithResponse(
     "/auth/user-login",
     { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ identifier, password }), cache: "no-store" },
-    { schema: sessionTokenSchema, messages: { failed: REQUEST_FAILED_MESSAGE } },
+    { schema: sessionTokenSchema, messages: { failed: REQUEST_FAILED_MESSAGE }, forwardDevice: true },
   );
   if (!result.ok) return result;
 
@@ -53,7 +53,7 @@ export async function consumeLoginLink(token: string): Promise<ActionResult<null
   const result = await backendFetchWithResponse(
     "/auth/user-login-link/consume",
     { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ token }), cache: "no-store" },
-    { schema: sessionTokenSchema, messages: { failed: INVALID_LINK_MESSAGE } },
+    { schema: sessionTokenSchema, messages: { failed: INVALID_LINK_MESSAGE }, forwardDevice: true },
   );
   if (!result.ok) return result;
 

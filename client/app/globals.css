@@ -10,6 +10,12 @@
     --color-card: var(--card);
     --color-border: var(--border);
     --color-muted: var(--muted);
+    /* Storefront brand accent. The storefront layout sets --brand / --brand-contrast
+       (lib/helpers/color.ts → brandColorVars); everywhere else they fall back to primary. */
+    --color-brand: var(--brand, var(--primary));
+    --color-brand-contrast: var(--brand-contrast, var(--primary-foreground));
+    /* Brand-tinted text that stays readable on background/card in every theme. */
+    --color-brand-ink: color-mix(in oklab, var(--brand, var(--primary)) 55%, var(--foreground));
     --font-sans: var(--font-sofia-sans), sans-serif;
 }
 
@@ -130,6 +136,29 @@ button {
     background-color: rgb(120 113 108 / 0.6);
 }
 
+/*
+ * Side menu drawer (components/side-menu.tsx): a full-screen modal <dialog>; Motion animates its
+ * dim layer and panel.
+ *
+ * The theme switch is a view transition over the page (providers/theme-provider.tsx). A top-layer
+ * dialog isn't part of the page's snapshot, which is painted over it, so without its own
+ * view-transition-name the open menu vanished until the cross-fade ended. The dim is a layer inside
+ * the dialog rather than ::backdrop because a ::backdrop is never captured with its dialog.
+ */
+.side-menu {
+    view-transition-name: side-menu;
+}
+.side-menu::backdrop {
+    background: transparent;
+}
+
+/* The menu cross-fades between themes at the same pace as the page. */
+::view-transition-old(side-menu),
+::view-transition-new(side-menu) {
+    animation-duration: 200ms;
+    animation-timing-function: ease-out;
+}
+
 /* Modal styles for starting animation */
 .modal_content {
     transform: translateY(0) scale(1);
@@ -142,4 +171,81 @@ button {
         transform: translateY(12px) scale(0.97);
         opacity: 0;
     }
+}
+
+/* Dashboard guides (components/guides/). The spotlight dims everything around the highlighted
+   element and rings it in the storefront color. */
+.guide-spotlight {
+    box-shadow:
+        0 0 0 9999px rgb(0 0 0 / 0.6),
+        0 0 0 2px var(--primary);
+}
+
+/* Glossary dialog: a native modal <dialog>, so the entrance is CSS (@starting-style). */
+.guide-term-dialog[open] {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition:
+        opacity 0.2s ease-out,
+        transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+
+    @starting-style {
+        opacity: 0;
+        transform: translateY(10px) scale(0.97);
+    }
+}
+.guide-term-dialog::backdrop {
+    transition: opacity 0.2s ease-out;
+
+    @starting-style {
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .guide-term-dialog[open],
+    .guide-term-dialog::backdrop {
+        transition: none;
+    }
+}
+
+/*
+ * Dashboard navigation scroll area (components/dashboard-shell.tsx → NavScroller). No scrollbar:
+ * it would narrow the links and clip the collapsed rail's badges. The edges fade out while there
+ * is more to scroll in that direction; the registered properties let the fade ease in and out.
+ */
+@property --nav-fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --nav-fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+.nav-scroller {
+  scrollbar-width: none;
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--nav-fade-top), #000 calc(100% - var(--nav-fade-bottom)), transparent);
+  transition: --nav-fade-top 0.2s ease, --nav-fade-bottom 0.2s ease;
+}
+
+.nav-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-scroller[data-fade-top] {
+  --nav-fade-top: 1.5rem;
+}
+
+.nav-scroller[data-fade-bottom] {
+  --nav-fade-bottom: 1.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-scroller {
+    transition: none;
+  }
 }

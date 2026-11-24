@@ -45,17 +45,45 @@ export interface TopReward {
   points: number;
 }
 
+/**
+ * `GET /users/home-stats`: figures of the selected storefront's point program for the last
+ * `periodDays` days, each with the same figure for the `periodDays` days before (`previous*`).
+ * `pendingExchanges` is the program's open queue now, at any age. `programId`/`programName` are
+ * `null` (and every figure 0) when the storefront has no program.
+ */
 export interface HomeStats {
-  totalExchanges: number;
+  programId: string | null;
+  programName: string | null;
+  periodDays: number;
+  exchanges: number;
+  previousExchanges: number;
+  activeCustomers: number;
+  previousActiveCustomers: number;
+  pointsGranted: number;
+  previousPointsGranted: number;
   pendingExchanges: number;
-  totalUsers: number;
-  totalPointsAwarded: number;
-};
+}
 
+/** Pending redemption in the staff review queue (backend `PendingExchangeReviewResponse`). */
 export interface PendingExchangeReview {
   id: string;
-  customerName: string;
+  userName: string;
   rewardTitle: string;
+  /** Negative: the points the redemption took. */
   points: number;
-  createdAtFormatted: string;
-};
+  /** ISO instant the customer claimed it. */
+  createdAt: string;
+}
+
+/** `GET /exchanges/pending-queue`: the oldest `items`, and how many are pending in all. */
+export interface PendingExchangeQueue {
+  total: number;
+  items: PendingExchangeReview[];
+}
+
+/** `GET /rewards/unclaimed`: an active reward with no claims in the dashboard window. */
+export interface UnclaimedReward {
+  id: string;
+  title: string;
+  points: number;
+}

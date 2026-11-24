@@ -30,7 +30,7 @@ export async function exchangeDashboardSession(organizationId: string): Promise<
   const result = await backendFetchWithResponse(
     "/auth/dashboard/session",
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organizationId }), cache: "no-store" },
-    { token, schema: sessionTokenSchema },
+    { token, schema: sessionTokenSchema, forwardDevice: true },
   );
   if (!result.ok) return false;
 

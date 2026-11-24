@@ -133,7 +133,7 @@ public class OnlinePurchaseService {
             payload.put("amount", request.amount().toPlainString());
             payload.put("currency", purchase.getCurrency());
             // No staff member acted, and the log requires an originating user: the shopper stands in for it.
-            traceabilityService.record(OperationType.ONLINE_PURCHASE_GRANT, user.getId(), user.getId(), payload);
+            traceabilityService.record(OperationType.ONLINE_PURCHASE_GRANT, program.getOrganization().getId(), user.getId(), user.getId(), payload);
         }
         return new PurchaseResponse(PurchaseResponse.CREDITED, points);
     }

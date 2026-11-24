@@ -7,7 +7,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/helpers/utils";
 import { NavItem, NavSection } from "@/lib/navigation";
 import { UserRole } from "@/lib/types/user";
-import { Award, Building2, ChartColumn, Coins, Home, Images, QrCode, ReceiptText, ShieldAlert, UserRoundGroup, UsersRound } from "lucide-react";
+import { Award, Building2, ChartColumn, Coins, Home, Images, LifeBuoy, QrCode, ReceiptText, Settings, ShieldAlert, UserRound, UserRoundGroup, UsersRound } from "lucide-react";
 
 /** Rutas resueltas contra el local seleccionado (claim `sf` del token verificado). */
 const STOREFRONT_NAV: NavItem[] = [
@@ -47,15 +47,31 @@ const STOREFRONT_NAV: NavItem[] = [
 const ORGANIZATION_NAV: NavItem[] = [
   { id: "organization", label: "Mi negocio", icon: Building2, roles: [UserRole.ADMIN], url: "/mi-negocio", available: true, show: true } as const,
   { id: "billing", label: "Facturación", icon: ReceiptText, roles: [UserRole.ADMIN], url: "/facturacion", available: true, show: true } as const,
-  { id: "employees", label: "Empleados", icon: UserRoundGroup, roles: [UserRole.ADMIN], url: "#", available: false, show: false } as const,
+  { id: "employees", label: "Empleados", icon: UserRoundGroup, roles: [UserRole.ADMIN], url: "/empleados", available: true, show: true } as const,
   { id: "gallery", label: "Galeria", icon: Images, roles: [UserRole.ADMIN], url: "#", available: false, show: false } as const,
   { id: "audit", label: "Auditoría", icon: ShieldAlert, roles: [UserRole.ADMIN], url: "/auditoria", available: true, show: true } as const,
   { id: "analytics", label: "Reportes", icon: ChartColumn, roles: [UserRole.ADMIN], url: "#", available: false, show: false } as const,
 ];
 
+/** Rutas personales de quien usa el panel: guías de ayuda, perfil y preferencias. */
+const ACCOUNT_NAV: NavItem[] = [
+  { id: "help", label: "Ayuda", icon: LifeBuoy, roles: [UserRole.ADMIN, UserRole.CASHIER], url: "/ayuda", available: true, show: true } as const,
+  { id: "profile", label: "Mi perfil", icon: UserRound, roles: [UserRole.ADMIN, UserRole.CASHIER], url: "/perfil", available: true, show: true } as const,
+  {
+    id: "settings",
+    label: "Configuración",
+    icon: Settings,
+    roles: [UserRole.ADMIN, UserRole.CASHIER],
+    url: "/configuracion",
+    available: true,
+    show: true,
+  } as const,
+];
+
 const NAV_SECTIONS: NavSection[] = [
   { id: "storefront", label: "Local", items: STOREFRONT_NAV },
   { id: "org", label: "Organización", items: ORGANIZATION_NAV },
+  { id: "account", label: "Cuenta", items: ACCOUNT_NAV },
 ];
 
 /**
@@ -75,9 +91,16 @@ type SidebarProps = {
   orgId: string;
   /** Solo escritorio: contrae las etiquetas dejando la barra como riel de iconos. */
   collapsed?: boolean;
+  /** Contador por `NavItem.id` (p. ej. canjes pendientes); se omite cuando es 0. */
+  badges?: Partial<Record<string, number>>;
 };
 
-export default function Sidebar({ sections, onNavigate, orgId, collapsed = false }: SidebarProps) {
+/** "99+" a partir de 100, para que el contador entre en el riel contraído. */
+function badgeText(count: number): string {
+  return count > 99 ? "99+" : String(count);
+}
+
+export default function Sidebar({ sections, onNavigate, orgId, collapsed = false, badges }: SidebarProps) {
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
   const headingId = useId();
@@ -86,7 +109,7 @@ export default function Sidebar({ sections, onNavigate, orgId, collapsed = false
   return (
     <nav aria-label="Navegación del panel" className="flex flex-col gap-3">
       {sections.map((section) => (
-        <div key={section.id} className="flex flex-col gap-1">
+        <div key={section.id} className="flex flex-col gap-1" data-guide={`nav-section-${section.id}`}>
           {/* Altura fija: el rótulo y el separador se cruzan sin mover los enlaces. */}
           <div className="relative h-7 shrink-0 overflow-hidden">
             <motion.p
@@ -112,12 +135,14 @@ export default function Sidebar({ sections, onNavigate, orgId, collapsed = false
               const Icon = item.icon;
               const href = `/d/${orgId}${item.url}`;
               const isActive = pathname === href;
+              const badge = badges?.[item.id] ?? 0;
+              const badgeLabel = badge > 0 ? `${badge} ${badge === 1 ? "pendiente" : "pendientes"}` : null;
               return (
                 <li key={item.id}>
                   <Link
                     href={href}
                     onClick={onNavigate}
-                    title={collapsed ? item.label : undefined}
+                    title={collapsed ? (badgeLabel ? `${item.label} (${badgeLabel})` : item.label) : undefined}
                     className={cn(
                       "flex h-10 w-full items-center overflow-hidden rounded-lg text-sm font-medium transition-colors motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
                       isActive ? "bg-primary text-primary-foreground" : "text-foreground/80 hover:bg-foreground/10 hover:text-foreground",
@@ -126,17 +151,38 @@ export default function Sidebar({ sections, onNavigate, orgId, collapsed = false
                     aria-current={isActive ? "page" : undefined}
                   >
                     {/* Caja fija del icono: queda centrada en el riel contraído y alineada al expandir. */}
-                    <span className="flex size-10 shrink-0 items-center justify-center">
+                    <span className="relative flex size-10 shrink-0 items-center justify-center">
                       <Icon className="size-4" aria-hidden="true" />
+                      {/* Contraído, el contador pasa a la esquina del icono. */}
+                      {badge > 0 && collapsed && (
+                        <span
+                          aria-hidden="true"
+                          data-guide={`nav-badge-${item.id}`}
+                          className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold leading-none text-amber-950"
+                        >
+                          {badgeText(badge)}
+                        </span>
+                      )}
                     </span>
                     <motion.span
                       initial={false}
                       animate={{ opacity: collapsed ? 0 : 1, x: collapsed ? -4 : 0 }}
                       transition={fade}
-                      className="whitespace-nowrap pr-3"
+                      // Expanded, a long label gives way (with an ellipsis) so the badge after it is never pushed out.
+                      className={cn("whitespace-nowrap pr-3", !collapsed && "min-w-0 truncate")}
                     >
                       {item.label}
                     </motion.span>
+                    {badgeLabel && <span className="sr-only">, {badgeLabel}</span>}
+                    {badge > 0 && !collapsed && (
+                      <span
+                        aria-hidden="true"
+                        data-guide={`nav-badge-${item.id}`}
+                        className="ml-auto mr-2 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-semibold leading-none text-amber-950"
+                      >
+                        {badgeText(badge)}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );

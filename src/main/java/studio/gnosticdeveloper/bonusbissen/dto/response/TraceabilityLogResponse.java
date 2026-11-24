@@ -1,6 +1,7 @@
 package studio.gnosticdeveloper.bonusbissen.dto.response;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -30,6 +31,7 @@ public record TraceabilityLogResponse(
                 lookup.storefront(uuid(payload, "storefrontId")),
                 string(payload, "role")
             );
+            case STAFF_ROLE_UPDATE -> new StaffRoleUpdateDetails(string(payload, "previousRole"), string(payload, "newRole"));
             case USER_CREATE -> new UserCreateDetails(string(payload, "username"));
             case POINTS_GRANT -> new PointsGrantDetails(
                 intValue(payload, "points"),
@@ -66,6 +68,32 @@ public record TraceabilityLogResponse(
                 lookup.transaction(uuid(payload, "transactionId")),
                 intValue(payload, "points")
             );
+            case STAFF_DEACTIVATE -> new StaffDeactivateDetails(string(payload, "role"));
+            case STAFF_STOREFRONTS_UPDATE -> new StaffStorefrontsUpdateDetails(string(payload, "action"), storefronts(payload, lookup));
+            case USER_UPDATE -> new UserUpdateDetails(
+                string(payload, "previousName"),
+                string(payload, "name"),
+                string(payload, "previousEmail"),
+                string(payload, "email")
+            );
+            case USER_DEACTIVATE -> new UserDeactivateDetails();
+            case USER_REACTIVATE -> new UserReactivateDetails();
+            case PASSWORD_CHANGE -> new PasswordChangeDetails();
+            case POINT_PROGRAM_UPDATE -> new PointProgramUpdateDetails(
+                lookup.program(uuid(payload, "programId")),
+                string(payload, "previousName"),
+                string(payload, "name"),
+                bool(payload, "previousActive"),
+                bool(payload, "active"),
+                nullableInt(payload, "previousExpirationMonths"),
+                nullableInt(payload, "expirationMonths")
+            );
+            case PROGRAM_STOREFRONTS_UPDATE -> new ProgramStorefrontsUpdateDetails(
+                lookup.program(uuid(payload, "programId")),
+                string(payload, "action"),
+                storefronts(payload, lookup)
+            );
+            case ORGANIZATION_DEACTIVATE -> new OrganizationDeactivateDetails(lookup.organization(uuid(payload, "organizationId")));
         };
         return new TraceabilityLogResponse(
             log.getOperationId(),
@@ -93,6 +121,25 @@ public record TraceabilityLogResponse(
     private static int intValue(Map<String, Object> payload, String key) {
         Object value = payload.get(key);
         return value instanceof Number number ? number.intValue() : 0;
+    }
+
+    private static Integer nullableInt(Map<String, Object> payload, String key) {
+        return payload.get(key) instanceof Number number ? number.intValue() : null;
+    }
+
+    /** The storefronts named by the payload's "storefrontIds"; ones that no longer exist are left out. */
+    private static List<StorefrontSummary> storefronts(Map<String, Object> payload, Lookup lookup) {
+        if (!(payload.get("storefrontIds") instanceof Iterable<?> ids)) {
+            return List.of();
+        }
+        List<StorefrontSummary> result = new ArrayList<>();
+        for (Object id : ids) {
+            StorefrontSummary storefront = lookup.storefront(UUID.fromString(id.toString()));
+            if (storefront != null) {
+                result.add(storefront);
+            }
+        }
+        return result;
     }
 
     private static boolean bool(Map<String, Object> payload, String key) {

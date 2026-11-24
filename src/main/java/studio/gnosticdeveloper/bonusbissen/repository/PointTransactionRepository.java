@@ -1,5 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.repository;
 
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +29,20 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
     // a single join: point_transactions -> point_programs -> organization_id.
     String ORG_JOIN = " join point_programs pp on pp.id = t.point_program_id ";
     String ORG_MATCH = " pp.organization_id = :organizationId ";
+
+    /**
+     * Rows that make up "points granted": staff/system earn lots, minus refund rows (an earn row
+     * that only gives back a cancelled redemption's points), plus the adjust rows that correct one
+     * of those lots, so a grant counts at its corrected total. Standalone adjust rows (manual
+     * subtractions) and expirations are not grants. Requires {@code t} and a
+     * {@code left join point_transactions o on o.id = t.corrected_transaction_id}.
+     */
+    String GRANTED_POINTS_MATCH = """
+         t.state = 'delivered'
+         and ((t.transaction_type = 'earn' and t.refunded_transaction_id is null)
+              or (t.transaction_type = 'adjust' and o.transaction_type = 'earn'))
+        """;
+    String CORRECTED_LOT_JOIN = " left join point_transactions o on o.id = t.corrected_transaction_id ";
 
     /**
      * {@code organizationId} null means "the caller is the customer themselves" -- every one of
@@ -175,67 +190,108 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
     )
     List<Object[]> findMembershipRowsRaw(@Param("userId") UUID userId);
 
+    // The pending queries below spell 'pending' as a literal on purpose: the pending partial
+    // index (migration 17) can only serve a query whose predicate implies its WHERE clause, and a
+    // bound :state parameter doesn't once the driver switches to a generic prepared plan.
+
+    /** Open redemptions of one program: the dashboard home's pending figures and sidebar badge. */
     @Query(
-        value = "select coalesce(count(t.id), 0) from point_transactions t " + ORG_JOIN + " where t.state = :state and " + ORG_MATCH,
+        value = "select count(t.id) from point_transactions t where t.state = 'pending' and t.point_program_id = :programId",
         nativeQuery = true
     )
-    Integer countByStateAndOrganizationIdRaw(@Param("state") String state, @Param("organizationId") UUID organizationId);
+    int countPendingByProgramId(@Param("programId") UUID programId);
 
-    default Integer countByStateAndOrganizationId(TransactionState state, UUID organizationId) {
-        return countByStateAndOrganizationIdRaw(state.getValue(), organizationId);
+    /** One row of the pending queue queries below. */
+    interface PendingQueueRow {
+        UUID getId();
+        String getUserName();
+        String getRewardTitle();
+        int getPoints();
+        Instant getCreatedAt();
     }
 
+    /**
+     * Selects a pending-queue row: the customer's name and the reward's title come in the same
+     * query. Callers add the scope, then {@link #PENDING_QUEUE_ORDER}.
+     */
+    String PENDING_QUEUE_SELECT = """
+        select t.id as id, u.name as userName, r.title as rewardTitle, t.points as points, t.created_at as createdAt
+        from point_transactions t
+        join users u on u.id = t.user_id
+        join rewards r on r.id = t.reward_id
+        """;
+    /** Oldest first, since the longest-waiting redemption is the one to resolve next. {@code :limit} null means all. */
+    String PENDING_QUEUE_ORDER = " order by t.created_at, t.id limit cast(:limit as integer) ";
+
+    /** The organization's whole pending queue (every program), for {@code GET /exchanges/pending}. */
     @Query(
-        value = "select t.* from point_transactions t " + ORG_JOIN + " where t.state = :state and " + ORG_MATCH + " order by t.created_at desc",
+        value = PENDING_QUEUE_SELECT + ORG_JOIN + " where t.state = 'pending' and " + ORG_MATCH + PENDING_QUEUE_ORDER,
         nativeQuery = true
     )
-    List<PointTransaction> findAllByStateAndOrganizationIdOrderByCreatedAtDescRaw(
-        @Param("state") String state,
-        @Param("organizationId") UUID organizationId
+    List<PendingQueueRow> findPendingQueue(@Param("organizationId") UUID organizationId, @Param("limit") Integer limit);
+
+    /** The pending queue of one program, for the dashboard home. */
+    @Query(
+        value = PENDING_QUEUE_SELECT + " where t.state = 'pending' and t.point_program_id = :programId" + PENDING_QUEUE_ORDER,
+        nativeQuery = true
+    )
+    List<PendingQueueRow> findPendingQueueByProgramId(@Param("programId") UUID programId, @Param("limit") Integer limit);
+
+    /** One row of {@link #findHomeStats}. */
+    interface HomeStatsRow {
+        long getExchanges();
+        long getPreviousExchanges();
+        long getActiveCustomers();
+        long getPreviousActiveCustomers();
+        long getPointsGranted();
+        long getPreviousPointsGranted();
+        long getPendingExchanges();
+    }
+
+    /**
+     * Dashboard home figures of one program for {@code [since, now)} and the window before it,
+     * {@code [previousSince, since)}, from a single range scan over both windows; the
+     * {@code filter} clauses split each figure by window. "Previous" values exist so the page
+     * can compare; {@code pendingExchanges} is a snapshot of the open queue at any age, so it
+     * has none and comes from the pending partial index instead.
+     * <ul>
+     *   <li>exchanges: redemptions claimed in the window, pending or delivered.</li>
+     *   <li>activeCustomers: distinct customers with a grant (refunds aside) or a non-cancelled
+     *       redemption in the window.</li>
+     *   <li>pointsGranted: {@link #GRANTED_POINTS_MATCH}, dated by the original lot, so a
+     *       later correction changes the window the lot was granted in.</li>
+     * </ul>
+     */
+    @Query(
+        value = """
+        select
+          count(*) filter (where t.transaction_type = 'redeem' and t.state <> 'cancelled' and t.created_at >= :since) as exchanges,
+          count(*) filter (where t.transaction_type = 'redeem' and t.state <> 'cancelled' and t.created_at < :since) as previousExchanges,
+          count(distinct t.user_id) filter (where t.state <> 'cancelled'
+              and ((t.transaction_type = 'earn' and t.refunded_transaction_id is null) or t.transaction_type = 'redeem')
+              and t.created_at >= :since) as activeCustomers,
+          count(distinct t.user_id) filter (where t.state <> 'cancelled'
+              and ((t.transaction_type = 'earn' and t.refunded_transaction_id is null) or t.transaction_type = 'redeem')
+              and t.created_at < :since) as previousActiveCustomers,
+          coalesce(sum(t.points) filter (where""" + GRANTED_POINTS_MATCH + """
+              and coalesce(o.created_at, t.created_at) >= :since), 0) as pointsGranted,
+          coalesce(sum(t.points) filter (where""" + GRANTED_POINTS_MATCH + """
+              and coalesce(o.created_at, t.created_at) >= :previousSince
+              and coalesce(o.created_at, t.created_at) < :since), 0) as previousPointsGranted,
+          (select count(*) from point_transactions p
+             where p.state = 'pending' and p.point_program_id = :programId) as pendingExchanges
+        from point_transactions t
+        """ + CORRECTED_LOT_JOIN + """
+        where t.point_program_id = :programId
+          and t.created_at >= :previousSince
+        """,
+        nativeQuery = true
+    )
+    HomeStatsRow findHomeStats(
+        @Param("programId") UUID programId,
+        @Param("since") OffsetDateTime since,
+        @Param("previousSince") OffsetDateTime previousSince
     );
-
-    default List<PointTransaction> findAllByStateAndOrganizationIdOrderByCreatedAtDesc(TransactionState state, UUID organizationId) {
-        return findAllByStateAndOrganizationIdOrderByCreatedAtDescRaw(state.getValue(), organizationId);
-    }
-
-    @Query(
-        value = "select coalesce(count(t.id), 0) from point_transactions t " +
-            ORG_JOIN +
-            " where t.transaction_type = :transactionType and t.state != 'cancelled' and " +
-            ORG_MATCH,
-        nativeQuery = true
-    )
-    Integer countByTransactionTypeRaw(@Param("transactionType") String transactionType, @Param("organizationId") UUID organizationId);
-
-    default Integer countByTransactionType(TransactionType transactionType, UUID organizationId) {
-        return countByTransactionTypeRaw(transactionType.getValue(), organizationId);
-    }
-
-    @Query(
-        value = "select coalesce(count(t.id), 0) from point_transactions t " +
-            ORG_JOIN +
-            " where t.transaction_type = :transactionType and t.state = 'pending' and " +
-            ORG_MATCH,
-        nativeQuery = true
-    )
-    Integer countByTransactionTypeStatePendingRaw(@Param("transactionType") String transactionType, @Param("organizationId") UUID organizationId);
-
-    default Integer countByTransactionTypeStatePending(TransactionType transactionType, UUID organizationId) {
-        return countByTransactionTypeStatePendingRaw(transactionType.getValue(), organizationId);
-    }
-
-    @Query(
-        value = "select coalesce(sum(t.points), 0) from point_transactions t " +
-            ORG_JOIN +
-            " where t.transaction_type = :transactionType and t.state = 'delivered' and " +
-            ORG_MATCH,
-        nativeQuery = true
-    )
-    Integer calculatePointsAwardedRaw(@Param("transactionType") String transactionType, @Param("organizationId") UUID organizationId);
-
-    default Integer calculatePointsAwarded(TransactionType transactionType, UUID organizationId) {
-        return calculatePointsAwardedRaw(transactionType.getValue(), organizationId);
-    }
 
     @Query(value = "select t.* from point_transactions t " + ORG_JOIN + " where " + ORG_MATCH, nativeQuery = true)
     List<PointTransaction> findAllWithRelations(@Param("organizationId") UUID organizationId);
@@ -286,12 +342,12 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
         UUID getPointProgramId();
     }
 
-    /** Pairs with an earn lot past its expiry date that the expiration job hasn't settled yet. */
+    /** Pairs with a lot (earn row or positive correction) past its expiry date that the expiration job hasn't settled yet. */
     @Query(
         value = """
         select distinct t.user_id as userId, t.point_program_id as pointProgramId
         from point_transactions t
-        where t.transaction_type = 'earn' and t.expires_at <= current_timestamp and t.expiry_settled_at is null
+        where t.points > 0 and t.expires_at <= current_timestamp and t.expiry_settled_at is null
         """,
         nativeQuery = true
     )
@@ -302,7 +358,7 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
         value = """
         select t.* from point_transactions t
         where t.user_id = :userId and t.point_program_id = :programId
-          and t.transaction_type = 'earn' and t.expires_at <= current_timestamp and t.expiry_settled_at is null
+          and t.points > 0 and t.expires_at <= current_timestamp and t.expiry_settled_at is null
         """,
         nativeQuery = true
     )
@@ -310,14 +366,16 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
 
     /**
      * The next lot consumption hasn't reached yet, walking forward from (or from the very start,
-     * when afterCreatedAt is null). Excludes already-expired lots (an expire row referencing them
+     * when afterCreatedAt is null). Skips voided lots and lots corrections have fully taken off
+     * (see PointTransaction#getLotPoints). Excludes already-expired lots (an expire row referencing them
      * exists) so the cursor never tries to draw from a lot that's already been zeroed out,
      * including the rare case where a lot expired out of creation-time order.
      */
     @Query(
         value = """
         select t.* from point_transactions t
-        where t.user_id = :userId and t.point_program_id = :programId and t.points > 0
+        where t.user_id = :userId and t.point_program_id = :programId
+          and t.points - t.reduced_points > 0 and t.voided_at is null
           and (
             cast(:afterCreatedAt as timestamptz) is null
             or t.created_at > :afterCreatedAt
@@ -336,26 +394,26 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
         @Param("afterId") UUID afterId
     );
 
-    /** Dates only undated, unsettled, nonvoided earn lots from their creation time, preserving assigned deadlines. */
+    /** Dates only undated, unsettled, nonvoided lots from their creation time, preserving assigned deadlines. */
     @Modifying
     @Query(
         value = """
         update point_transactions
         set expires_at = ((created_at at time zone 'UTC') + (:months || ' months')::interval) at time zone 'UTC'
-        where point_program_id = :programId and transaction_type = 'earn'
+        where point_program_id = :programId and points > 0
           and expires_at is null and expiry_settled_at is null and voided_at is null
         """,
         nativeQuery = true
     )
     void backfillExpiresAt(@Param("programId") UUID programId, @Param("months") int months);
 
-    /** Disabling expiration clears unsettled earn deadlines, preserving already processed history. */
+    /** Disabling expiration clears unsettled lot deadlines, preserving already processed history. */
     @Modifying
     @Query(
         value = """
         update point_transactions
         set expires_at = null
-        where point_program_id = :programId and transaction_type = 'earn' and expiry_settled_at is null
+        where point_program_id = :programId and points > 0 and expiry_settled_at is null
         """,
         nativeQuery = true
     )

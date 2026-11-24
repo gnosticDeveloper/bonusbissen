@@ -20,6 +20,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat(LOCALE, {
   minute: "numeric",
   second: "numeric",
 });
+const monthYearFormatter = new Intl.DateTimeFormat(LOCALE, { timeZone: TIME_ZONE, month: "long", year: "numeric" });
 
 // Money needs one formatter per currency. Currencies come from backend data,
 // so the cache is capped: when it's full, the oldest entry is dropped (a Map
@@ -49,6 +50,17 @@ function formatIso(iso: string, formatter: Intl.DateTimeFormat): string {
 
 export function formatDate(iso: string): string {
   return formatIso(iso, dateFormatter);
+}
+
+/** The Argentina-time calendar month of `iso` ("Noviembre 2026"), or `null` when it isn't a valid date. */
+export function monthOfYear(iso: string): { key: string; label: string } | null {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const parts = monthYearFormatter.formatToParts(date);
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+  return { key: `${year}-${month}`, label: `${month.charAt(0).toUpperCase()}${month.slice(1)} ${year}` };
 }
 
 export function formatNumber(value: number): string {

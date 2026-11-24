@@ -47,7 +47,7 @@ public class PointProgramController {
         @Valid @RequestBody PointProgramUpdateRequest request,
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
-        return PointProgramResponse.from(pointProgramService.update(id, request, principal.organizationId()));
+        return PointProgramResponse.from(pointProgramService.update(id, request, principal.organizationId(), principal.id()));
     }
 
     @PostMapping("/{id}/storefronts")
@@ -57,7 +57,7 @@ public class PointProgramController {
         @Valid @RequestBody AttachStorefrontsRequest request,
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
-        return PointProgramResponse.from(pointProgramService.attachStorefronts(id, request.storefrontIds(), principal.organizationId()));
+        return PointProgramResponse.from(pointProgramService.attachStorefronts(id, request.storefrontIds(), principal.organizationId(), principal.id()));
     }
 
     @DeleteMapping("/{id}/storefronts")
@@ -67,6 +67,6 @@ public class PointProgramController {
         @Valid @RequestBody AttachStorefrontsRequest request,
         @AuthenticationPrincipal AuthenticatedPrincipal principal
     ) {
-        return PointProgramResponse.from(pointProgramService.detachStorefronts(id, request.storefrontIds(), principal.organizationId()));
+        return PointProgramResponse.from(pointProgramService.detachStorefronts(id, request.storefrontIds(), principal.organizationId(), principal.id()));
     }
 }

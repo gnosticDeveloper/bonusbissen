@@ -2,25 +2,7 @@
 
 import { request } from "@/lib/api";
 import { currentUserId } from "@/lib/auth/session";
-
-
-export type MovementResponse = {
-  id: string;
-  type: "redeem" | "earn" | "adjust" | "expire";
-  points: number;
-  imageUrl?: string;
-  title: string;
-  orgName?: string;
-  storefrontName?: string;
-  pointsLabel?: string;
-  formattedCreatedAt: string;
-  createdAt: string;
-  expiresAt: string | null;
-  expirationApplicable: boolean;
-  correction: boolean;
-  correctedTransactionId: string | null;
-  correctedTransactionAmount: number | null;
-};
+import type { MovementResponse } from "@/lib/types/movement";
 
 export async function getMovementsHistory(storefrontId?: string) {
   const userId = await currentUserId();

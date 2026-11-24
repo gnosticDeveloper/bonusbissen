@@ -26,6 +26,7 @@ import studio.gnosticdeveloper.bonusbissen.exception.ConflictException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.repository.OrganizationStaffRepository;
 import studio.gnosticdeveloper.bonusbissen.repository.UserRepository;
+import studio.gnosticdeveloper.bonusbissen.security.DeviceHints;
 import studio.gnosticdeveloper.bonusbissen.security.JwtService;
 import studio.gnosticdeveloper.bonusbissen.security.SessionService;
 
@@ -63,7 +64,7 @@ public class AuthService {
 
     /** A staff sign-in, guarded by the organization the dashboard is for. */
     @Transactional
-    public LoginResult dashboardLogin(DashboardLoginRequest request, String userAgent) {
+    public LoginResult dashboardLogin(DashboardLoginRequest request, DeviceHints device) {
         User user = userRepository
             .findByUsername(request.identifier().trim().toLowerCase(Locale.ROOT))
             .filter(User::isActive)
@@ -78,7 +79,7 @@ public class AuthService {
             .filter(s -> s.getOrganization().getId().equals(request.organizationId()))
             .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
 
-        return issueStaffToken(user, staff, userAgent);
+        return issueStaffToken(user, staff, device);
     }
 
     /**
@@ -88,7 +89,7 @@ public class AuthService {
      * {@link AccessDeniedException} so the response doesn't reveal which orgs exist or who staffs them.
      */
     @Transactional
-    public LoginResult exchangeForStaffSession(UUID userId, UUID organizationId, String userAgent) {
+    public LoginResult exchangeForStaffSession(UUID userId, UUID organizationId, DeviceHints device) {
         AccessDeniedException denied = new AccessDeniedException("No tenés acceso de administrador a esa organización.");
 
         User user = userRepository.findById(userId).filter(User::isActive).orElseThrow(() -> denied);
@@ -98,17 +99,17 @@ public class AuthService {
             .filter(s -> s.getOrganization().getId().equals(organizationId))
             .orElseThrow(() -> denied);
 
-        return issueStaffToken(user, staff, userAgent);
+        return issueStaffToken(user, staff, device);
     }
 
-    public LoginResult issueStaffToken(User user, OrganizationStaff staff, String userAgent) {
+    public LoginResult issueStaffToken(User user, OrganizationStaff staff, DeviceHints device) {
         List<Storefront> storefronts = staff.selectableStorefronts();
         List<StorefrontSummary> summaries = storefronts.stream().map(StorefrontSummary::from).toList();
         UUID storefrontId = storefronts.size() == 1 ? storefronts.getFirst().getId() : null;
 
         JwtService.Issued issued = jwtService.generateToken(user.getId(), user.getUsername(), staff.getRole().name(), storefrontId);
         SessionService.NewSession session = sessionService.createSession(
-            user.getId(), staff.getRole().name(), staff.getOrganization().getId(), storefrontId, user.getUsername(), userAgent);
+            user.getId(), staff.getRole().name(), staff.getOrganization().getId(), storefrontId, user.getUsername(), device);
         sessionService.trackIssuedToken(session.sessionId(), issued.jti());
         return new LoginResult(new LoginResponse(issued.token(), summaries), session.rawRefreshToken());
     }
@@ -143,7 +144,7 @@ public class AuthService {
     }
 
     @Transactional
-    public LoginResult registerUser(UserRegisterRequest request, String userAgent) {
+    public LoginResult registerUser(UserRegisterRequest request, DeviceHints device) {
         String username = request.username().trim().toLowerCase(Locale.ROOT);
         if (userRepository.existsByUsername(username)) {
             throw new ConflictException("Username " + username + " is already being used.", "El nombre de usuario " + username + " ya está ocupado. Por favor elige otro.");
@@ -161,16 +162,16 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setEmailVerified(false);
         user = userRepository.save(user);
-        traceabilityService.record(OperationType.USER_CREATE, user.getId(), user.getId(), Map.of("username", user.getUsername()));
+        traceabilityService.record(OperationType.USER_CREATE, null, user.getId(), user.getId(), Map.of("username", user.getUsername()));
 
         if (email != null) {
             emailVerificationService.sendVerification(user);
         }
 
-        return issueUserToken(user, userAgent);
+        return issueUserToken(user, device);
     }
 
-    public LoginResult loginUser(UserLoginRequest request, String userAgent) {
+    public LoginResult loginUser(UserLoginRequest request, DeviceHints device) {
         String identifier = request.identifier().trim().toLowerCase(Locale.ROOT);
 
         User user = resolveLoginIdentifier(identifier)
@@ -181,14 +182,14 @@ public class AuthService {
             throw new BadCredentialsException("Invalid credentials");
         }
 
-        return issueUserToken(user, userAgent);
+        return issueUserToken(user, device);
     }
 
     /** Issues a loyalty-account (non-staff) token for an already-authenticated user. */
-    public LoginResult issueUserToken(User user, String userAgent) {
+    public LoginResult issueUserToken(User user, DeviceHints device) {
         JwtService.Issued issued = jwtService.generateToken(user.getId(), user.getUsername(), "USER");
         SessionService.NewSession session = sessionService.createSession(
-            user.getId(), "USER", null, null, user.getUsername(), userAgent);
+            user.getId(), "USER", null, null, user.getUsername(), device);
         sessionService.trackIssuedToken(session.sessionId(), issued.jti());
         return new LoginResult(LoginResponse.of(issued.token()), session.rawRefreshToken());
     }

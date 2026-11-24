@@ -34,7 +34,7 @@ export default async function ResolvedRedemptionsList() {
   const resolved = result.ok ? result.data : [];
 
   return (
-    <Card className="flex min-h-0 max-h-[calc(100dvh-13rem)] flex-col overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)] sm:max-h-[calc(100dvh-11rem)]">
+    <Card data-guide="resolved-list" className="flex min-h-0 max-h-[calc(100dvh-13rem)] flex-col overflow-hidden rounded-3xl border-border bg-card shadow-[0_14px_40px_rgba(25,24,23,0.06)] sm:max-h-[calc(100dvh-11rem)]">
       <CardHeader className="flex-row items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-6">
         <div>
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-foreground"> Historial </p>

@@ -25,7 +25,22 @@ public class TraceabilityRetentionService {
 
     private static final Logger log = LoggerFactory.getLogger(TraceabilityRetentionService.class);
 
-    private static final Set<OperationType> EXEMPT_FROM_PURGE = Set.of(OperationType.STAFF_CREATE, OperationType.POINTS_GRANT, OperationType.ONLINE_PURCHASE_GRANT);
+    private static final Set<OperationType> EXEMPT_FROM_PURGE = Set.of(
+        OperationType.STAFF_CREATE,
+        OperationType.STAFF_ROLE_UPDATE,
+        OperationType.POINTS_GRANT,
+        // Who changed an account, a staff member's access, a program or an organization: low volume, and
+        // the whole point of keeping them is to answer questions long after the fact.
+        OperationType.STAFF_DEACTIVATE,
+        OperationType.STAFF_STOREFRONTS_UPDATE,
+        OperationType.USER_UPDATE,
+        OperationType.USER_DEACTIVATE,
+        OperationType.USER_REACTIVATE,
+        OperationType.PASSWORD_CHANGE,
+        OperationType.POINT_PROGRAM_UPDATE,
+        OperationType.PROGRAM_STOREFRONTS_UPDATE,
+        OperationType.ORGANIZATION_DEACTIVATE
+    );
 
     private final TraceabilityLogRepository traceabilityLogRepository;
     private final int retentionMonths;

@@ -110,23 +110,23 @@ export default async function CustomersPage({ params, searchParams }: PageProps)
         </>
       ) : (
         <>
-          <div className="overflow-hidden rounded-3xl border border-border bg-card">
+          <div className="overflow-hidden rounded-3xl border border-border bg-card" data-guide="customers-table">
             <div className="overflow-x-auto">
               <table className="w-full min-w-240 text-left text-sm">
                 <caption className="sr-only">
                   Clientes afiliados en este local{query ? ` que coinciden con «${query}»` : ""}. Los encabezados con enlace
                   permiten ordenar la lista.
                 </caption>
-                <thead className="border-b border-border bg-background/60 text-xs text-foreground/80">
+                <thead className="border-b border-border bg-background/60 text-xs text-foreground/80" data-guide="customers-sort">
                   <tr>
                     {sortableHead("name", "Cliente", "px-5 py-3")}
                     <th scope="col" className="px-4 py-3 font-semibold">
                       Email
                     </th>
-                    {sortableHead("balance", "Saldo", "px-4 py-3 text-right")}
-                    {sortableHead("totalEarned", "Sumados", "px-4 py-3 text-right")}
-                    {sortableHead("totalRedeemed", "Canjeados", "px-4 py-3 text-right")}
-                    {sortableHead("lastActivityAt", "Última actividad", "px-4 py-3")}
+                    {sortableHead("balance", "Puntos", "px-4 py-3 text-right")}
+                    {sortableHead("totalEarned", "Total sumados", "px-4 py-3 text-right")}
+                    {sortableHead("totalRedeemed", "Total canjeados", "px-4 py-3 text-right")}
+                    {sortableHead("lastActivityAt", "Último movimiento", "px-4 py-3")}
                     {sortableHead("joinedAt", "Se unió el", "px-5 py-3")}
                   </tr>
                 </thead>

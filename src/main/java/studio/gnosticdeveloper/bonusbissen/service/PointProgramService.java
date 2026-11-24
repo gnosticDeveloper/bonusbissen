@@ -1,5 +1,6 @@
 package studio.gnosticdeveloper.bonusbissen.service;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import studio.gnosticdeveloper.bonusbissen.dto.request.PointProgramCreateRequest;
 import studio.gnosticdeveloper.bonusbissen.dto.request.PointProgramUpdateRequest;
+import studio.gnosticdeveloper.bonusbissen.entity.OperationType;
 import studio.gnosticdeveloper.bonusbissen.entity.Organization;
 import studio.gnosticdeveloper.bonusbissen.entity.PointProgram;
 import studio.gnosticdeveloper.bonusbissen.entity.Storefront;
@@ -37,6 +39,7 @@ public class PointProgramService {
     private final PointTransactionRepository pointTransactionRepository;
     private final OnboardingService onboardingService;
     private final SubscriptionGuard subscriptionGuard;
+    private final TraceabilityService traceabilityService;
 
     public PointProgramService(
         PointProgramRepository pointProgramRepository,
@@ -46,7 +49,8 @@ public class PointProgramService {
         UserRepository userRepository,
         PointTransactionRepository pointTransactionRepository,
         OnboardingService onboardingService,
-        SubscriptionGuard subscriptionGuard
+        SubscriptionGuard subscriptionGuard,
+        TraceabilityService traceabilityService
     ) {
         this.pointProgramRepository = pointProgramRepository;
         this.storefrontRepository = storefrontRepository;
@@ -56,6 +60,7 @@ public class PointProgramService {
         this.pointTransactionRepository = pointTransactionRepository;
         this.onboardingService = onboardingService;
         this.subscriptionGuard = subscriptionGuard;
+        this.traceabilityService = traceabilityService;
     }
 
     @Transactional(readOnly = true)
@@ -87,8 +92,10 @@ public class PointProgramService {
     }
 
     @Transactional
-    public PointProgram update(UUID id, PointProgramUpdateRequest request, UUID organizationId) {
+    public PointProgram update(UUID id, PointProgramUpdateRequest request, UUID organizationId, UUID actingUserId) {
         PointProgram program = getOwned(id, organizationId);
+        String previousName = program.getName();
+        boolean previousActive = program.isActive();
         program.setName(request.name().trim());
         program.setUnitLabel(blankToNull(request.unitLabel()));
         if (request.active() != null) {
@@ -111,7 +118,20 @@ public class PointProgramService {
                 pointTransactionRepository.clearExpiresAt(program.getId());
             }
         }
-        return saveUnique(program);
+        PointProgram saved = saveUnique(program);
+
+        if (!Objects.equals(previousName, saved.getName()) || previousActive != saved.isActive() || !Objects.equals(oldMonths, newMonths)) {
+            traceabilityService.record(
+                OperationType.POINT_PROGRAM_UPDATE, organizationId, actingUserId, Set.of(),
+                TraceabilityPayload.of(
+                    "programId", id,
+                    "previousName", previousName, "name", saved.getName(),
+                    "previousActive", previousActive, "active", saved.isActive(),
+                    "previousExpirationMonths", oldMonths, "expirationMonths", newMonths
+                )
+            );
+        }
+        return saved;
     }
 
     private static String blankToNull(String value) {
@@ -139,30 +159,47 @@ public class PointProgramService {
 
     /** Assigns each storefront to this program. Rejects any storefront already tied to a different program. */
     @Transactional
-    public PointProgram attachStorefronts(UUID id, List<UUID> storefrontIds, UUID organizationId) {
+    public PointProgram attachStorefronts(UUID id, List<UUID> storefrontIds, UUID organizationId, UUID actingUserId) {
         PointProgram program = getOwned(id, organizationId);
-        assignStorefronts(program, storefrontIds, organizationId);
+        List<UUID> attached = assignStorefronts(program, storefrontIds, organizationId);
+        recordStorefrontChange(id, "attach", attached, organizationId, actingUserId);
         return getOwned(id, organizationId);
     }
 
     @Transactional
-    public PointProgram detachStorefronts(UUID id, List<UUID> storefrontIds, UUID organizationId) {
+    public PointProgram detachStorefronts(UUID id, List<UUID> storefrontIds, UUID organizationId, UUID actingUserId) {
         PointProgram program = getOwned(id, organizationId);
         Set<UUID> toDetach = new HashSet<>(storefrontIds);
+        List<UUID> detached = new ArrayList<>();
         for (Storefront storefront : resolveOwnedStorefronts(storefrontIds, organizationId)) {
             if (toDetach.contains(storefront.getId()) && program.getId().equals(optionalProgramId(storefront))) {
                 storefront.setPointProgram(null);
                 storefrontRepository.save(storefront);
+                detached.add(storefront.getId());
             }
         }
+        recordStorefrontChange(id, "detach", detached, organizationId, actingUserId);
         return getOwned(id, organizationId);
+    }
+
+    /** Nothing is recorded when the request changed nothing. */
+    private void recordStorefrontChange(UUID programId, String action, List<UUID> changedStorefrontIds, UUID organizationId, UUID actingUserId) {
+        if (changedStorefrontIds.isEmpty()) {
+            return;
+        }
+        traceabilityService.record(
+            OperationType.PROGRAM_STOREFRONTS_UPDATE, organizationId, actingUserId, Set.of(),
+            TraceabilityPayload.of("programId", programId, "action", action, "storefrontIds", changedStorefrontIds)
+        );
     }
 
     private static UUID optionalProgramId(Storefront storefront) {
         return storefront.getPointProgram() == null ? null : storefront.getPointProgram().getId();
     }
 
-    private void assignStorefronts(PointProgram program, List<UUID> storefrontIds, UUID organizationId) {
+    /** Returns the storefronts this call newly linked to the program (ones already linked to it are skipped). */
+    private List<UUID> assignStorefronts(PointProgram program, List<UUID> storefrontIds, UUID organizationId) {
+        List<UUID> attached = new ArrayList<>();
         for (Storefront storefront : resolveOwnedStorefronts(storefrontIds, organizationId)) {
             UUID currentProgramId = optionalProgramId(storefront);
             if (currentProgramId != null && !currentProgramId.equals(program.getId())) {
@@ -171,9 +208,14 @@ public class PointProgramService {
                     "La sucursal \"" + storefront.getName() + "\" ya tiene un programa de puntos asignado. Desvinculala primero."
                 );
             }
+            if (program.getId().equals(currentProgramId)) {
+                continue;
+            }
             storefront.setPointProgram(program);
             storefrontRepository.save(storefront);
+            attached.add(storefront.getId());
         }
+        return attached;
     }
 
     /** Self-service join: a user opts in to any active program of a business that is not lapsed. */

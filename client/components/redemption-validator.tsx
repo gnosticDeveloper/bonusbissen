@@ -132,12 +132,13 @@ export default function RedemptionValidator() {
             await validate();
           }}
           className="flex flex-col gap-3 sm:flex-row sm:items-end"
+          data-guide="code-search"
         >
           <div className="flex flex-1 flex-col gap-2">
             <Label htmlFor="code" className="text-xs font-semibold uppercase tracking-[0.12em] text-foreground/80">
               Código de canje
             </Label>
-            <div className="relative">
+            <div className="relative" data-guide="code-input">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-foreground/80" aria-hidden="true" />
               <Input
                 id="code"
