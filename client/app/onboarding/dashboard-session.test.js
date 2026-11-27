@@ -14,8 +14,15 @@ let staffToken;
 let customerToken;
 let exchangeResponse;
 const setCookie = mock((name, value) => jar.set(name, value));
+const BRAVE_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+const requestHeaders = new Headers({
+  "user-agent": BRAVE_UA,
+  "sec-ch-ua": '"Brave";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+  "sec-ch-ua-platform": '"Windows"',
+  cookie: "access_token=should-not-be-forwarded",
+});
 mock.module("server-only", () => ({}));
-mock.module("next/headers", () => ({ cookies: async () => ({
+mock.module("next/headers", () => ({ headers: async () => requestHeaders, cookies: async () => ({
   get: name => jar.has(name) ? { value: jar.get(name) } : undefined,
   set: setCookie,
 }) }));
@@ -75,6 +82,17 @@ describe("canje de sesión de cuenta por sesión de panel", () => {
     const [exchange] = exchangeCalls();
     expect(exchange).toMatchObject({ method: "POST", cache: "no-store", body: JSON.stringify({ organizationId: ORG }) });
     expect(exchange.headers).toMatchObject({ "Content-Type": "application/json", Authorization: `Bearer ${customerToken}` });
+  });
+
+  test("reenvía el dispositivo del navegador para etiquetar la sesión, sin otras cabeceras", async () => {
+    await exchangeDashboardSession(ORG);
+    const [exchange] = exchangeCalls();
+    expect(exchange.headers).toMatchObject({
+      "user-agent": BRAVE_UA,
+      "sec-ch-ua": '"Brave";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+      "sec-ch-ua-platform": '"Windows"',
+    });
+    expect(exchange.headers).not.toHaveProperty("cookie");
   });
 
   test("no llama al endpoint cuando ya hay sesión de panel vigente", async () => {

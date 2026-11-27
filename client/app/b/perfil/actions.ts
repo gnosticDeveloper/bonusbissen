@@ -1,7 +1,6 @@
 "use server";
 
 import { ActionResult, request } from "@/lib/api";
-import { clearAllSessions } from "@/lib/auth/refresh";
 import { deleteSessionCookies, readAreaCookies, refreshCookieHeader } from "@/lib/auth/cookies";
 import { UserInfo } from "@/lib/types/customer";
 import { validateImageUpload } from "@/lib/image-upload";
@@ -76,13 +75,27 @@ export async function revokeDeviceSession(sessionId: string, current: boolean): 
 }
 
 /**
- * The backend revoked every session of this account, so no cookie left in this
- * browser can still be valid: both areas only ever hold the same identity.
+ * Revokes every session of this account except the one in this browser. The list is
+ * re-read here rather than taken from the client, and nothing is revoked unless the
+ * backend recognises this browser's session, so the current one can never be among them.
  */
-export async function revokeAllDeviceSessions(): Promise<ActionResult<void>> {
-  const result = await request<void>("/auth/sessions", { method: "DELETE", cache: "no-store" });
-  if (result.ok) await clearAllSessions();
-  return result;
+export async function revokeOtherDeviceSessions(): Promise<ActionResult<void>> {
+  const sessions = await getDeviceSessions();
+  if (!sessions.ok) return sessions;
+  if (!sessions.data.some((session) => session.current)) {
+    return { ok: false, error: "No pudimos identificar este dispositivo. Volvé a iniciar sesión y probá de nuevo." };
+  }
+
+  const others = sessions.data.filter((session) => !session.current && UUID_PATTERN.test(session.id));
+  const results = await Promise.all(
+    others.map((session) => request<void>(`/auth/sessions/${session.id}`, { method: "DELETE", cache: "no-store" })),
+  );
+  const failed = results.filter((result) => !result.ok).length;
+  if (failed === 0) return { ok: true, data: undefined };
+  return {
+    ok: false,
+    error: failed === results.length ? "No pudimos cerrar las sesiones. Probá de nuevo." : "No pudimos cerrar algunas sesiones. Probá de nuevo.",
+  };
 }
 
 /**

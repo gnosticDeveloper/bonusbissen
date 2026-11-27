@@ -14,7 +14,7 @@ let responseToken;
 let currentToken;
 const setCookie = mock((name, value) => jar.set(name, value));
 mock.module("server-only", () => ({}));
-mock.module("next/headers", () => ({ cookies: async () => ({
+mock.module("next/headers", () => ({ headers: async () => new Headers(), cookies: async () => ({
   get: name => jar.has(name) ? { value: jar.get(name) } : undefined,
   set: setCookie,
 }) }));

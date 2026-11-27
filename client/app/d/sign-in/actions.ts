@@ -82,6 +82,7 @@ export async function signIn(formData: FormData): Promise<ActionResult<{ storefr
         byStatus: { 401: "Usuario, contraseña o negocio incorrectos." },
         failed: "No pudimos completar el inicio de sesión.",
       },
+      forwardDevice: true,
     },
   );
   if (!result.ok) return result;

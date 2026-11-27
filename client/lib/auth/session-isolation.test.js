@@ -16,7 +16,7 @@ const sessions = new Map();
 const logoutFromBackend = mock(async () => {});
 
 mock.module("server-only", () => ({}));
-mock.module("next/headers", () => ({ cookies: async () => cookieStore }));
+mock.module("next/headers", () => ({ headers: async () => new Headers(), cookies: async () => cookieStore }));
 mock.module("@/lib/auth/session", () => ({
   checkSession: async token => sessions.get(token) ?? { status: "invalid" },
   decodeJwt: token => ({ sub: sessions.get(token)?.payload?.sub ?? CUSTOMER }),

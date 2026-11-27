@@ -47,6 +47,7 @@ import studio.gnosticdeveloper.bonusbissen.entity.User;
 import studio.gnosticdeveloper.bonusbissen.exception.BadRequestException;
 import studio.gnosticdeveloper.bonusbissen.exception.NotFoundException;
 import studio.gnosticdeveloper.bonusbissen.security.AuthenticatedPrincipal;
+import studio.gnosticdeveloper.bonusbissen.security.DeviceHints;
 import studio.gnosticdeveloper.bonusbissen.security.JwtService;
 import studio.gnosticdeveloper.bonusbissen.security.SessionService;
 import studio.gnosticdeveloper.bonusbissen.service.AuthService;
@@ -102,7 +103,7 @@ public class AuthController {
 
     @PostMapping("/dashboard/sign-in")
     public LoginResponse dashboardSignIn(@Valid @RequestBody DashboardLoginRequest request, HttpServletRequest req, HttpServletResponse res) {
-        return respond(authService.dashboardLogin(request, userAgent(req)), res);
+        return respond(authService.dashboardLogin(request, deviceHints(req)), res);
     }
 
     /**
@@ -120,18 +121,18 @@ public class AuthController {
         if (principal == null || !"USER".equals(principal.role())) {
             throw new AccessDeniedException("Necesitás iniciar sesión.");
         }
-        return respond(authService.exchangeForStaffSession(principal.id(), request.organizationId(), userAgent(req)), res);
+        return respond(authService.exchangeForStaffSession(principal.id(), request.organizationId(), deviceHints(req)), res);
     }
 
     @PostMapping("/user-register")
     @ResponseStatus(HttpStatus.CREATED)
     public LoginResponse userRegister(@Valid @RequestBody UserRegisterRequest request, HttpServletRequest req, HttpServletResponse res) {
-        return respond(authService.registerUser(request, userAgent(req)), res);
+        return respond(authService.registerUser(request, deviceHints(req)), res);
     }
 
     @PostMapping("/user-login")
     public LoginResponse userLogin(@Valid @RequestBody UserLoginRequest request, HttpServletRequest req, HttpServletResponse res) {
-        return respond(authService.loginUser(request, userAgent(req)), res);
+        return respond(authService.loginUser(request, deviceHints(req)), res);
     }
 
     /**
@@ -179,7 +180,7 @@ public class AuthController {
     @PostMapping("/user-login-link/consume")
     public LoginResponse consumeUserLoginLink(@Valid @RequestBody LoginLinkConsumeRequest request, HttpServletRequest req, HttpServletResponse res) {
         User user = loginLinkService.consumeUserLink(request.token());
-        return respond(authService.issueUserToken(user, userAgent(req)), res);
+        return respond(authService.issueUserToken(user, deviceHints(req)), res);
     }
 
     /** Always 204, whether the identifier/org combination is valid, so the response can't be used to enumerate accounts. */
@@ -192,7 +193,7 @@ public class AuthController {
     @PostMapping("/dashboard/login-link/consume")
     public LoginResponse consumeDashboardLoginLink(@Valid @RequestBody LoginLinkConsumeRequest request, HttpServletRequest req, HttpServletResponse res) {
         LoginLinkService.StaffLoginLink link = loginLinkService.consumeDashboardLink(request.token());
-        return respond(authService.issueStaffToken(link.user(), link.staff(), userAgent(req)), res);
+        return respond(authService.issueStaffToken(link.user(), link.staff(), deviceHints(req)), res);
     }
 
     /** Rotates the refresh cookie for a fresh (short-lived) access token, without asking for credentials again. */
@@ -315,8 +316,8 @@ public class AuthController {
             .findFirst();
     }
 
-    private String userAgent(HttpServletRequest req) {
-        String ua = req.getHeader("User-Agent");
-        return ua == null ? "" : ua;
+    /** The browser headers the Next server forwards from the original sign-in request (see client/lib/api.ts). */
+    private DeviceHints deviceHints(HttpServletRequest req) {
+        return new DeviceHints(req.getHeader("User-Agent"), req.getHeader("Sec-CH-UA"), req.getHeader("Sec-CH-UA-Platform"));
     }
 }

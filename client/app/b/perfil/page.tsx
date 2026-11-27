@@ -3,23 +3,25 @@
 import Link from "next/link";
 import { ReactNode, SubmitEvent, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, MonitorSmartphone, ShieldCheck } from "lucide-react";
+import { AlertCircle, LockKeyhole, LogOut, Monitor, Smartphone } from "lucide-react";
 import {
   deleteAccount,
   DeviceSession,
   getDeviceSessions,
   resendVerificationEmail,
-  revokeAllDeviceSessions,
   revokeDeviceSession,
-  updatePassword,
+  revokeOtherDeviceSessions,
   updateProfile,
   uploadAvatar,
 } from "./actions";
+import { ChangePasswordForm } from "./change-password-form";
 import { useUser } from "@/providers/user-provider";
+import { useModal } from "@/components/modal";
 import { CitySelect } from "@/components/city-select";
 import { ImageUploadField } from "@/components/image-upload-field";
 import { formatDate } from "@/lib/helpers/format";
-import { PASSWORD_PATTERN } from "@/schemas/user";
+import { timeAgo } from "@/lib/helpers/dashboard";
+import { useCurrentTime } from "@/hooks/use-current-time";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 type VerifyState = "idle" | "sending" | "sent" | "error";
@@ -38,6 +40,19 @@ type ConfirmDialogProps = {
   destructive?: boolean;
   onConfirm: () => void;
 };
+
+/** Current device first, then most recently used. */
+function sortSessions(sessions: DeviceSession[]): DeviceSession[] {
+  return sessions.toSorted((a, b) => Number(b.current) - Number(a.current) || Date.parse(b.lastUsedAt) - Date.parse(a.lastUsedAt));
+}
+
+/** The backend labels sessions "<navegador> en <sistema>"; phones and tablets get the phone icon. */
+function isMobileDevice(device: string): boolean {
+  return /\b(Android|iOS)$/.test(device);
+}
+
+const OUTLINE_BUTTON =
+  "h-10 shrink-0 rounded-xl border border-border bg-transparent px-3.5 text-sm font-semibold text-foreground transition-colors hover:bg-foreground/5 disabled:opacity-50";
 
 function Spinner({ dark = false }: { dark?: boolean }) {
   return <span className={`size-3.5 animate-spin rounded-full border-2 ${dark ? "border-white" : "border-primary-foreground"} border-t-transparent`} />;
@@ -139,6 +154,8 @@ function ConfirmDialog({
 export default function ProfilePage() {
   const router = useRouter();
   const user = useUser();
+  const modal = useModal();
+  const now = useCurrentTime();
 
   const [current, setCurrent] = useState({
     name: user?.name ?? "",
@@ -152,12 +169,7 @@ export default function ProfilePage() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileConfirmOpen, setProfileConfirmOpen] = useState(false);
 
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordState, setPasswordState] = useState<SaveState>("idle");
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [passwordConfirmOpen, setPasswordConfirmOpen] = useState(false);
+  const [passwordSaved, setPasswordSaved] = useState(false);
 
   const [verifyState, setVerifyState] = useState<VerifyState>("idle");
   const [sessions, setSessions] = useState<DeviceSession[]>([]);
@@ -166,15 +178,16 @@ export default function ProfilePage() {
   const [sessionToRevoke, setSessionToRevoke] = useState<DeviceSession | null>(null);
   const [sessionRevokeState, setSessionRevokeState] = useState<SaveState>("idle");
   const [sessionRevokeError, setSessionRevokeError] = useState<string | null>(null);
-  const [revokeAllOpen, setRevokeAllOpen] = useState(false);
-  const [revokeAllState, setRevokeAllState] = useState<SaveState>("idle");
-  const [revokeAllError, setRevokeAllError] = useState<string | null>(null);
+  const [revokeOthersOpen, setRevokeOthersOpen] = useState(false);
+  const [revokeOthersState, setRevokeOthersState] = useState<SaveState>("idle");
+  const [revokeOthersError, setRevokeOthersError] = useState<string | null>(null);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteState, setDeleteState] = useState<DeleteState>("idle");
 
   const hasProfileChanges = name.trim() !== current.name || email.trim() !== current.email;
   const emailChanged = email.trim() !== current.email;
+  const otherSessionsCount = sessions.filter((session) => !session.current).length;
 
   useEffect(() => {
     let active = true;
@@ -183,9 +196,7 @@ export default function ProfilePage() {
       const result = await getDeviceSessions();
       if (!active) return;
       if (result.ok) {
-        setSessions(
-          result.data.toSorted((a, b) => Number(b.current) - Number(a.current) || Date.parse(b.lastUsedAt) - Date.parse(a.lastUsedAt)),
-        );
+        setSessions(sortSessions(result.data));
         setSessionsState("ready");
       } else {
         setSessionsError(result.error);
@@ -240,40 +251,21 @@ export default function ProfilePage() {
     void saveProfile();
   }
 
-  function handlePasswordSubmit(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setPasswordError(null);
-
-    if (newPassword !== confirmPassword) {
-      setPasswordState("error");
-      setPasswordError("Las contraseñas nuevas no coinciden.");
-      return;
-    }
-    if (!PASSWORD_PATTERN.test(newPassword)) {
-      setPasswordState("error");
-      setPasswordError("La contraseña nueva no cumple con los requisitos de seguridad.");
-      return;
-    }
-    setPasswordConfirmOpen(true);
-  }
-
-  async function savePassword() {
-    if (passwordState === "saving") return;
-    setPasswordState("saving");
-    setPasswordError(null);
-
-    const result = await updatePassword({ currentPassword, newPassword });
-    if (!result.ok) {
-      setPasswordState("error");
-      setPasswordError(result.error);
-      return;
-    }
-
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
-    setPasswordState("saved");
-    setPasswordConfirmOpen(false);
+  function openPasswordModal() {
+    setPasswordSaved(false);
+    modal.open(
+      <ChangePasswordForm
+        onCancel={modal.close}
+        onSaved={() => {
+          modal.close();
+          setPasswordSaved(true);
+        }}
+      />,
+      {
+        title: "Cambiar contraseña",
+        description: "La próxima vez que inicies sesión vas a tener que usar la contraseña nueva.",
+      },
+    );
   }
 
   async function handleVerifyEmail() {
@@ -305,19 +297,23 @@ export default function ProfilePage() {
     setSessionRevokeState("idle");
   }
 
-  async function handleRevokeAllSessions() {
-    if (revokeAllState === "saving") return;
-    setRevokeAllState("saving");
-    setRevokeAllError(null);
+  async function handleRevokeOtherSessions() {
+    if (revokeOthersState === "saving") return;
+    setRevokeOthersState("saving");
+    setRevokeOthersError(null);
 
-    const result = await revokeAllDeviceSessions();
+    const result = await revokeOtherDeviceSessions();
+    // Re-read either way: on a partial failure some sessions are already gone.
+    const refreshed = await getDeviceSessions();
+    if (refreshed.ok) setSessions(sortSessions(refreshed.data));
+
     if (!result.ok) {
-      setRevokeAllState("error");
-      setRevokeAllError(result.error);
+      setRevokeOthersState("error");
+      setRevokeOthersError(result.error);
       return;
     }
-    router.replace("/sign-in");
-    router.refresh();
+    setRevokeOthersOpen(false);
+    setRevokeOthersState("idle");
   }
 
   async function handleDeleteAccount() {
@@ -454,147 +450,111 @@ export default function ProfilePage() {
         </section>
       )}
 
-      <section className="mb-6 rounded-2xl border border-border bg-card p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <ShieldCheck className="size-5 text-foreground" aria-hidden="true" />
-          <p className="text-sm font-medium text-foreground">Cambiar contraseña</p>
+      <section aria-labelledby="perfil-password" className="mb-7 flex items-center gap-3.5 rounded-[20px] border border-border bg-card p-4">
+        <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-foreground/5 text-foreground/80">
+          <LockKeyhole className="size-5" />
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h2 id="perfil-password" className="text-base font-bold text-foreground">Contraseña</h2>
+          <p role="status" className="text-sm text-foreground/75">
+            {passwordSaved ? "Tu contraseña se actualizó correctamente." : "Cambiala si creés que alguien más la conoce."}
+          </p>
         </div>
-        <div className="mb-4 flex items-start gap-2 text-sm text-foreground/75">
-          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <p>Debe tener entre 8 y 72 caracteres e incluir una mayúscula, una minúscula, un número y un caracter especial.</p>
-        </div>
-
-        <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-foreground">Contraseña actual</span>
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(event) => {
-                setCurrentPassword(event.target.value);
-                setPasswordState("idle");
-              }}
-              required
-              autoComplete="current-password"
-              className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-foreground">Nueva contraseña</span>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(event) => {
-                setNewPassword(event.target.value);
-                setPasswordState("idle");
-              }}
-              required
-              minLength={8}
-              maxLength={72}
-              autoComplete="new-password"
-              className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-foreground">Confirmar nueva contraseña</span>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => {
-                setConfirmPassword(event.target.value);
-                setPasswordState("idle");
-              }}
-              required
-              minLength={8}
-              maxLength={72}
-              autoComplete="new-password"
-              className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
-            />
-          </label>
-
-          {passwordState === "error" && passwordError && <p className="rounded-lg bg-red-600 px-3 py-2 text-sm text-white">{passwordError}</p>}
-          {passwordState === "saved" && <p className="text-sm text-foreground">Tu contraseña se actualizó correctamente.</p>}
-
-          <button
-            type="submit"
-            disabled={passwordState === "saving" || !currentPassword || !newPassword || !confirmPassword}
-            className="inline-flex w-fit items-center gap-2 self-end rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity disabled:opacity-60"
-          >
-            Cambiar contraseña
-          </button>
-        </form>
+        <button type="button" onClick={openPasswordModal} className={OUTLINE_BUTTON}>
+          Cambiar
+        </button>
       </section>
 
-      <section className="mb-6 rounded-2xl border border-border bg-card p-5">
-        <div className="mb-1 flex items-center gap-2">
-          <MonitorSmartphone className="size-5 text-foreground" aria-hidden="true" />
-          <h2 className="text-sm font-medium text-foreground">Sesiones activas</h2>
+      <section aria-labelledby="perfil-sessions" className="mb-7 flex flex-col gap-3">
+        <div className="flex flex-col gap-1 px-1">
+          <h2 id="perfil-sessions" className="text-lg font-bold text-foreground">Dispositivos conectados</h2>
+          <p className="text-sm leading-normal text-foreground/75">Si no reconocés alguno, cerrá esa sesión y cambiá tu contraseña.</p>
         </div>
-        <p className="mb-4 text-sm text-foreground/75">Revisá los dispositivos donde tu cuenta está abierta y cerrá cualquier sesión que no reconozcas.</p>
 
         {sessionsState === "loading" && (
-          <div className="flex items-center gap-2 py-3 text-sm text-foreground/75">
+          <div className="flex items-center gap-2 px-1 py-3 text-sm text-foreground/75">
             <span className="size-4 animate-spin rounded-full border-2 border-muted border-t-transparent" />
             Cargando sesiones...
           </div>
         )}
         {sessionsState === "error" && <p className="rounded-lg bg-red-600 px-3 py-2 text-sm text-white">{sessionsError}</p>}
-        {sessionsState === "ready" && sessions.length === 0 && <p className="text-sm text-foreground/75">No encontramos sesiones activas.</p>}
+        {sessionsState === "ready" && sessions.length === 0 && <p className="px-1 text-sm text-foreground/75">No encontramos sesiones activas.</p>}
 
         {sessions.length > 0 && (
-          <div className="divide-y divide-border border-y border-border">
-            {sessions.map((session) => (
-              <div key={session.id} className="flex items-start justify-between gap-3 py-4">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="truncate text-sm font-medium text-foreground">{session.device}</p>
-                    {session.current && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-foreground">Este dispositivo</span>}
+          <ul className="divide-y divide-border overflow-hidden rounded-[20px] border border-border bg-card">
+            {sessions.map((session) => {
+              const DeviceIcon = isMobileDevice(session.device) ? Smartphone : Monitor;
+              const lastUsed = now === null ? null : timeAgo(session.lastUsedAt, now);
+              return (
+                <li key={session.id} className="flex items-center gap-3.5 p-4">
+                  <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-[13px] bg-foreground/5 text-foreground/80">
+                    <DeviceIcon className="size-5.5" />
+                  </span>
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.75">
+                    <p className="truncate text-[15px] font-bold text-foreground">{session.device}</p>
+                    {session.current ? (
+                      <p className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-ink">
+                        <span aria-hidden="true" className="size-1.75 rounded-full bg-current" />
+                        Este dispositivo · activo ahora
+                      </p>
+                    ) : (
+                      <p className="text-[13px] text-foreground/75">Último uso: {lastUsed ?? formatDate(session.lastUsedAt)}</p>
+                    )}
+                    <p className="text-xs text-foreground/75">Iniciada el {formatDate(session.createdAt)}</p>
                   </div>
-                  <p className="mt-1 text-xs text-foreground/75">Último uso: {formatDate(session.lastUsedAt)}</p>
-                  <p className="mt-0.5 text-xs text-foreground/75">Iniciada: {formatDate(session.createdAt)}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSessionRevokeState("idle");
-                    setSessionRevokeError(null);
-                    setSessionToRevoke(session);
-                  }}
-                  className="shrink-0 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition-opacity hover:bg-red-700"
-                >
-                  Cerrar
-                </button>
-              </div>
-            ))}
-          </div>
+                  {!session.current && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSessionRevokeState("idle");
+                        setSessionRevokeError(null);
+                        setSessionToRevoke(session);
+                      }}
+                      aria-label={`Cerrar sesión en ${session.device}`}
+                      className={OUTLINE_BUTTON}
+                    >
+                      Cerrar
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         )}
 
-        <button
-          type="button"
-          onClick={() => {
-            setRevokeAllState("idle");
-            setRevokeAllError(null);
-            setRevokeAllOpen(true);
-          }}
-          disabled={sessionsState !== "ready" || sessions.length === 0}
-          className="mt-4 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition-opacity hover:bg-red-700 disabled:opacity-50"
-        >
-          Cerrar sesión en todos los dispositivos
-        </button>
+        {sessionsState === "ready" && sessions.length > 0 && otherSessionsCount === 0 && (
+          <p className="px-1 text-[13px] text-foreground/75">Tu cuenta solo está abierta en este dispositivo.</p>
+        )}
+        {otherSessionsCount > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              setRevokeOthersState("idle");
+              setRevokeOthersError(null);
+              setRevokeOthersOpen(true);
+            }}
+            className="flex h-12 items-center justify-center gap-2 rounded-[14px] border border-border bg-transparent text-[15px] font-bold text-red-700 transition-colors hover:bg-red-500/10 dark:text-red-300"
+          >
+            <LogOut className="size-4.5" aria-hidden="true" />
+            {otherSessionsCount === 1 ? "Cerrar la otra sesión" : `Cerrar las otras ${otherSessionsCount} sesiones`}
+          </button>
+        )}
       </section>
 
-      <section className="mt-2 border-t border-border pb-8 pt-6">
-        <p className="mb-1 text-sm font-medium text-foreground">Zona de peligro</p>
-        <p className="mb-4 text-sm text-foreground/75">La eliminación de tu cuenta es permanente y no se puede deshacer.</p>
+      <section aria-labelledby="perfil-delete" className="mb-8 flex flex-col gap-3.5 rounded-[20px] border border-red-500/30 bg-red-500/5 p-4.5">
+        <div className="flex flex-col gap-1.5">
+          <h2 id="perfil-delete" className="text-base font-bold text-foreground">Eliminar cuenta</h2>
+          <p className="text-sm leading-normal text-foreground/80">Perdés los puntos de todas las tiendas y tu historial de canjes. No se puede deshacer.</p>
+        </div>
         <button
           type="button"
           onClick={() => {
             setDeleteState("idle");
             setDeleteOpen(true);
           }}
-          className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition-opacity hover:bg-red-700"
+          className="h-11 self-start rounded-xl border border-red-500/50 bg-transparent px-4 text-[15px] font-bold text-red-700 transition-colors hover:bg-red-500/10 dark:text-red-300"
         >
-          Eliminar cuenta
+          Eliminar mi cuenta
         </button>
       </section>
 
@@ -612,18 +572,6 @@ export default function ProfilePage() {
         loading={profileState === "saving"}
         error={profileState === "error" ? profileError : null}
         onConfirm={() => void saveProfile()}
-      />
-
-      <ConfirmDialog
-        open={passwordConfirmOpen}
-        onOpenChange={setPasswordConfirmOpen}
-        title="¿Cambiar tu contraseña?"
-        description="La próxima vez que inicies sesión vas a tener que usar la contraseña nueva."
-        confirmLabel="Cambiar contraseña"
-        loadingLabel="Cambiando..."
-        loading={passwordState === "saving"}
-        error={passwordState === "error" ? passwordError : null}
-        onConfirm={() => void savePassword()}
       />
 
       <ConfirmDialog
@@ -646,16 +594,16 @@ export default function ProfilePage() {
       />
 
       <ConfirmDialog
-        open={revokeAllOpen}
-        onOpenChange={setRevokeAllOpen}
-        title="¿Cerrar todas las sesiones?"
-        description="Se cerrará tu cuenta en todos los dispositivos, incluido este. Vas a tener que volver a iniciar sesión."
-        confirmLabel="Cerrar todas"
+        open={revokeOthersOpen}
+        onOpenChange={setRevokeOthersOpen}
+        title={otherSessionsCount === 1 ? "¿Cerrar la otra sesión?" : "¿Cerrar las otras sesiones?"}
+        description="Tu cuenta va a dejar de estar abierta en los demás dispositivos. Este dispositivo sigue conectado."
+        confirmLabel="Cerrar sesiones"
         loadingLabel="Cerrando..."
-        loading={revokeAllState === "saving"}
-        error={revokeAllError}
+        loading={revokeOthersState === "saving"}
+        error={revokeOthersError}
         destructive
-        onConfirm={() => void handleRevokeAllSessions()}
+        onConfirm={() => void handleRevokeOtherSessions()}
       />
 
       <ConfirmDialog

@@ -8,7 +8,7 @@ let session;
 let token;
 let refreshResult;
 const jar = new Map();
-mock.module("next/headers", () => ({
+mock.module("next/headers", () => ({ headers: async () => new Headers(),
   cookies: async () => ({
     get: (key) => (jar.has(key) ? { value: jar.get(key) } : undefined),
     set: (key, value) => jar.set(key, value),
