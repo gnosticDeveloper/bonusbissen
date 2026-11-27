@@ -125,6 +125,10 @@ app:
     # Daily check for organizations whose billing cycle has come due (see
     # InvoiceGenerationService / 9__billing.sql).
     invoice-cron: ${BILLING_INVOICE_CRON:0 15 5 * * *}
+  merchant:
+    # Base64 of 32 random bytes (openssl rand -base64 32); encrypts merchant signing
+    # secrets at rest. Unset -> creating/verifying integrations fails closed.
+    encryption-key: ${MERCHANT_ENCRYPTION_KEY:unset}
   mercadopago:
     # Sandbox (TEST-...) or production access token for the bonusbissen-billing
     # MP application (Subscriptions product). See MercadoPagoClient.

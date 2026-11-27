@@ -76,6 +76,7 @@ services:
       # that at least looks like a real public domain, even in sandbox mode.
       MERCADOPAGO_BACK_URL: ${MERCADOPAGO_BACK_URL:-https://bonusbissen.store/billing}
       MERCADOPAGO_WEBHOOK_SECRET: ${MERCADOPAGO_WEBHOOK_SECRET:-unset}
+      MERCHANT_ENCRYPTION_KEY: ${MERCHANT_ENCRYPTION_KEY:-unset}
     volumes:
       - uploads:/var/lib/bonusbissen/uploads
     ports:

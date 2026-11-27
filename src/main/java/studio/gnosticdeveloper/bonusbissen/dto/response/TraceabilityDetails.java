@@ -8,6 +8,7 @@ public sealed interface TraceabilityDetails
         StaffRoleUpdateDetails,
         UserCreateDetails,
         PointsGrantDetails,
+        OnlinePurchaseGrantDetails,
         PointsCorrectionDetails,
         RewardClaimDetails,
         ExchangeVerifyDetails,

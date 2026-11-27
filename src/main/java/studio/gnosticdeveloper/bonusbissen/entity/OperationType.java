@@ -9,6 +9,7 @@ public enum OperationType {
     STAFF_ROLE_UPDATE("staff_role_update"),
     USER_CREATE("user_create"),
     POINTS_GRANT("points_grant"),
+    ONLINE_PURCHASE_GRANT("online_purchase_grant"),
     POINTS_CORRECTION("points_correction"),
     REWARD_CLAIM("reward_claim"),
     EXCHANGE_VERIFY("exchange_verify"),
