@@ -158,7 +158,7 @@ export default function Sidebar({ sections, onNavigate, orgId, collapsed = false
                         <span
                           aria-hidden="true"
                           data-guide={`nav-badge-${item.id}`}
-                          className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold leading-none text-amber-950"
+                          className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] leading-none text-amber-950 font-bold"
                         >
                           {badgeText(badge)}
                         </span>
@@ -178,7 +178,7 @@ export default function Sidebar({ sections, onNavigate, orgId, collapsed = false
                       <span
                         aria-hidden="true"
                         data-guide={`nav-badge-${item.id}`}
-                        className="ml-auto mr-2 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-semibold leading-none text-amber-950"
+                        className="ml-auto mr-2 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold leading-none text-amber-950"
                       >
                         {badgeText(badge)}
                       </span>

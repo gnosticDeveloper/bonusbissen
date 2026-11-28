@@ -41,6 +41,14 @@ export async function uploadAvatar(formData: FormData): Promise<ActionResult<str
   return { ok: true, data: result.data?.avatarUrl ?? null };
 }
 
+/** Clears the profile picture; the backend also deletes the image from storage. */
+export async function removeAvatar(): Promise<ActionResult<void>> {
+  const result = await request<UserInfo>("/users/me/avatar", { method: "DELETE" });
+  if (!result.ok) return result;
+  revalidatePath("/b/perfil");
+  return { ok: true, data: undefined };
+}
+
 export async function updatePassword(input: { currentPassword: string; newPassword: string }): Promise<ActionResult<void>> {
   return request<void>("/users/me/password", {
     method: "PATCH",

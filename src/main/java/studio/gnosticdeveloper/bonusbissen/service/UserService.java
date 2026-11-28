@@ -174,6 +174,7 @@ public class UserService {
     public AdminUserInfoResponse getAdminUserInfo(UUID userId, UUID organizationId) {
         return userRepository
             .findAdminUserInfo(userId, organizationId)
+            .map(row -> AdminUserInfoResponse.from(row, storageService))
             .orElseThrow(() ->
                 new NotFoundException(
                     "Active staff membership was not found for user ID " + userId + " in organization " + organizationId + ".",

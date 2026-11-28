@@ -59,6 +59,12 @@ const invoice = {
   paidAt: "2026-10-20T12:00:00Z",
   paymentReference: "manual-reconciliation-42",
 };
+const plan = { id: "123e4567-e89b-42d3-a456-426614174002", name: "Standard", price: 1250, currency: "ARS" };
+const resourceOf = input => {
+  const url = String(input);
+  return url.endsWith("/organization/invoices") ? "invoices" : url.endsWith("/organization/billing-plans") ? "plans" : "organization";
+};
+const fixtures = { organization, invoices: [invoice], plans: [plan] };
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8080";
 const upstreamSecret = "UPSTREAM_PRIVATE_BINARY_\u0000\u00ff";
 const pdfBytes = new Uint8Array([37, 80, 68, 70, 45, 49, 46, 55, 10, 0, 128, 255, 10, 37, 37, 69, 79, 70]);
@@ -126,7 +132,7 @@ describe("billing administrator authorization", () => {
       session = refusal.session;
       const auth = await billingAdminToken();
       expect(auth).toEqual({ ok: false, status: refusal.status, error: expect.any(String) });
-      expect(await getDashboardBilling()).toEqual({ organization: auth, invoices: auth });
+      expect(await getDashboardBilling()).toEqual({ organization: auth, invoices: auth, plans: auth });
       const body = await expectFailure(await download(), refusal.status);
       if (!auth.ok) expect(body.error).toBe(auth.error);
       expect(getDashboardSessionToken).toHaveBeenCalledTimes(3);
@@ -140,15 +146,14 @@ describe("billing administrator authorization", () => {
 describe("dashboard billing data", () => {
   test("verified admin receives organization and a paid invoice with a neutral reference", async () => {
     expect(await billingAdminToken()).toEqual({ ok: true, data: token });
-    fetchMock.mockImplementation(async input => {
-      return Response.json(String(input).endsWith("/organization/invoices") ? [invoice] : organization);
-    });
+    fetchMock.mockImplementation(async input => Response.json(fixtures[resourceOf(input)]));
     expect(await getDashboardBilling()).toEqual({
       organization: { ok: true, data: organization },
       invoices: { ok: true, data: [invoice] },
+      plans: { ok: true, data: [plan] },
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    for (const path of ["/organization", "/organization/invoices"]) {
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    for (const path of ["/organization", "/organization/invoices", "/organization/billing-plans"]) {
       expect(fetchMock).toHaveBeenCalledWith(`${backendUrl}${path}`, expect.objectContaining({
         headers: { Authorization: "Bearer verified-admin-token" },
         cache: "no-store",
@@ -157,17 +162,18 @@ describe("dashboard billing data", () => {
     }
   });
 
-  for (const failed of ["organization", "invoices"]) {
-    test(`${failed} failure does not discard the other result`, async () => {
+  const invalid = { organization: { id: "invalid" }, invoices: [{ ...invoice, amount: "invalid" }], plans: [{ ...plan, price: -1 }] };
+  for (const failed of ["organization", "invoices", "plans"]) {
+    test(`${failed} failure does not discard the other results`, async () => {
       for (const failure of ["http", "schema", "network"]) {
         fetchMock.mockClear();
         fetchMock.mockImplementation(async input => {
-          const resource = String(input).endsWith("/organization/invoices") ? "invoices" : "organization";
-          if (resource !== failed) return Response.json(resource === "organization" ? organization : [invoice]);
+          const resource = resourceOf(input);
+          if (resource !== failed) return Response.json(fixtures[resource]);
           if (failure === "network") throw new Error(upstreamSecret);
           return failure === "http"
             ? new Response(upstreamSecret, { status: 503 })
-            : Response.json(resource === "organization" ? { id: "invalid" } : [{ ...invoice, amount: "invalid" }]);
+            : Response.json(invalid[resource]);
         });
         const result = await getDashboardBilling();
         expect(result[failed]).toEqual({
@@ -175,10 +181,11 @@ describe("dashboard billing data", () => {
           error: expect.any(String),
           ...(failure === "http" ? { status: 503 } : {}),
         });
-        if (failed === "organization") expect(result.invoices).toEqual({ ok: true, data: [invoice] });
-        else expect(result.organization).toEqual({ ok: true, data: organization });
+        for (const other of Object.keys(fixtures).filter(resource => resource !== failed)) {
+          expect(result[other]).toEqual({ ok: true, data: fixtures[other] });
+        }
         expect(JSON.stringify(result)).not.toContain(upstreamSecret);
-        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(fetchMock).toHaveBeenCalledTimes(3);
       }
     });
   }

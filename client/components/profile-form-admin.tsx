@@ -2,8 +2,9 @@
 
 import { SubmitEvent, useState } from "react";
 import { AdminUserInfo } from "@/lib/types/user";
-import { updatePassword, updateProfile } from "@/app/d/[slug]/perfil/actions";
+import { removeAvatar, updatePassword, updateProfile, uploadAvatar } from "@/app/d/[slug]/perfil/actions";
 import { AlertCircle } from "lucide-react";
+import { ImageUploadField } from "@/components/image-upload-field";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -74,11 +75,10 @@ export function ProfileForm({ user }: { user: AdminUserInfo }) {
 
       {/* Datos básicos */}
       <section className="mb-6 rounded-2xl border border-border bg-card p-5">
-        <div className="mb-5 flex items-center gap-4">
-          <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-medium text-primary-foreground">
-            {current.name ? current.name.charAt(0).toUpperCase() : "?"}
-          </div>
-          <div className="min-w-0">
+        <div className="mb-5 flex flex-col items-center gap-3 border-b border-border pb-5 text-center">
+          {/* Its own router.refresh() re-renders the dashboard layout, so the sidebar avatar updates too. */}
+          <ImageUploadField label="Foto de perfil" shape="avatar" hideLabel initialUrl={user.avatarUrl} upload={uploadAvatar} remove={removeAvatar} />
+          <div className="min-w-0 max-w-full">
             <p className="truncate text-base font-medium text-foreground">{current.name}</p>
             <p className="truncate text-sm text-foreground/80">@{current.username}</p>
           </div>

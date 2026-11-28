@@ -12,6 +12,13 @@ const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.USER]: "Usuario",
 };
 
+/** Decorative: the surrounding link already names the user. Falls back to the initial. */
+function AvatarContent({ avatarUrl, displayName }: { avatarUrl?: string | null; displayName: string }) {
+  // eslint-disable-next-line @next/next/no-img-element -- image optimization is disabled in next.config.ts
+  if (avatarUrl) return <img src={avatarUrl} alt="" className="size-full object-cover" />;
+  return <>{displayName.charAt(0).toUpperCase()}</>;
+}
+
 type UserMenuProps = {
   user: AdminUserInfo | null;
   slug: string;
@@ -30,9 +37,9 @@ export function UserMenu({ user, slug, collapsed = false }: UserMenuProps) {
           href={`/d/${slug}/perfil`}
           title={displayName}
           aria-label={`Perfil de ${displayName}`}
-          className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-foreground transition-colors hover:bg-foreground/10 motion-reduce:transition-none"
+          className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-sm font-semibold text-foreground transition-colors hover:bg-foreground/10 motion-reduce:transition-none"
         >
-          {displayName.charAt(0).toUpperCase()}
+          <AvatarContent avatarUrl={user?.avatarUrl} displayName={displayName} />
         </Link>
         <button
           type="button"
@@ -55,8 +62,8 @@ export function UserMenu({ user, slug, collapsed = false }: UserMenuProps) {
   return (
     <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5">
       <Link href={`/d/${slug}/perfil`} className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-foreground">
-          {displayName.charAt(0).toUpperCase()}
+        <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-sm font-semibold text-foreground">
+          <AvatarContent avatarUrl={user?.avatarUrl} displayName={displayName} />
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-foreground">{displayName}</p>

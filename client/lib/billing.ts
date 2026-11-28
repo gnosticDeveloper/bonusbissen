@@ -6,6 +6,8 @@ export const billingOrganizationSchema = z.object({
   id: z.uuid(), name: z.string(), billingEmail: z.string().nullable(),
   billingPlanName: z.string().nullable(), billingCycle: z.string().nullable(),
   nextInvoiceDueAt: z.string().nullable(), mercadoPagoSubscriptionStatus: z.string().nullable(),
+  // Set once a subscription is cancelled: when access ends (end of the period already paid).
+  subscriptionEndsAt: z.string().nullable().optional(),
 });
 export const billingPlanSchema = z.object({ id: z.uuid(), name: z.string(), price: z.number().nonnegative(), currency: z.string() });
 export const billingInvoiceSchema = z.object({

@@ -13,15 +13,18 @@ type Props = {
   hideLabel?: boolean;
   showHint?: boolean;
   upload: (data: FormData) => Promise<ActionResult<string | null>>;
+  /** When given, a saved image can be removed (after an inline confirmation). */
+  remove?: () => Promise<ActionResult<void>>;
 };
 
-export function ImageUploadField({ label, initialUrl, shape = "square", hideLabel = false, showHint = true, upload }: Props) {
+export function ImageUploadField({ label, initialUrl, shape = "square", hideLabel = false, showHint = true, upload, remove }: Props) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [savedUrl, setSavedUrl] = useState<string | null>(initialUrl ?? null);
   const [error, setError] = useState<string | null>(null);
-  const [state, setState] = useState<"idle" | "uploading" | "saved">("idle");
+  const [state, setState] = useState<"idle" | "uploading" | "saved" | "confirmRemove" | "removing" | "removed">("idle");
+  const busy = state === "uploading" || state === "removing";
 
   // A new `initialUrl` (e.g. after `router.refresh()`) replaces the saved image.
   const [prevInitialUrl, setPrevInitialUrl] = useState(initialUrl);
@@ -31,7 +34,7 @@ export function ImageUploadField({ label, initialUrl, shape = "square", hideLabe
   }
 
   async function chooseFile(selected?: File) {
-    if (!selected || state === "uploading") return;
+    if (!selected || busy) return;
     setState("idle");
     const validationError = validateImageUpload(selected);
     if (validationError) {
@@ -67,6 +70,26 @@ export function ImageUploadField({ label, initialUrl, shape = "square", hideLabe
     }
   }
 
+  async function removeImage() {
+    if (!remove || busy) return;
+    setError(null);
+    setState("removing");
+    try {
+      const result = await remove();
+      if (!result.ok) {
+        setError(result.error);
+        setState("idle");
+        return;
+      }
+      setSavedUrl(null);
+      setState("removed");
+      router.refresh();
+    } catch {
+      setError("No pudimos quitar la imagen. Intentá de nuevo.");
+      setState("idle");
+    }
+  }
+
   const imageUrl = preview ?? savedUrl;
   const shapeClass = shape === "avatar" ? "mx-auto size-24 rounded-full" : shape === "banner" ? "aspect-3/1 min-h-28 w-full rounded-xl" : "size-28 rounded-xl";
 
@@ -76,8 +99,8 @@ export function ImageUploadField({ label, initialUrl, shape = "square", hideLabe
       <button
         type="button"
         aria-label={`${imageUrl ? "Cambiar" : "Seleccionar"} ${label.toLowerCase()}`}
-        aria-busy={state === "uploading"}
-        disabled={state === "uploading"}
+        aria-busy={busy}
+        disabled={busy}
         onClick={() => inputRef.current?.click()}
         className={`group relative grid place-items-center overflow-hidden border border-border bg-background text-foreground shadow-sm transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-wait ${shapeClass}`}
       >
@@ -99,10 +122,42 @@ export function ImageUploadField({ label, initialUrl, shape = "square", hideLabe
         hidden
         onChange={(event) => void chooseFile(event.target.files?.[0])}
       />
+      {remove && savedUrl && !preview && (
+        state === "confirmRemove" ? (
+          <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+            <span className="text-foreground/80">¿Quitar la {label.toLowerCase()}?</span>
+            <button
+              type="button"
+              onClick={() => void removeImage()}
+              className="rounded-md px-2 py-1 font-medium text-red-600 hover:bg-red-500/10 focus-visible:outline-2 focus-visible:outline-primary dark:text-red-400"
+            >
+              Sí, quitar
+            </button>
+            <button
+              type="button"
+              onClick={() => setState("idle")}
+              className="rounded-md px-2 py-1 font-medium text-foreground hover:bg-foreground/10 focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              Cancelar
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setState("confirmRemove")}
+            className="mx-auto block rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-500/10 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50 dark:text-red-400"
+          >
+            Quitar {label.toLowerCase()}
+          </button>
+        )
+      )}
       {showHint && <p className="text-xs text-foreground/75">WEBP, JPG, JPEG o PNG · máximo 2 MB.</p>}
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       {state === "uploading" && <p role="status" className="text-xs text-foreground/75">Subiendo imagen...</p>}
+      {state === "removing" && <p role="status" className="text-xs text-foreground/75">Quitando imagen...</p>}
       {state === "saved" && <p role="status" className="text-xs text-foreground/75">Imagen actualizada.</p>}
+      {state === "removed" && <p role="status" className="text-xs text-foreground/75">Imagen quitada.</p>}
     </div>
   );
 }

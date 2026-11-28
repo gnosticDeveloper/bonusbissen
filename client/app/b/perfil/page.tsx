@@ -8,6 +8,7 @@ import {
   deleteAccount,
   DeviceSession,
   getDeviceSessions,
+  removeAvatar,
   resendVerificationEmail,
   revokeDeviceSession,
   revokeOtherDeviceSessions,
@@ -340,7 +341,7 @@ export default function ProfilePage() {
 
       <section className="mb-6 rounded-2xl border border-border bg-card p-5">
         <div className="mb-5 flex flex-col items-center gap-3 border-b border-border pb-5 text-center">
-          <ImageUploadField label="Foto de perfil" shape="avatar" hideLabel initialUrl={user?.avatarUrl} upload={uploadAvatar} />
+          <ImageUploadField label="Foto de perfil" shape="avatar" hideLabel initialUrl={user?.avatarUrl} upload={uploadAvatar} remove={removeAvatar} />
           <div className="min-w-0 max-w-full">
             <p className="truncate text-base font-medium text-foreground">{current.name || "Sin nombre"}</p>
             <p className="truncate text-sm text-foreground/75">@{current.username}</p>

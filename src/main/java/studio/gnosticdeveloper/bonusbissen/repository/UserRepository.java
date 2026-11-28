@@ -22,7 +22,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Query(
         value = """
-        SELECT u.username, u.name, os.role, u.email, u.email_verified
+        SELECT u.username, u.name, os.role, u.email, u.email_verified, u.profile_picture_path
         FROM users u
         JOIN organization_staff os ON os.user_id = u.id
         WHERE u.id = :userId
@@ -31,7 +31,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
         """,
         nativeQuery = true
     )
-    Optional<AdminUserInfoResponse> findAdminUserInfo(@Param("userId") UUID userId, @Param("organizationId") UUID organizationId);
+    Optional<AdminUserInfoResponse.Row> findAdminUserInfo(@Param("userId") UUID userId, @Param("organizationId") UUID organizationId);
 
     /** The user (aliased {@code c}) has joined one of the organization's programs or is active staff there. */
     String RELATED_TO_ORGANIZATION = """
